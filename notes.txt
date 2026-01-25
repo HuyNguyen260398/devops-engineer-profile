@@ -1,0 +1,5 @@
+todo
+
+    host markdown as html
+
+    sync markdown from github repo to the website

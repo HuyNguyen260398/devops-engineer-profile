@@ -1,0 +1,94 @@
+ # Terraform
+*.tfstate
+*.tfstate.*
+*.tfvars
+*.tfvars.json
+.terraform/
+.terraform.lock.hcl
+crash.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+*.sublime-project
+*.sublime-workspace
+
+# Cloud CLI configurations
+.aws/
+.azure/
+.gcp/
+.kube/
+
+# Environment variables
+.env
+.env.local
+.env.*.local
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+secrets.yaml
+secrets.yml
+credentials.json
+
+# Docker
+.dockerignore
+docker-compose.override.yml
+
+# Kubernetes
+kubeconfig
+kubeconfig.*
+*.kubeconfig
+
+# Ansible
+*.retry
+inventory/hosts.local
+
+# Logs
+*.log
+logs/
+*.out
+
+# Build outputs
+dist/
+build/
+*.jar
+*.tar.gz
+*.zip
+
+# OS-specific
+Thumbs.db
+.AppleDouble
+.LSOverride
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.venv/
+venv/
+ENV/
+
+# Node.js
+node_modules/
+npm-debug.log
+yarn-error.log
+
+# Temp files
+tmp/
+temp/
+*.tmp
+
+# Local development overrides
+local/
+.local/
