@@ -3,3 +3,14 @@ todo
     host markdown as html
 
     sync markdown from github repo to the website
+
+
+devops engineer profile:
+
+an online cv
+
+add a new feeds section
+
+	collects blog post from various pages / subscription about devops
+	
+add section to showcase github activities
