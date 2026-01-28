@@ -50,6 +50,10 @@
   --heading-color: #ffffff;
   --surface-color: #252525;
   --contrast-color: #ffffff;
+  --nav-color: #e0e0e0;
+  --nav-mobile-background-color: #1a1a1a;
+  --nav-dropdown-background-color: #1a1a1a;
+  --nav-dropdown-color: #e0e0e0;
 }
 
 /* Smooth scroll */
@@ -986,6 +990,53 @@ section,
   fill: #f3268c;
 }
 
+.services .service-item .tech-stack {
+  margin-top: 15px;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 8px;
+}
+
+.services .service-item .tech-stack .badge {
+  font-size: 11px;
+  padding: 5px 10px;
+  font-weight: 600;
+  border-radius: 20px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.services .service-item .tech-stack .badge.bg-info {
+  background-color: #0dcaf0 !important;
+  color: #fff;
+}
+
+.services .service-item .tech-stack .badge.bg-warning {
+  background-color: #fd7e14 !important;
+  color: #fff;
+}
+
+.services .service-item .tech-stack .badge.bg-success {
+  background-color: #20c997 !important;
+  color: #fff;
+}
+
+.services .service-item .tech-stack .badge.bg-danger {
+  background-color: #df1529 !important;
+  color: #fff;
+}
+
+.services .service-item .tech-stack .badge.bg-primary {
+  background-color: #0563bb !important;
+  color: #fff;
+}
+
+.services .service-item .tech-stack .badge.bg-secondary {
+  background-color: #6c757d !important;
+  color: #fff;
+}
+
 /*--------------------------------------------------------------
 # Testimonials Section
 --------------------------------------------------------------*/
@@ -1452,8 +1503,472 @@ section,
 }
 
 /*--------------------------------------------------------------
+# Blog Section
+--------------------------------------------------------------*/
+.blog-card {
+  background-color: var(--surface-color);
+  border-radius: 8px;
+  overflow: hidden;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.blog-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+.blog-image {
+  width: 100%;
+  height: 220px;
+  overflow: hidden;
+  background-color: #f0f0f0;
+}
+
+.blog-image img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  transition: transform 0.3s ease;
+}
+
+.blog-card:hover .blog-image img {
+  transform: scale(1.05);
+}
+
+.blog-content {
+  padding: 20px;
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+}
+
+.blog-title {
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--heading-color);
+  margin-bottom: 12px;
+  line-height: 1.4;
+  min-height: 54px;
+}
+
+.blog-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #eee;
+  font-size: 13px;
+  color: #666;
+}
+
+.blog-date {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.blog-date i {
+  color: var(--accent-color);
+}
+
+.blog-source {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.blog-source i {
+  color: var(--accent-color);
+}
+
+.blog-source a {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 500;
+  transition: color 0.3s ease;
+}
+
+.blog-source a:hover {
+  color: #0452a0;
+  text-decoration: underline;
+}
+
+.blog-excerpt {
+  font-size: 14px;
+  color: var(--default-color);
+  margin-bottom: 15px;
+  line-height: 1.6;
+  flex-grow: 1;
+}
+
+.btn-read-more {
+  color: var(--accent-color);
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 14px;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  align-self: flex-start;
+}
+
+.btn-read-more:hover {
+  color: #0452a0;
+  transform: translateX(3px);
+}
+
+.btn-read-more i {
+  font-size: 12px;
+}
+
+/*--------------------------------------------------------------
 # Starter Section Section
 --------------------------------------------------------------*/
 .starter-section {
   /* Add your styles here */
+}
+
+/*--------------------------------------------------------------
+# Dark Theme Enhancements
+--------------------------------------------------------------*/
+
+/* Dark theme for header */
+.dark-background .header {
+  background-color: rgba(6, 6, 6, 0.95);
+  box-shadow: 0 2px 20px rgba(0, 0, 0, 0.5);
+}
+
+/* Enhanced dark hero section */
+.dark-background.hero {
+  position: relative;
+  overflow: hidden;
+}
+
+.dark-background.hero::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: linear-gradient(135deg, rgba(5, 99, 187, 0.1) 0%, rgba(6, 6, 6, 0.8) 100%);
+  z-index: 1;
+}
+
+.dark-background.hero h2 {
+  font-size: 3.5rem;
+  font-weight: 700;
+  text-shadow: 0 2px 10px rgba(0, 0, 0, 0.5);
+  margin-bottom: 15px;
+}
+
+.dark-background.hero p {
+  font-size: 1.2rem;
+  letter-spacing: 1px;
+  text-shadow: 0 1px 5px rgba(0, 0, 0, 0.5);
+}
+
+/* Dark theme cards and surfaces */
+.dark-background .resume-item,
+.dark-background .service-item,
+.dark-background .blog-card,
+.dark-background .progress,
+.dark-background .info-item {
+  background-color: rgba(37, 37, 37, 0.8);
+  border: 1px solid rgba(100, 100, 100, 0.2);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+  transition: all 0.3s ease;
+}
+
+.dark-background .resume-item:hover,
+.dark-background .service-item:hover,
+.dark-background .blog-card:hover,
+.dark-background .info-item:hover {
+  background-color: rgba(37, 37, 37, 1);
+  border-color: rgba(5, 99, 187, 0.5);
+  box-shadow: 0 8px 25px rgba(5, 99, 187, 0.15);
+  transform: translateY(-3px);
+}
+
+/* Progress bars dark theme */
+.dark-background .progress-bar {
+  background: linear-gradient(90deg, #0563bb, #0893d4);
+  box-shadow: 0 0 10px rgba(5, 99, 187, 0.3);
+}
+
+.dark-background .progress {
+  background-color: rgba(50, 50, 50, 0.6);
+}
+
+/* Section titles in dark theme */
+.dark-background .section-title h2 {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 2.5rem;
+  margin-bottom: 15px;
+  text-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+}
+
+.dark-background .section-title p {
+  color: #b0b0b0;
+  font-size: 1.1rem;
+}
+
+/* Blog cards enhancement */
+.dark-background .blog-card {
+  overflow: hidden;
+  border-radius: 8px;
+}
+
+.dark-background .blog-card .blog-image {
+  overflow: hidden;
+  height: 250px;
+  background: linear-gradient(135deg, rgba(5, 99, 187, 0.1), rgba(100, 100, 100, 0.1));
+}
+
+.dark-background .blog-card .blog-image img {
+  transition: transform 0.3s ease;
+}
+
+.dark-background .blog-card:hover .blog-image img {
+  transform: scale(1.05);
+}
+
+.dark-background .blog-content {
+  padding: 25px;
+}
+
+.dark-background .blog-title {
+  color: #ffffff;
+  font-weight: 600;
+  margin-bottom: 12px;
+  line-height: 1.4;
+}
+
+.dark-background .blog-meta {
+  display: flex;
+  gap: 15px;
+  margin-bottom: 15px;
+  font-size: 0.9rem;
+  color: #a0a0a0;
+}
+
+.dark-background .blog-excerpt {
+  color: #d0d0d0;
+  line-height: 1.6;
+  margin-bottom: 15px;
+}
+
+.dark-background .btn-read-more {
+  color: #0563bb;
+  font-weight: 600;
+  transition: all 0.3s ease;
+}
+
+.dark-background .btn-read-more:hover {
+  color: #0893d4;
+  transform: translateX(5px);
+}
+
+/* Portfolio filters dark theme */
+.dark-background .portfolio-filters {
+  display: flex;
+  gap: 15px;
+  justify-content: center;
+  margin-bottom: 30px;
+}
+
+.dark-background .portfolio-filters li {
+  padding: 8px 20px;
+  background-color: rgba(37, 37, 37, 0.8);
+  border: 1px solid rgba(100, 100, 100, 0.2);
+  border-radius: 25px;
+  color: #a0a0a0;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.dark-background .portfolio-filters li:hover,
+.dark-background .portfolio-filters li.filter-active {
+  background-color: #0563bb;
+  border-color: #0563bb;
+  color: #ffffff;
+}
+
+/* Service items styling */
+.dark-background .service-item {
+  padding: 30px;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.dark-background .service-item .icon {
+  margin-bottom: 20px;
+}
+
+.dark-background .service-item h3 {
+  color: #ffffff;
+  font-weight: 600;
+  margin-bottom: 15px;
+}
+
+.dark-background .service-item p {
+  color: #b0b0b0;
+  line-height: 1.6;
+}
+
+/* Stats section in dark theme */
+.dark-background .stats .stats-item {
+  padding: 30px;
+  background-color: rgba(37, 37, 37, 0.8);
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.dark-background .stats .stats-item:hover {
+  background-color: rgba(37, 37, 37, 1);
+  transform: translateY(-5px);
+}
+
+.dark-background .stats i {
+  font-size: 48px;
+  color: #0563bb;
+  margin-bottom: 15px;
+}
+
+.dark-background .stats span {
+  font-size: 2.5rem;
+  color: #ffffff;
+  font-weight: 700;
+  display: block;
+}
+
+.dark-background .stats p {
+  color: #a0a0a0;
+  margin-top: 10px;
+}
+
+/* Contact form enhancement */
+.dark-background .contact .form-control {
+  background-color: rgba(37, 37, 37, 0.8);
+  border: 1px solid rgba(100, 100, 100, 0.2);
+  color: #ffffff;
+  padding: 12px 15px;
+  transition: all 0.3s ease;
+}
+
+.dark-background .contact .form-control:focus {
+  background-color: rgba(37, 37, 37, 1);
+  border-color: #0563bb;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(5, 99, 187, 0.3);
+}
+
+.dark-background .contact .form-control::placeholder {
+  color: #707070;
+}
+
+/* Resume section */
+.dark-background .resume-title {
+  color: #ffffff;
+  font-weight: 700;
+  font-size: 1.8rem;
+  margin-bottom: 20px;
+  padding-bottom: 15px;
+  border-bottom: 2px solid rgba(5, 99, 187, 0.3);
+}
+
+.dark-background .resume-item h4 {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.dark-background .resume-item h5 {
+  color: #0563bb;
+  font-size: 0.95rem;
+}
+
+.dark-background .resume-item p {
+  color: #d0d0d0;
+}
+
+.dark-background .resume-item em {
+  color: #0563bb;
+}
+
+.dark-background .resume-item ul {
+  color: #d0d0d0;
+}
+
+/* Testimonials in dark theme */
+.dark-background .testimonial-item {
+  background-color: rgba(37, 37, 37, 0.8);
+  border-radius: 8px;
+  padding: 30px;
+}
+
+.dark-background .testimonial-content p {
+  color: #d0d0d0;
+  font-style: italic;
+}
+
+.dark-background .testimonial-content h3 {
+  color: #ffffff;
+  font-weight: 600;
+}
+
+.dark-background .testimonial-content h4 {
+  color: #0563bb;
+}
+
+.dark-background .quote-icon-left,
+.dark-background .quote-icon-right {
+  color: rgba(5, 99, 187, 0.3);
+}
+
+/* Smooth scrolling effects for dark theme */
+.dark-background a {
+  transition: color 0.3s ease;
+}
+
+.dark-background a:hover {
+  color: #0893d4;
+}
+
+/* Accent borders and lines in dark theme */
+.dark-background .divider {
+  background-color: rgba(5, 99, 187, 0.2);
+}
+
+/* Light theme stats section styling */
+.light-background .stats .stats-item {
+  padding: 30px;
+  background-color: #f9f9f9;
+  border-radius: 8px;
+  text-align: center;
+}
+
+.light-background .stats i {
+  font-size: 48px;
+  color: #0563bb;
+  margin-bottom: 15px;
+}
+
+/* Preloader dark theme */
+#preloader {
+  position: fixed;
+  inset: 0;
+  z-index: 999999;
+  background: #060606;
+}
+
+/* Ensure proper contrast on input labels */
+.dark-background label {
+  color: #d0d0d0;
 }

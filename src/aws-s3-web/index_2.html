@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="utf-8">
+  <meta content="width=device-width, initial-scale=1.0" name="viewport">
+  <title>DevOps Engineer - Modern Portfolio</title>
+  <meta content="DevOps Engineer Portfolio showcasing cloud infrastructure, containerization, CI/CD pipelines, and infrastructure automation expertise." name="description">
+  <meta content="DevOps, Kubernetes, Docker, AWS, Terraform, CI/CD, Infrastructure as Code, Cloud Engineering" name="keywords">
+
+  <!-- Favicons -->
+  <link href="assets/img/favicon.png" rel="icon">
+  <link href="assets/img/apple-touch-icon.png" rel="apple-touch-icon">
+
+  <!-- Fonts -->
+  <link href="https://fonts.googleapis.com" rel="preconnect">
+  <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Raleway:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+
+  <!-- Vendor CSS Files -->
+  <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
+  <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
+  <link href="assets/vendor/aos/aos.css" rel="stylesheet">
+  <link href="assets/vendor/glightbox/css/glightbox.min.css" rel="stylesheet">
+  <link href="assets/vendor/swiper/swiper-bundle.min.css" rel="stylesheet">
+
+  <!-- Main CSS File -->
+  <link href="assets/css/main.css" rel="stylesheet">
+
+  <!-- GitHub Theme Customization CSS -->
+  <style>
+    /* GitHub-Inspired Dark Theme Variables */
+    :root {
+      --github-dark-bg: #0d1117;
+      --github-dark-secondary: #161b22;
+      --github-dark-tertiary: #21262d;
+      --github-dark-border: #30363d;
+      --github-accent: #58a6ff;
+      --github-accent-hover: #79c0ff;
+      --github-success: #3fb950;
+      --github-warning: #d29922;
+      --github-danger: #f85149;
+      --github-text-primary: #c9d1d9;
+      --github-text-secondary: #8b949e;
+      --github-text-tertiary: #6e7681;
+    }
+
+    /* Dark theme override */
+    .dark-github-theme {
+      --background-color: var(--github-dark-bg);
+      --default-color: var(--github-text-primary);
+      --heading-color: var(--github-text-primary);
+      --accent-color: var(--github-accent);
+      --surface-color: var(--github-dark-secondary);
+      --contrast-color: var(--github-text-primary);
+    }
+
+    body {
+      background-color: var(--github-dark-bg);
+      color: var(--github-text-primary);
+    }
+
+    .dark-github-theme a {
+      color: var(--github-accent);
+      transition: color 0.3s ease;
+    }
+
+    .dark-github-theme a:hover {
+      color: var(--github-accent-hover);
+    }
+
+    /* Header/Navigation Styling */
+    #header {
+      background-color: var(--github-dark-secondary);
+      border-right: 1px solid var(--github-dark-border);
+    }
+
+    #header .navmenu {
+      background-color: var(--github-dark-secondary);
+    }
+
+    #header .navmenu a {
+      color: var(--github-text-secondary);
+    }
+
+    #header .navmenu a:hover,
+    #header .navmenu a.active {
+      color: var(--github-accent);
+    }
+
+    /* Hero Section Styling */
+    .hero-github {
+      background: linear-gradient(135deg, var(--github-dark-bg) 0%, var(--github-dark-secondary) 100%);
+      border-bottom: 1px solid var(--github-dark-border);
+      padding: 100px 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .hero-github::before {
+      content: '';
+      position: absolute;
+      top: -50%;
+      right: -10%;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, rgba(88, 166, 255, 0.1) 0%, transparent 70%);
+      border-radius: 50%;
+      pointer-events: none;
+    }
+
+    .hero-github h1 {
+      font-size: 3.5rem;
+      font-weight: 700;
+      color: var(--github-accent);
+      margin-bottom: 10px;
+    }
+
+    .hero-github .subtitle {
+      font-size: 1.5rem;
+      color: var(--github-text-secondary);
+      margin-bottom: 30px;
+    }
+
+    .hero-github .tagline {
+      font-size: 1.2rem;
+      color: var(--github-text-primary);
+      margin-bottom: 40px;
+      max-width: 600px;
+    }
+
+    /* Section Styling */
+    .section-github {
+      padding: 80px 0;
+      border-bottom: 1px solid var(--github-dark-border);
+      background-color: var(--github-dark-bg);
+    }
+
+    .section-title-github h2 {
+      font-size: 2.5rem;
+      font-weight: 700;
+      color: var(--github-accent);
+      margin-bottom: 10px;
+      position: relative;
+      padding-bottom: 15px;
+    }
+
+    .section-title-github h2::after {
+      content: '';
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 60px;
+      height: 3px;
+      background-color: var(--github-accent);
+      border-radius: 2px;
+    }
+
+    .section-title-github p {
+      color: var(--github-text-secondary);
+      font-size: 1.1rem;
+      margin-top: 15px;
+    }
+
+    /* Card Styling */
+    .github-card {
+      background-color: var(--github-dark-secondary);
+      border: 1px solid var(--github-dark-border);
+      border-radius: 6px;
+      padding: 25px;
+      transition: all 0.3s ease;
+      height: 100%;
+    }
+
+    .github-card:hover {
+      border-color: var(--github-accent);
+      box-shadow: 0 0 20px rgba(88, 166, 255, 0.2);
+      transform: translateY(-5px);
+    }
+
+    .github-card h3 {
+      color: var(--github-accent);
+      font-size: 1.3rem;
+      margin-bottom: 15px;
+    }
+
+    .github-card p {
+      color: var(--github-text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Badge/Tag Styling */
+    .tech-badge {
+      display: inline-block;
+      background-color: var(--github-dark-tertiary);
+      color: var(--github-accent);
+      padding: 6px 12px;
+      border-radius: 16px;
+      font-size: 0.85rem;
+      margin: 5px 8px 5px 0;
+      border: 1px solid var(--github-dark-border);
+      transition: all 0.3s ease;
+    }
+
+    .tech-badge:hover {
+      background-color: var(--github-dark-border);
+      border-color: var(--github-accent);
+    }
+
+    /* Button Styling */
+    .btn-github {
+      background-color: var(--github-accent);
+      color: var(--github-dark-bg);
+      border: 1px solid var(--github-accent);
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      display: inline-block;
+      cursor: pointer;
+    }
+
+    .btn-github:hover {
+      background-color: var(--github-accent-hover);
+      border-color: var(--github-accent-hover);
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(88, 166, 255, 0.3);
+    }
+
+    .btn-github-outline {
+      background-color: transparent;
+      color: var(--github-accent);
+      border: 1px solid var(--github-accent);
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      display: inline-block;
+      cursor: pointer;
+    }
+
+    .btn-github-outline:hover {
+      background-color: rgba(88, 166, 255, 0.1);
+      border-color: var(--github-accent-hover);
+      color: var(--github-accent-hover);
+    }
+
+    /* Social Links */
+    .social-github {
+      display: flex;
+      gap: 15px;
+      margin-top: 30px;
+    }
+
+    .social-github a {
+      width: 50px;
+      height: 50px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background-color: var(--github-dark-secondary);
+      border: 1px solid var(--github-dark-border);
+      border-radius: 6px;
+      color: var(--github-accent);
+      transition: all 0.3s ease;
+    }
+
+    .social-github a:hover {
+      background-color: var(--github-accent);
+      color: var(--github-dark-bg);
+      border-color: var(--github-accent);
+    }
+
+    /* Experience/Project Timeline */
+    .timeline-github {
+      position: relative;
+      padding: 20px 0;
+    }
+
+    .timeline-github::before {
+      content: '';
+      position: absolute;
+      left: 0;
+      top: 0;
+      bottom: 0;
+      width: 2px;
+      background-color: var(--github-dark-border);
+    }
+
+    .timeline-item {
+      padding-left: 40px;
+      padding-bottom: 40px;
+      position: relative;
+    }
+
+    .timeline-item::before {
+      content: '';
+      position: absolute;
+      left: -7px;
+      top: 0;
+      width: 14px;
+      height: 14px;
+      background-color: var(--github-accent);
+      border-radius: 50%;
+      border: 3px solid var(--github-dark-bg);
+    }
+
+    .timeline-item h3 {
+      color: var(--github-accent);
+      font-size: 1.2rem;
+      margin-bottom: 5px;
+    }
+
+    .timeline-item .timeline-date {
+      color: var(--github-text-tertiary);
+      font-size: 0.9rem;
+      margin-bottom: 10px;
+    }
+
+    .timeline-item .timeline-location {
+      color: var(--github-text-secondary);
+      font-weight: 500;
+      margin-bottom: 10px;
+    }
+
+    .timeline-item p {
+      color: var(--github-text-secondary);
+      line-height: 1.6;
+    }
+
+    /* Skill Level Bar */
+    .skill-bar {
+      margin-bottom: 20px;
+    }
+
+    .skill-bar-label {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 8px;
+      color: var(--github-text-primary);
+    }
+
+    .skill-bar-label small {
+      color: var(--github-text-secondary);
+    }
+
+    .skill-bar-container {
+      height: 8px;
+      background-color: var(--github-dark-tertiary);
+      border-radius: 4px;
+      overflow: hidden;
+      border: 1px solid var(--github-dark-border);
+    }
+
+    .skill-bar-fill {
+      height: 100%;
+      background: linear-gradient(90deg, var(--github-accent) 0%, var(--github-accent-hover) 100%);
+      border-radius: 4px;
+      transition: width 0.6s ease;
+    }
+
+    /* Certifications */
+    .cert-badge {
+      background: linear-gradient(135deg, var(--github-dark-tertiary) 0%, var(--github-dark-secondary) 100%);
+      border: 1px solid var(--github-dark-border);
+      border-radius: 8px;
+      padding: 20px;
+      text-align: center;
+      transition: all 0.3s ease;
+    }
+
+    .cert-badge:hover {
+      border-color: var(--github-accent);
+      transform: scale(1.05);
+    }
+
+    .cert-badge .cert-icon {
+      font-size: 2.5rem;
+      color: var(--github-accent);
+      margin-bottom: 10px;
+    }
+
+    .cert-badge h4 {
+      color: var(--github-text-primary);
+      margin-bottom: 5px;
+    }
+
+    .cert-badge .cert-issuer {
+      color: var(--github-text-secondary);
+      font-size: 0.9rem;
+    }
+
+    /* CTA Section */
+    .cta-github {
+      background: linear-gradient(135deg, var(--github-dark-secondary) 0%, var(--github-dark-tertiary) 100%);
+      border: 1px solid var(--github-dark-border);
+      border-radius: 8px;
+      padding: 60px 40px;
+      text-align: center;
+    }
+
+    .cta-github h2 {
+      color: var(--github-accent);
+      margin-bottom: 20px;
+      font-size: 2rem;
+    }
+
+    .cta-github p {
+      color: var(--github-text-secondary);
+      margin-bottom: 30px;
+      font-size: 1.1rem;
+    }
+
+    /* Footer */
+    footer {
+      background-color: var(--github-dark-secondary);
+      border-top: 1px solid var(--github-dark-border);
+      padding: 40px 0;
+      color: var(--github-text-secondary);
+    }
+
+    footer p {
+      margin: 0;
+    }
+
+    /* Profile Image Styling */
+    .profile-image-container {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 30px;
+    }
+
+    .profile-image-wrapper {
+      position: relative;
+      width: 300px;
+      height: 300px;
+      border-radius: 50%;
+      overflow: hidden;
+      border: 2px solid var(--github-accent);
+      box-shadow: 0 0 30px rgba(88, 166, 255, 0.3);
+      background: linear-gradient(135deg, var(--github-dark-secondary) 0%, var(--github-dark-tertiary) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .profile-image-wrapper img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+
+    .profile-image-placeholder {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(135deg, var(--github-dark-secondary) 0%, var(--github-dark-tertiary) 100%);
+      color: var(--github-text-secondary);
+    }
+
+    .profile-image-placeholder i {
+      font-size: 4rem;
+      color: var(--github-accent);
+      margin-bottom: 10px;
+    }
+
+    .profile-image-placeholder p {
+      text-align: center;
+      font-size: 0.9rem;
+      margin: 0;
+    }
+
+    .upload-image-btn {
+      margin-top: 15px;
+      display: inline-block;
+    }
+
+    .upload-image-input {
+      display: none;
+    }
+
+    /* Responsive Adjustments */
+    @media (max-width: 768px) {
+      .hero-github h1 {
+        font-size: 2.5rem;
+      }
+
+      .section-title-github h2 {
+        font-size: 1.8rem;
+      }
+
+      .hero-github::before {
+        width: 300px;
+        height: 300px;
+        right: -50%;
+      }
+
+      .timeline-github::before {
+        left: -8px;
+      }
+
+      .timeline-item {
+        padding-left: 30px;
+      }
+
+      .timeline-item::before {
+        left: -13px;
+      }
+
+      .profile-image-wrapper {
+        width: 250px;
+        height: 250px;
+        margin: 20px auto;
+      }
+    }
+  </style>
+</head>
+
+<body class="dark-github-theme">
+
+  <!-- Header/Navigation -->
+  <header id="header" class="header d-flex flex-column justify-content-center">
+    <i class="header-toggle d-xl-none bi bi-list"></i>
+
+    <nav id="navmenu" class="navmenu">
+      <ul>
+        <li><a href="#hero" class="active"><i class="bi bi-house navicon"></i><span>Home</span></a></li>
+        <li><a href="#about"><i class="bi bi-person navicon"></i><span>About</span></a></li>
+        <li><a href="#skills"><i class="bi bi-tools navicon"></i><span>Skills</span></a></li>
+        <li><a href="#experience"><i class="bi bi-briefcase navicon"></i><span>Experience</span></a></li>
+        <li><a href="#projects"><i class="bi bi-diagram-3 navicon"></i><span>Projects</span></a></li>
+        <li><a href="#certifications"><i class="bi bi-award navicon"></i><span>Certifications</span></a></li>
+        <li><a href="#contact"><i class="bi bi-envelope navicon"></i><span>Contact</span></a></li>
+      </ul>
+    </nav>
+  </header>
+
+  <main class="main">
+
+    <!-- Hero Section -->
+    <section id="hero" class="hero-github">
+      <div class="container" data-aos="fade-up">
+        <div class="row align-items-center">
+          <div class="col-lg-6">
+            <h1>DevOps Engineer</h1>
+            <p class="subtitle">Cloud Infrastructure | Container Orchestration | CI/CD Automation</p>
+            <p class="tagline">
+              Building scalable, resilient, and automated cloud infrastructure. Specialized in Kubernetes, AWS, Terraform, and modern DevOps practices with a focus on infrastructure-as-code, security, and operational excellence.
+            </p>
+            <div>
+              <a href="#contact" class="btn-github">Get In Touch</a>
+              <a href="#projects" class="btn-github-outline ms-3">View Projects</a>
+            </div>
+            <div class="social-github">
+              <a href="https://github.com" target="_blank" title="GitHub"><i class="bi bi-github"></i></a>
+              <a href="https://linkedin.com" target="_blank" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+              <a href="https://twitter.com" target="_blank" title="Twitter"><i class="bi bi-twitter"></i></a>
+              <a href="https://medium.com" target="_blank" title="Medium"><i class="bi bi-medium"></i></a>
+            </div>
+          </div>
+          <div class="col-lg-6" data-aos="fade-left" data-aos-delay="100">
+            <div class="profile-image-container">
+              <div class="profile-image-wrapper">
+                <img id="profileImage" alt="Profile Photo" style="display: none;">
+                <div id="profilePlaceholder" class="profile-image-placeholder">
+                  <i class="bi bi-person-circle"></i>
+                  <p>Your Photo</p>
+                </div>
+              </div>
+            </div>
+            <input type="file" id="uploadImageInput" class="upload-image-input" accept="image/*">
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="section-github">
+      <div class="container" data-aos="fade-up">
+        <div class="section-title-github mb-5">
+          <h2>About Me</h2>
+          <p>DevOps Engineer with 5+ years of experience</p>
+        </div>
+
+        <div class="row gy-4">
+          <div class="col-lg-6" data-aos="fade-right" data-aos-delay="100">
+            <div class="github-card">
+              <h3><i class="bi bi-rocket-takeoff"></i> Mission</h3>
+              <p>
+                I'm passionate about designing and implementing scalable, secure, and efficient cloud infrastructure. My mission is to bridge the gap between development and operations by automating processes, improving reliability, and enabling faster time-to-market for applications.
+              </p>
+            </div>
+          </div>
+
+          <div class="col-lg-6" data-aos="fade-left" data-aos-delay="100">
+            <div class="github-card">
+              <h3><i class="bi bi-gear-fill"></i> Expertise</h3>
+              <p>
+                Proficient in containerization, orchestration, infrastructure automation, CI/CD pipeline design, and cloud architecture. Experienced in maintaining high-availability systems, implementing security best practices, and leveraging cutting-edge DevOps tools and technologies.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <div class="row gy-4 mt-4">
+          <div class="col-lg-12" data-aos="fade-up" data-aos-delay="200">
+            <div class="github-card">
+              <h3>Key Highlights</h3>
+              <ul style="list-style: none; padding: 0;">
+                <li style="margin-bottom: 12px;"><i class="bi bi-check-circle" style="color: var(--github-success); margin-right: 10px;"></i>Architected and deployed Kubernetes clusters supporting 100+ microservices at scale</li>
+                <li style="margin-bottom: 12px;"><i class="bi bi-check-circle" style="color: var(--github-success); margin-right: 10px;"></i>Reduced deployment time from 2 hours to 5 minutes through CI/CD automation</li>
+                <li style="margin-bottom: 12px;"><i class="bi bi-check-circle" style="color: var(--github-success); margin-right: 10px;"></i>Implemented Infrastructure-as-Code (IaC) for 50+ AWS resources using Terraform</li>
+                <li style="margin-bottom: 12px;"><i class="bi bi-check-circle" style="color: var(--github-success); margin-right: 10px;"></i>Achieved 99.99% system uptime through monitoring, alerting, and incident response automation</li>
+                <li><i class="bi bi-check-circle" style="color: var(--github-success); margin-right: 10px;"></i>Led security compliance initiatives achieving SOC 2 Type II certification</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Skills Section -->
+    <section id="skills" class="section-github">
+      <div class="container" data-aos="fade-up">
+        <div class="section-title-github mb-5">
+          <h2>Technical Skills</h2>
+          <p>Core competencies and expertise areas</p>
+        </div>
+
+        <div class="row">
+          <div class="col-lg-6" data-aos="fade-up" data-aos-delay="100">
+            <h4 style="color: var(--github-accent); margin-bottom: 20px;">Cloud Platforms</h4>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>AWS (EC2, S3, Lambda, RDS, VPC, ECS, EKS)</span>
+                <small>Expert</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 95%;"></div>
+              </div>
+            </div>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>Google Cloud Platform (GCP)</span>
+                <small>Advanced</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 80%;"></div>
+              </div>
+            </div>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>Azure</span>
+                <small>Intermediate</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 70%;"></div>
+              </div>
+            </div>
+
+            <h4 style="color: var(--github-accent); margin-top: 30px; margin-bottom: 20px;">Container & Orchestration</h4>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>Kubernetes (K8s)</span>
+                <small>Expert</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 95%;"></div>
+              </div>
+            </div>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>Docker & Container Registry</span>
+                <small>Expert</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 92%;"></div>
+              </div>
+            </div>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>Docker Compose & Swarm</span>
+                <small>Advanced</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 85%;"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="col-lg-6" data-aos="fade-up" data-aos-delay="200">
+            <h4 style="color: var(--github-accent); margin-bottom: 20px;">Infrastructure & Automation</h4>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>Terraform & Infrastructure-as-Code</span>
+                <small>Expert</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 93%;"></div>
+              </div>
+            </div>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>Ansible & Configuration Management</span>
+                <small>Advanced</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 88%;"></div>
+              </div>
+            </div>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>CloudFormation & ARM Templates</span>
+                <small>Advanced</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 82%;"></div>
+              </div>
+            </div>
+
+            <h4 style="color: var(--github-accent); margin-top: 30px; margin-bottom: 20px;">CI/CD & DevOps Tools</h4>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>GitHub Actions & GitHub</span>
+                <small>Expert</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 90%;"></div>
+              </div>
+            </div>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>Jenkins, GitLab CI/CD, CircleCI</span>
+                <small>Advanced</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 87%;"></div>
+              </div>
+            </div>
+
+            <div class="skill-bar">
+              <div class="skill-bar-label">
+                <span>Monitoring & Logging (Prometheus, ELK, Datadog)</span>
+                <small>Advanced</small>
+              </div>
+              <div class="skill-bar-container">
+                <div class="skill-bar-fill" style="width: 85%;"></div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-5">
+          <div class="col-lg-12" data-aos="fade-up" data-aos-delay="300">
+            <h4 style="color: var(--github-accent); margin-bottom: 20px;">Languages & Tools</h4>
+            <div>
+              <span class="tech-badge">Python</span>
+              <span class="tech-badge">Bash/Shell</span>
+              <span class="tech-badge">YAML</span>
+              <span class="tech-badge">Go</span>
+              <span class="tech-badge">JSON</span>
+              <span class="tech-badge">SQL</span>
+              <span class="tech-badge">Git</span>
+              <span class="tech-badge">Linux</span>
+              <span class="tech-badge">Helm</span>
+              <span class="tech-badge">ArgoCD</span>
+              <span class="tech-badge">Vault</span>
+              <span class="tech-badge">Nginx</span>
+              <span class="tech-badge">PostgreSQL</span>
+              <span class="tech-badge">Redis</span>
+              <span class="tech-badge">RabbitMQ</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Experience Section -->
+    <section id="experience" class="section-github">
+      <div class="container" data-aos="fade-up">
+        <div class="section-title-github mb-5">
+          <h2>Professional Experience</h2>
+          <p>Career journey and key roles</p>
+        </div>
+
+        <div class="timeline-github">
+          <div class="timeline-item" data-aos="fade-up" data-aos-delay="100">
+            <h3>Senior DevOps Engineer</h3>
+            <div class="timeline-date"><i class="bi bi-calendar-event"></i> June 2021 - Present</div>
+            <div class="timeline-location"><i class="bi bi-geo-alt"></i> Tech Innovation Co., San Francisco, CA</div>
+            <p>
+              Leading DevOps infrastructure for a high-scale SaaS platform serving 10,000+ customers globally. Architected Kubernetes clusters with multi-region deployment strategy. Implemented comprehensive monitoring and alerting system reducing incident detection time from 30 mins to 2 mins.
+            </p>
+            <p style="margin-top: 10px;">
+              <strong>Key Achievements:</strong>
+              <ul style="margin-top: 8px; margin-left: 20px;">
+                <li>Deployed and managed 5 production Kubernetes clusters across 3 AWS regions</li>
+                <li>Reduced infrastructure costs by 40% through optimization and resource right-sizing</li>
+                <li>Achieved DORA elite metrics: deployment frequency 10+ per day, lead time < 1 hour</li>
+              </ul>
+            </p>
+          </div>
+
+          <div class="timeline-item" data-aos="fade-up" data-aos-delay="150">
+            <h3>DevOps Engineer II</h3>
+            <div class="timeline-date"><i class="bi bi-calendar-event"></i> January 2020 - May 2021</div>
+            <div class="timeline-location"><i class="bi bi-geo-alt"></i> Cloud Services Ltd., Seattle, WA</div>
+            <p>
+              Managed infrastructure for 50+ microservices across development, staging, and production environments. Designed and implemented CI/CD pipelines reducing deployment time significantly. Established infrastructure-as-code practices for the entire organization.
+            </p>
+            <p style="margin-top: 10px;">
+              <strong>Key Achievements:</strong>
+              <ul style="margin-top: 8px; margin-left: 20px;">
+                <li>Migrated 30 legacy applications to Kubernetes, improving scalability and reliability</li>
+                <li>Implemented automated security scanning in CI/CD pipelines</li>
+                <li>Established observability platform with Prometheus and Grafana</li>
+              </ul>
+            </p>
+          </div>
+
+          <div class="timeline-item" data-aos="fade-up" data-aos-delay="200">
+            <h3>DevOps Engineer I</h3>
+            <div class="timeline-date"><i class="bi bi-calendar-event"></i> March 2018 - December 2019</div>
+            <div class="timeline-location"><i class="bi bi-geo-alt"></i> Digital Transformation Inc., Austin, TX</div>
+            <p>
+              Supported cloud infrastructure operations for enterprise clients. Automated manual deployment processes using Jenkins and Bash scripting. Implemented Docker containerization for legacy applications.
+            </p>
+            <p style="margin-top: 10px;">
+              <strong>Key Achievements:</strong>
+              <ul style="margin-top: 8px; margin-left: 20px;">
+                <li>Reduced manual deployment errors by 85% through automation</li>
+                <li>Containerized 15+ applications using Docker</li>
+                <li>Established disaster recovery procedures achieving RPO/RTO targets</li>
+              </ul>
+            </p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Projects Section -->
+    <section id="projects" class="section-github">
+      <div class="container" data-aos="fade-up">
+        <div class="section-title-github mb-5">
+          <h2>Featured Projects</h2>
+          <p>Showcase of key infrastructure and automation projects</p>
+        </div>
+
+        <div class="row gy-4">
+          <div class="col-lg-6" data-aos="fade-up" data-aos-delay="100">
+            <div class="github-card">
+              <h3><i class="bi bi-diagram-3"></i> Multi-Region Kubernetes Platform</h3>
+              <p>
+                Designed and deployed a highly available Kubernetes platform across 3 AWS regions with automatic failover, load balancing, and disaster recovery capabilities. Utilized Terraform for infrastructure provisioning and Helm for application deployment.
+              </p>
+              <div style="margin-top: 15px;">
+                <span class="tech-badge">Kubernetes</span>
+                <span class="tech-badge">Terraform</span>
+                <span class="tech-badge">AWS</span>
+                <span class="tech-badge">Helm</span>
+              </div>
+              <a href="#" class="btn-github-outline mt-3" style="display: inline-block; text-decoration: none;">View Project</a>
+            </div>
+          </div>
+
+          <div class="col-lg-6" data-aos="fade-up" data-aos-delay="150">
+            <div class="github-card">
+              <h3><i class="bi bi-arrow-repeat"></i> End-to-End CI/CD Pipeline</h3>
+              <p>
+                Built comprehensive CI/CD pipeline using GitHub Actions enabling 10+ deployments per day. Integrated automated testing, security scanning, and deployment strategies with blue-green and canary deployments.
+              </p>
+              <div style="margin-top: 15px;">
+                <span class="tech-badge">GitHub Actions</span>
+                <span class="tech-badge">Jenkins</span>
+                <span class="tech-badge">Docker</span>
+                <span class="tech-badge">Git</span>
+              </div>
+              <a href="#" class="btn-github-outline mt-3" style="display: inline-block; text-decoration: none;">View Project</a>
+            </div>
+          </div>
+
+          <div class="col-lg-6" data-aos="fade-up" data-aos-delay="200">
+            <div class="github-card">
+              <h3><i class="bi bi-shield-check"></i> Infrastructure-as-Code Framework</h3>
+              <p>
+                Created reusable Terraform modules and playbooks for provisioning AWS infrastructure. Established company-wide IaC standards reducing infrastructure provisioning time from days to hours.
+              </p>
+              <div style="margin-top: 15px;">
+                <span class="tech-badge">Terraform</span>
+                <span class="tech-badge">Ansible</span>
+                <span class="tech-badge">AWS</span>
+                <span class="tech-badge">Python</span>
+              </div>
+              <a href="#" class="btn-github-outline mt-3" style="display: inline-block; text-decoration: none;">View Project</a>
+            </div>
+          </div>
+
+          <div class="col-lg-6" data-aos="fade-up" data-aos-delay="250">
+            <div class="github-card">
+              <h3><i class="bi bi-speedometer2"></i> Monitoring & Observability Stack</h3>
+              <p>
+                Implemented complete observability solution with Prometheus for metrics, ELK Stack for logging, and Jaeger for distributed tracing. Integrated alerting system with incident management platform.
+              </p>
+              <div style="margin-top: 15px;">
+                <span class="tech-badge">Prometheus</span>
+                <span class="tech-badge">Grafana</span>
+                <span class="tech-badge">ELK Stack</span>
+                <span class="tech-badge">Jaeger</span>
+              </div>
+              <a href="#" class="btn-github-outline mt-3" style="display: inline-block; text-decoration: none;">View Project</a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Certifications Section -->
+    <section id="certifications" class="section-github">
+      <div class="container" data-aos="fade-up">
+        <div class="section-title-github mb-5">
+          <h2>Certifications & Recognition</h2>
+          <p>Professional credentials and achievements</p>
+        </div>
+
+        <div class="row gy-4">
+          <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="100">
+            <div class="cert-badge">
+              <div class="cert-icon"><i class="bi bi-cloud-check"></i></div>
+              <h4>AWS Solutions Architect</h4>
+              <p class="cert-issuer">Amazon Web Services</p>
+              <small style="color: var(--github-text-tertiary);">Professional Level - 2023</small>
+            </div>
+          </div>
+
+          <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="150">
+            <div class="cert-badge">
+              <div class="cert-icon"><i class="bi bi-diagram-3"></i></div>
+              <h4>Certified Kubernetes Administrator</h4>
+              <p class="cert-issuer">Cloud Native Computing Foundation</p>
+              <small style="color: var(--github-text-tertiary);">CKA - 2022</small>
+            </div>
+          </div>
+
+          <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="200">
+            <div class="cert-badge">
+              <div class="cert-icon"><i class="bi bi-shield-lock"></i></div>
+              <h4>HashiCorp Certified: Terraform Associate</h4>
+              <p class="cert-issuer">HashiCorp</p>
+              <small style="color: var(--github-text-tertiary);">2023</small>
+            </div>
+          </div>
+
+          <div class="col-md-6 col-lg-3" data-aos="fade-up" data-aos-delay="250">
+            <div class="cert-badge">
+              <div class="cert-icon"><i class="bi bi-lightning"></i></div>
+              <h4>AWS DevOps Engineer</h4>
+              <p class="cert-issuer">Amazon Web Services</p>
+              <small style="color: var(--github-text-tertiary);">Professional Level - 2022</small>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Call to Action Section -->
+    <section class="section-github">
+      <div class="container" data-aos="fade-up">
+        <div class="cta-github">
+          <h2>Ready to Transform Your Infrastructure?</h2>
+          <p>Let's discuss how I can help your organization achieve DevOps excellence through modern infrastructure practices, automation, and cloud-native solutions.</p>
+          <a href="#contact" class="btn-github">Start a Conversation</a>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact Section -->
+    <section id="contact" class="section-github">
+      <div class="container" data-aos="fade-up">
+        <div class="section-title-github mb-5">
+          <h2>Get In Touch</h2>
+          <p>Let's connect and discuss how I can contribute to your projects</p>
+        </div>
+
+        <div class="row gy-4">
+          <div class="col-lg-4" data-aos="fade-up" data-aos-delay="100">
+            <div class="github-card">
+              <h3><i class="bi bi-envelope"></i> Email</h3>
+              <p>
+                <a href="mailto:your.email@example.com" style="color: var(--github-accent);">your.email@example.com</a>
+              </p>
+            </div>
+          </div>
+
+          <div class="col-lg-4" data-aos="fade-up" data-aos-delay="150">
+            <div class="github-card">
+              <h3><i class="bi bi-telephone"></i> Phone</h3>
+              <p>
+                <a href="tel:+1234567890" style="color: var(--github-accent);">+1 (234) 567-8900</a>
+              </p>
+            </div>
+          </div>
+
+          <div class="col-lg-4" data-aos="fade-up" data-aos-delay="200">
+            <div class="github-card">
+              <h3><i class="bi bi-geo-alt"></i> Location</h3>
+              <p>San Francisco, California, USA</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="row mt-5">
+          <div class="col-lg-12 text-center" data-aos="fade-up" data-aos-delay="250">
+            <h4 style="color: var(--github-text-primary); margin-bottom: 25px;">Connect With Me</h4>
+            <div class="social-github justify-content-center">
+              <a href="https://github.com" target="_blank" title="GitHub"><i class="bi bi-github"></i></a>
+              <a href="https://linkedin.com" target="_blank" title="LinkedIn"><i class="bi bi-linkedin"></i></a>
+              <a href="https://twitter.com" target="_blank" title="Twitter"><i class="bi bi-twitter"></i></a>
+              <a href="https://medium.com" target="_blank" title="Medium"><i class="bi bi-medium"></i></a>
+              <a href="https://dev.to" target="_blank" title="Dev.to"><i class="bi bi-code-square"></i></a>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Footer -->
+  <footer>
+    <div class="container">
+      <div class="row">
+        <div class="col-md-6 text-center text-md-start">
+          <p>&copy; 2026 DevOps Engineer Portfolio. All rights reserved.</p>
+        </div>
+        <div class="col-md-6 text-center text-md-end">
+          <p>Designed with <i class="bi bi-heart-fill" style="color: var(--github-danger);"></i> using GitHub Theme</p>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <!-- Vendor JS Files -->
+  <script src="assets/vendor/aos/aos.js"></script>
+  <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
+  <script src="assets/vendor/glightbox/js/glightbox.min.js"></script>
+  <script src="assets/vendor/purecounter/purecounter_vanilla.js"></script>
+  <script src="assets/vendor/isotope-layout/isotope.pkgd.min.js"></script>
+  <script src="assets/vendor/swiper/swiper-bundle.min.js"></script>
+  <script src="assets/vendor/typed.js/typed.umd.js"></script>
+  <script src="assets/vendor/waypoints/noframework.waypoints.js"></script>
+
+  <!-- Main JS File -->
+  <script src="assets/js/main.js"></script>
+
+  <!-- Portfolio-Specific Script -->
+  <script>
+    // Handle profile image upload
+    const uploadImageInput = document.getElementById('uploadImageInput');
+    const profileImage = document.getElementById('profileImage');
+    const profilePlaceholder = document.getElementById('profilePlaceholder');
+
+    uploadImageInput.addEventListener('change', function(e) {
+      const file = e.target.files[0];
+      if (file) {
+        // Validate file type
+        if (!file.type.startsWith('image/')) {
+          alert('Please select a valid image file.');
+          return;
+        }
+
+        // Validate file size (max 5MB)
+        if (file.size > 5 * 1024 * 1024) {
+          alert('Image size must be less than 5MB.');
+          return;
+        }
+
+        // Read and display the image
+        const reader = new FileReader();
+        reader.onload = function(event) {
+          profileImage.src = event.target.result;
+          profileImage.style.display = 'block';
+          profilePlaceholder.style.display = 'none';
+          // Save to localStorage so image persists on reload
+          localStorage.setItem('profileImage', event.target.result);
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    // Load saved profile image on page load
+    window.addEventListener('load', function() {
+      const savedImage = localStorage.getItem('profileImage');
+      if (savedImage) {
+        profileImage.src = savedImage;
+        profileImage.style.display = 'block';
+        profilePlaceholder.style.display = 'none';
+      }
+    });
+
+    // Smooth scroll behavior
+    document.querySelectorAll('a[href^="#"]').forEach(anchor => {
+      anchor.addEventListener('click', function (e) {
+        e.preventDefault();
+        const target = document.querySelector(this.getAttribute('href'));
+        if (target) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      });
+    });
+
+    // Animate skill bars on scroll
+    const skillBars = document.querySelectorAll('.skill-bar-fill');
+    const observerOptions = {
+      threshold: 0.5
+    };
+
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting) {
+          const targetWidth = entry.target.style.width;
+          entry.target.style.width = '0';
+          setTimeout(() => {
+            entry.target.style.width = targetWidth;
+          }, 100);
+          observer.unobserve(entry.target);
+        }
+      });
+    }, observerOptions);
+
+    skillBars.forEach(bar => observer.observe(bar));
+
+    // Initialize AOS (Animate On Scroll)
+    AOS.init({
+      duration: 1000,
+      once: true,
+      offset: 100
+    });
+  </script>
+</body>
+
+</html>
