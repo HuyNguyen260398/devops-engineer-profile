@@ -1,0 +1,30 @@
+todo
+
+    host markdown as html
+
+    sync markdown from github repo to the website
+
+
+devops engineer profile:
+
+an online cv
+
+add a new feeds section
+
+	collects blog post from various pages / subscription about devops
+	
+add section to showcase github activities (project section)
+
+deploy new version of html to s3
+
+    use github s3 sync lambda function
+
+    trigger the function using github action, when a PR is reviewed and merge to main
+
+    configure github actions authenticate with AWS using OIDC
+
+        https://docs.github.com/en/actions/how-tos/secure-your-work/security-harden-deployments/oidc-in-aws
+
+    manage github action with terraform
+
+        https://registry.terraform.io/providers/integrations/github/latest/docs/resources/actions_secret
