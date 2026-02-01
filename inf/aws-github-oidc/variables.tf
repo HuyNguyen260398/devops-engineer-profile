@@ -37,8 +37,13 @@ variable "aws_account_id" {
   nullable    = false
 }
 
-variable "s3_bucket_name" {
-  description = "Name of the S3 bucket for syncing web content"
+variable "s3_bucket_name_prod" {
+  description = "Name of the S3 bucket for syncing web content in production environment"
+  type        = string
+  nullable    = false
+}
+variable "s3_bucket_name_staging" {
+  description = "Name of the S3 bucket for syncing web content in staging environment"
   type        = string
   nullable    = false
 }

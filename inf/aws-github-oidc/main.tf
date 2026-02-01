@@ -54,7 +54,7 @@ resource "github_actions_variable" "s3_bucket_name" {
   count            = var.create_github_variables ? 1 : 0
   repository       = var.github_repository
   variable_name    = "S3_BUCKET_NAME"
-  value            = var.s3_bucket_name
+  value            = var.s3_bucket_name_prod
   depends_on       = []
 }
 
@@ -147,8 +147,10 @@ resource "aws_iam_policy" "github_actions_s3_sync" {
           "s3:DeleteObject"
         ]
         Resource = [
-          "arn:${data.aws_partition.current.partition}:s3:::${var.s3_bucket_name}",
-          "arn:${data.aws_partition.current.partition}:s3:::${var.s3_bucket_name}/*"
+          "arn:${data.aws_partition.current.partition}:s3:::${var.s3_bucket_name_prod}",
+          "arn:${data.aws_partition.current.partition}:s3:::${var.s3_bucket_name_prod}/*",
+          "arn:${data.aws_partition.current.partition}:s3:::${var.s3_bucket_name_staging}",
+          "arn:${data.aws_partition.current.partition}:s3:::${var.s3_bucket_name_staging}/*"
         ]
       },
       {
