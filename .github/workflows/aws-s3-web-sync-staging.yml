@@ -1,4 +1,4 @@
-name: Sync dep-web-src to S3 Bucket
+name: Sync aws-s3-web source to Staging S3 Bucket
 
 on:
   push:

@@ -1,4 +1,4 @@
-name: Deploy to Production S3
+name: Sync aws-s3-web source to Production S3 Bucket
 
 on:
   push:
@@ -55,14 +55,14 @@ jobs:
         with:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: "pip"
-          cache-dependency-path: "dep-web-inf/lambda_scripts/lambda_requirements.txt"
+          cache-dependency-path: "ops/requirements.txt"
 
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
           pip install boto3 requests
 
-      - name: Sync src/aws-s3-web to S3 Bucket
+      - name: Sync aws-s3-web to S3 Bucket
         id: sync
         run: |
           echo "Starting S3 sync at $(date)" | tee -a workflow.log
@@ -85,6 +85,14 @@ jobs:
 
           echo "Completed at $(date)" | tee -a workflow.log
 
+      - name: Upload Workflow Log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: workflow-log-${{ github.run_number }}
+          path: workflow.log
+          retention-days: 30
+
       - name: Generate Workflow Summary
         if: always()
         run: |
@@ -93,10 +101,6 @@ jobs:
           echo "## 📋 Workflow Details" >> $GITHUB_STEP_SUMMARY
           echo "- **Workflow Run:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
-          echo "- **Trigger Type:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
-          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
-            echo "- **Deployment Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
-          fi
           echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **S3 Bucket:** \`${{ env.S3_BUCKET }}\`" >> $GITHUB_STEP_SUMMARY
@@ -110,12 +114,10 @@ jobs:
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
 
-          echo "## 📝 Full Workflow Log" >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
-          cat workflow.log >> $GITHUB_STEP_SUMMARY
-          echo "\`\`\`" >> $GITHUB_STEP_SUMMARY
+          echo "## 📝 Workflow Log" >> $GITHUB_STEP_SUMMARY
+          echo "📥 [Download Full Workflow Log](https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}/artifacts)" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
 
           echo "## 🔗 Quick Links" >> $GITHUB_STEP_SUMMARY
           echo "- [S3 Bucket Console](https://s3.console.aws.amazon.com/s3/buckets/${{ env.S3_BUCKET }})" >> $GITHUB_STEP_SUMMARY
-          echo "- [View Website](https://${{ env.S3_BUCKET }}.s3.ap-southeast-1.amazonaws.com/index.html)" >> $GITHUB_STEP_SUMMARY
+          echo "- [nghuy.link](https://nghuy.link)" >> $GITHUB_STEP_SUMMARY
