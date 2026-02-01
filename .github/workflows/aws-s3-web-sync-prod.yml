@@ -1,17 +1,18 @@
 name: Deploy to Production S3
 
 on:
-    push:
-        branches:
-            - main
-        paths:
-            - "dep-web-src/**"
-    pull_request:
-        types: [closed]
-        branches:
-            - main
-        paths:
-            - "dep-web-src/**"
+  push:
+    branches:
+      - main
+    paths:
+      - "src/aws-s3-web/**"
+
+  pull_request:
+    types: [closed]
+    branches:
+      - main
+    paths:
+      - "src/aws-s3-web/**"
 
 permissions:
     id-token: write
@@ -52,12 +53,12 @@ jobs:
           python -m pip install --upgrade pip
           pip install boto3 requests
 
-      - name: Sync dep-web-src to S3 Bucket
+      - name: Sync src/aws-s3-web to S3 Bucket
         id: sync
         run: |
           echo "Starting S3 sync at $(date)" | tee -a workflow.log
 
-          aws s3 sync dep-web-src/ s3://${{ env.S3_BUCKET }}/ \
+          aws s3 sync src/aws-s3-web/ s3://${{ env.S3_BUCKET }}/ \
             --delete \
             --exclude ".git/*" \
             --cache-control "public, max-age=3600" 2>&1 | tee -a workflow.log
@@ -65,7 +66,7 @@ jobs:
           SYNC_EXIT_CODE=${PIPESTATUS[0]}
 
           if [ $SYNC_EXIT_CODE -eq 0 ]; then
-            echo "✅ Successfully synced dep-web-src to s3://${{ env.S3_BUCKET }}" | tee -a workflow.log
+            echo "✅ Successfully synced src/aws-s3-web to s3://${{ env.S3_BUCKET }}" | tee -a workflow.log
             echo "sync_status=success" >> $GITHUB_OUTPUT
           else
             echo "❌ Sync failed with exit code $SYNC_EXIT_CODE" | tee -a workflow.log
