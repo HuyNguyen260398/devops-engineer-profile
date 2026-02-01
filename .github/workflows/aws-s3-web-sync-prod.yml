@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "src/aws-s3-web/**"
+      - ".github/workflows/aws-s3-web-sync-prod.yml"
 
   pull_request:
     types: [closed]
