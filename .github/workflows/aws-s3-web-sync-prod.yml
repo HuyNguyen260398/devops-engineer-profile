@@ -14,8 +14,16 @@ on:
     paths:
       - "src/aws-s3-web/**"
 
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: "Reason for manual deployment"
+        required: false
+        default: "Manual deployment triggered"
+        type: string
+
 permissions:
-    id-token: write
+  id-token: write
 
 env:
   PYTHON_VERSION: "3.11"
@@ -84,6 +92,10 @@ jobs:
           echo "## 📋 Workflow Details" >> $GITHUB_STEP_SUMMARY
           echo "- **Workflow Run:** [${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})" >> $GITHUB_STEP_SUMMARY
           echo "- **Triggered by:** ${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger Type:** ${{ github.event_name }}" >> $GITHUB_STEP_SUMMARY
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "- **Deployment Reason:** ${{ github.event.inputs.reason }}" >> $GITHUB_STEP_SUMMARY
+          fi
           echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **S3 Bucket:** \`${{ env.S3_BUCKET }}\`" >> $GITHUB_STEP_SUMMARY
