@@ -28,3 +28,7 @@ deploy new version of html to s3
     manage github action with terraform
 
         https://registry.terraform.io/providers/integrations/github/latest/docs/resources/actions_secret
+
+update website after new sync to s3
+
+    https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
