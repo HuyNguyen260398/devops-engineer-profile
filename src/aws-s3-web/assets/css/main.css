@@ -598,6 +598,17 @@ section,
 /*--------------------------------------------------------------
 # About Section
 --------------------------------------------------------------*/
+.about .img-fluid {
+  border-radius: 15px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  transition: all 0.3s ease;
+}
+
+.about .img-fluid:hover {
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15);
+  transform: translateY(-5px);
+}
+
 .about .content h2 {
   font-weight: 700;
   font-size: 24px;
@@ -1624,6 +1635,114 @@ section,
 
 .btn-read-more i {
   font-size: 12px;
+}
+
+/*--------------------------------------------------------------
+# Certifications Section
+--------------------------------------------------------------*/
+.certifications .row {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.cert-badge-link {
+  display: block;
+  padding: 15px;
+  transition: all 0.3s ease;
+  text-decoration: none;
+}
+
+.cert-badge-link:hover {
+  transform: translateY(-10px) scale(1.05);
+}
+
+.cert-badge {
+  width: 100%;
+  height: auto;
+  max-width: 180px;
+  object-fit: contain;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+  border-radius: 50%;
+}
+
+.cert-badge-link:hover .cert-badge {
+  filter: drop-shadow(0 8px 16px rgba(5, 99, 187, 0.3));
+}
+
+/* Credly Embedded Badge Styling */
+.certifications [data-iframe-width] {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 15px;
+  transition: all 0.3s ease;
+  min-height: 200px;
+}
+
+.certifications [data-iframe-width]:hover {
+  transform: translateY(-10px);
+}
+
+/* Style the iframe that Credly injects */
+.certifications iframe {
+  max-width: 180px !important;
+  height: auto !important;
+  transition: all 0.3s ease;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
+}
+
+.certifications [data-iframe-width]:hover iframe {
+  filter: drop-shadow(0 8px 16px rgba(5, 99, 187, 0.3));
+}
+
+/* Responsive adjustments for certifications */
+@media (max-width: 992px) {
+  .cert-badge {
+    max-width: 150px;
+  }
+  
+  .certifications iframe {
+    max-width: 150px !important;
+  }
+  
+  .certifications [data-iframe-width] {
+    min-height: 180px;
+  }
+}
+
+@media (max-width: 768px) {
+  .cert-badge {
+    max-width: 120px;
+  }
+  
+  .cert-badge-link {
+    padding: 10px;
+  }
+  
+  .certifications iframe {
+    max-width: 120px !important;
+  }
+  
+  .certifications [data-iframe-width] {
+    padding: 10px;
+    min-height: 150px;
+  }
+}
+
+@media (max-width: 576px) {
+  .cert-badge {
+    max-width: 100px;
+  }
+  
+  .certifications iframe {
+    max-width: 100px !important;
+  }
+  
+  .certifications [data-iframe-width] {
+    min-height: 120px;
+  }
 }
 
 /*--------------------------------------------------------------
