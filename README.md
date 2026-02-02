@@ -15,13 +15,27 @@ This repository contains a collection of DevOps and cloud engineering projects t
 
 ## 📁 Project Structure
 
-Projects are organized by technology/purpose:
-- `/terraform` - Infrastructure as Code with Terraform
-- `/kubernetes` - Kubernetes deployments and configurations
-- `/docker` - Docker images and compose files
-- `/ci-cd` - Pipeline configurations and automation scripts
-- `/monitoring` - Monitoring and logging setups
-- `/scripts` - Automation and utility scripts
+Projects are organized by purpose and technology:
+
+### `/inf` - Infrastructure as Code
+Cloud infrastructure definitions and deployment templates:
+- **`aws-eks/`** - Amazon EKS (Elastic Kubernetes Service) cluster configuration with Terraform, including monitoring setup
+- **`aws-github-oidc/`** - GitHub OIDC integration with AWS for secure CI/CD authentication
+- **`aws-s3-web/`** - S3-based static website hosting infrastructure
+- **`cloudformation_templates/`** - AWS CloudFormation templates for Lambda and S3 deployments
+- **`lambda_scripts/`** - Lambda functions for GitHub-S3 synchronization and deployment automation
+
+### `/src` - Source Code
+Application source code and static assets:
+- **`aws-s3-web/`** - Portfolio website static files (HTML, CSS, JavaScript) with Bootstrap and modern UI components
+
+### `/ops` - Operations & Automation
+Operational scripts and automation tools:
+- **`github_s3_sync.py`** - Python script for synchronizing GitHub repository content with S3 buckets
+
+### `/doc` - Documentation
+Project documentation and implementation guides:
+- Implementation notes and guides for various features and sections
 
 ## 🚀 Getting Started
 

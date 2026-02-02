@@ -89,7 +89,7 @@ Each environment has its own `.tfvars` file in the `environments/` directory:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `aws_region` | AWS region for resources | `us-east-1` |
+| `aws_region` | AWS region for resources | `ap-southeast-1` |
 | `environment` | Environment name | - |
 | `bucket_name` | S3 bucket name | - |
 | `index_document` | Index document | `index.html` |
