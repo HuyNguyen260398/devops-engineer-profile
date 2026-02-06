@@ -24,19 +24,19 @@ module "vpc" {
   enable_dns_support   = true
 
   # Enable VPC flow logs to CloudWatch
-  enable_flow_log                      = true
-  create_flow_log_cloudwatch_iam_role  = true
-  create_flow_log_cloudwatch_log_group = true
-  flow_log_retention_in_days           = var.cloudwatch_log_retention_days
+  enable_flow_log                                = true
+  create_flow_log_cloudwatch_iam_role            = true
+  create_flow_log_cloudwatch_log_group           = true
+  flow_log_cloudwatch_log_group_retention_in_days = var.cloudwatch_log_retention_days
 
   # Kubernetes-specific tags for subnet discovery
   public_subnet_tags = {
-    "kubernetes.io/role/elb"                    = "1"
+    "kubernetes.io/role/elb"                      = "1"
     "kubernetes.io/cluster/${local.cluster_name}" = "shared"
   }
 
   private_subnet_tags = {
-    "kubernetes.io/role/internal-elb"           = "1"
+    "kubernetes.io/role/internal-elb"             = "1"
     "kubernetes.io/cluster/${local.cluster_name}" = "shared"
   }
 
@@ -46,7 +46,7 @@ module "vpc" {
 # EKS Cluster Module
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 19.0"
+  version = "~> 20.0"
 
   cluster_name    = local.cluster_name
   cluster_version = var.cluster_version
@@ -137,8 +137,9 @@ module "eks" {
     } : null
   }
 
-  # Manage aws-auth ConfigMap
-  manage_aws_auth_configmap = true
+  # Authentication mode (API is preferred over aws-auth ConfigMap in v20+)
+  authentication_mode = "API_AND_CONFIG_MAP"
+  enable_cluster_creator_admin_permissions = true
 
   tags = local.common_tags
 }
