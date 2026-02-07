@@ -1,69 +1,61 @@
 # CloudWatch Container Insights for EKS
-resource "aws_cloudwatch_log_group" "eks_cluster" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
+# Note: CloudWatch log group is managed by EKS module to avoid conflicts
 
-  name              = local.cloudwatch_log_group
-  retention_in_days = var.cloudwatch_log_retention_days
+# CloudWatch Agent is commented out due to repository issues
+# To enable, use AWS Distro for OpenTelemetry (ADOT) instead:
+# https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Container-Insights-setup-EKS-quickstart.html
 
-  tags = merge(
-    local.common_tags,
-    {
-      Name = "${local.cluster_name}-logs"
-    }
-  )
-}
-
-# IAM Role for CloudWatch Container Insights
-module "cloudwatch_observability_irsa" {
-  count   = var.enable_cloudwatch_logs ? 1 : 0
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
-
-  role_name_prefix = "${local.cluster_name}-cw-observability-"
-
-  role_policy_arns = {
-    policy = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
-  }
-
-  oidc_providers = {
-    main = {
-      provider_arn               = module.eks.oidc_provider_arn
-      namespace_service_accounts = ["amazon-cloudwatch:cloudwatch-agent"]
-    }
-  }
-
-  tags = local.common_tags
-}
-
-# Deploy CloudWatch Agent for Container Insights
-resource "helm_release" "cloudwatch_agent" {
-  count = var.enable_cloudwatch_logs ? 1 : 0
-
-  name       = "amazon-cloudwatch-observability"
-  repository = "https://aws-observability.github.io/aws-cloudwatch-metrics"
-  chart      = "amazon-cloudwatch-observability"
-  namespace  = "amazon-cloudwatch"
-  version    = "0.1.0"
-
-  create_namespace = true
-
-  set {
-    name  = "clusterName"
-    value = local.cluster_name
-  }
-
-  set {
-    name  = "region"
-    value = var.aws_region
-  }
-
-  set {
-    name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = module.cloudwatch_observability_irsa[0].iam_role_arn
-  }
-
-  depends_on = [module.eks]
-}
+# # IAM Role for CloudWatch Container Insights
+# module "cloudwatch_observability_irsa" {
+#   count   = var.enable_cloudwatch_logs ? 1 : 0
+#   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
+#   version = "~> 5.0"
+#
+#   role_name_prefix = "${local.cluster_name}-cw-observability-"
+#
+#   role_policy_arns = {
+#     policy = "arn:aws:iam::aws:policy/CloudWatchAgentServerPolicy"
+#   }
+#
+#   oidc_providers = {
+#     main = {
+#       provider_arn               = module.eks.oidc_provider_arn
+#       namespace_service_accounts = ["amazon-cloudwatch:cloudwatch-agent"]
+#     }
+#   }
+#
+#   tags = local.common_tags
+# }
+#
+# # Deploy CloudWatch Agent for Container Insights
+# resource "helm_release" "cloudwatch_agent" {
+#   count = var.enable_cloudwatch_logs ? 1 : 0
+#
+#   name       = "amazon-cloudwatch-observability"
+#   repository = "https://aws-observability.github.io/aws-cloudwatch-metrics"
+#   chart      = "amazon-cloudwatch-observability"
+#   namespace  = "amazon-cloudwatch"
+#   version    = "0.1.0"
+#
+#   create_namespace = true
+#
+#   set {
+#     name  = "clusterName"
+#     value = local.cluster_name
+#   }
+#
+#   set {
+#     name  = "region"
+#     value = var.aws_region
+#   }
+#
+#   set {
+#     name  = "serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+#     value = module.cloudwatch_observability_irsa[0].iam_role_arn
+#   }
+#
+#   depends_on = [module.eks]
+# }
 
 # Kubernetes Namespace for Monitoring Stack
 resource "kubernetes_namespace" "monitoring" {

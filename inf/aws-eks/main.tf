@@ -60,14 +60,14 @@ module "eks" {
   enable_irsa = var.enable_irsa
 
   # CloudWatch logging
-  cluster_enabled_log_types = var.enable_cloudwatch_logs ? [
+  cluster_enabled_log_types           = var.enable_cloudwatch_logs ? [
     "api",
     "audit",
     "authenticator",
     "controllerManager",
     "scheduler"
   ] : []
-
+  create_cloudwatch_log_group            = false
   cloudwatch_log_group_retention_in_days = var.cloudwatch_log_retention_days
 
   # VPC and networking

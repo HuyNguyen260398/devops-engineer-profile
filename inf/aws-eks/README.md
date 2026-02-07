@@ -45,6 +45,168 @@ This Terraform configuration deploys a production-ready Amazon Elastic Kubernete
 - Custom alerts and notifications
 - Historical data for capacity planning
 
+## Infrastructure Resources Summary
+
+This section provides a comprehensive overview of all AWS and Kubernetes resources created by this Terraform configuration and their interconnections.
+
+### Core Infrastructure Layer
+
+#### 1. VPC Module (`module.vpc`)
+Creates the network foundation:
+- **1 VPC** with CIDR block (default: 10.0.0.0/16)
+- **3 Public Subnets** (one per AZ) with Internet Gateway
+- **3 Private Subnets** (one per AZ) for EKS nodes
+- **NAT Gateway(s)** (single for staging, one per AZ for production)
+- **VPC Flow Logs** → CloudWatch Log Group
+- **Route Tables** for public and private subnets
+
+**Tags applied**: Kubernetes discovery tags for subnet auto-detection by load balancers
+
+---
+
+### Kubernetes Cluster Layer
+
+#### 2. EKS Cluster Module (`module.eks`)
+Creates the managed Kubernetes control plane:
+- **EKS Cluster** (named: `dep-{environment}-eks`)
+- **OIDC Identity Provider** (for IRSA - IAM Roles for Service Accounts)
+- **Cluster Security Group** with ingress rules for node communication
+- **Node Security Group** with rules for inter-node and cluster-to-node traffic
+- **CloudWatch Log Groups** for control plane logs (API, audit, authenticator, controller manager, scheduler)
+
+**Connects to**: VPC private subnets, IAM roles
+
+#### 3. EKS Managed Node Groups (via `module.eks`)
+Worker nodes defined in `var.node_groups`:
+- **Auto Scaling Groups** for each node group
+- **EC2 Instances** with specified instance types, disk size, capacity type
+- **IAM Instance Profile** with necessary EKS node permissions
+
+**Connects to**: Private subnets, EKS cluster, security groups
+
+#### 4. Cluster Add-ons
+Automatically installed add-ons:
+- **CoreDNS** - DNS service for the cluster
+- **kube-proxy** - Network proxy
+- **VPC CNI** - Container networking interface
+- **AWS EBS CSI Driver** (conditional) - For persistent volume support
+
+---
+
+### IAM & Security Layer
+
+#### 5. EBS CSI Driver IRSA (`module.ebs_csi_driver_irsa`) - *Conditional*
+- **IAM Role** with EBS CSI policy
+- **OIDC Trust Relationship** linking Kubernetes ServiceAccount to IAM role
+- **ServiceAccount**: `kube-system:ebs-csi-controller-sa`
+
+**Enables**: EBS volumes as Kubernetes PersistentVolumes
+
+#### 6. Cluster Autoscaler IRSA (`module.cluster_autoscaler_irsa`) - *Conditional*
+- **IAM Role** with autoscaling permissions
+- **OIDC Trust Relationship** for `kube-system:cluster-autoscaler` ServiceAccount
+
+**Connects to**: EKS OIDC provider, Auto Scaling Groups
+
+#### 7. CloudWatch Observability IRSA (`module.cloudwatch_observability_irsa`) - *Conditional*
+- **IAM Role** with CloudWatchAgentServerPolicy
+- **ServiceAccount**: `amazon-cloudwatch:cloudwatch-agent`
+
+---
+
+### Monitoring & Observability Layer
+
+#### 8. CloudWatch Resources
+- **CloudWatch Log Group** for EKS cluster logs (`/aws/eks/{cluster-name}/cluster`)
+- **CloudWatch Log Group** for VPC Flow Logs (created by VPC module)
+
+#### 9. Helm Release: CloudWatch Agent - *Conditional*
+- **CloudWatch Agent DaemonSet** in `amazon-cloudwatch` namespace
+- **ServiceAccount** linked to IRSA role
+
+**Purpose**: Container Insights metrics and logs
+
+#### 10. Kubernetes Namespace: Monitoring - *Conditional*
+Created when Prometheus or Grafana is enabled
+
+#### 11. Helm Release: Prometheus Stack - *Conditional*
+Deploys comprehensive monitoring stack:
+- **Prometheus** - Metrics collection and storage (7d retention)
+- **Alertmanager** - Alert routing and management
+- **Grafana** - Visualization dashboards (if enabled)
+- **Node Exporter** - Node-level metrics
+- **Kube State Metrics** - Kubernetes object metrics
+- **Prometheus Operator** - Manages Prometheus CRDs
+
+**All components**: CPU/memory limits set for cost optimization
+
+#### 12. Helm Release: Metrics Server
+- **Metrics Server** in `kube-system` namespace
+
+**Purpose**: Enables Horizontal Pod Autoscaling (HPA), `kubectl top` commands
+
+---
+
+### Auto-scaling Layer
+
+#### 13. Helm Release: Cluster Autoscaler - *Conditional*
+- **Cluster Autoscaler Deployment** in `kube-system` namespace
+- **ServiceAccount** linked to IRSA role
+
+**Purpose**: Automatically scales node groups based on pod resource requirements
+
+---
+
+### Resource Dependency Flow
+
+```
+Data Sources (AZs, Account ID)
+    ↓
+VPC Module
+    ├─→ Subnets (Public/Private)
+    ├─→ NAT Gateway
+    ├─→ Internet Gateway
+    └─→ Flow Logs → CloudWatch
+    ↓
+EKS Cluster Module
+    ├─→ Control Plane
+    ├─→ OIDC Provider
+    ├─→ Security Groups
+    ├─→ Managed Node Groups → EC2 Instances
+    └─→ Cluster Add-ons
+    ↓
+IRSA Modules (IAM Roles with OIDC Trust)
+    ├─→ EBS CSI Driver Role
+    ├─→ Cluster Autoscaler Role
+    └─→ CloudWatch Observability Role
+    ↓
+Helm Releases (Kubernetes Workloads)
+    ├─→ CloudWatch Agent
+    ├─→ Prometheus Stack
+    ├─→ Metrics Server
+    └─→ Cluster Autoscaler
+```
+
+### Key Connections
+
+- **VPC ↔ EKS**: Private subnets host worker nodes; public subnets for load balancers
+- **OIDC ↔ IAM**: Enables pod-level AWS permissions without instance profiles
+- **Helm Charts ↔ IRSA**: ServiceAccounts annotated with IAM role ARNs
+- **Security Groups**: Control traffic between cluster, nodes, and external access
+- **CloudWatch**: Centralized logging for control plane, VPC flows, and container insights
+- **Prometheus**: Scrapes metrics from nodes, pods, and Kubernetes API
+
+### Environment Differences
+
+**Staging**:
+- Single NAT Gateway (cost optimization)
+- Potentially fewer node groups/smaller instances
+
+**Production**:
+- NAT Gateway per AZ (high availability)
+- More robust node configurations
+- Same monitoring/security baseline
+
 ## Prerequisites
 
 ### Required Tools
@@ -161,6 +323,13 @@ terraform apply -var-file="environments/staging.tfvars"
 #### Production
 ```bash
 terraform apply -var-file="environments/production.tfvars"
+```
+
+#### Log Output
+Monitor the output for any errors and confirm successful resource creation.
+```bash
+$Env:TF_LOG="DEBUG"
+$Env:TF_LOG_PATH="C:\Workspace\devops-engineer-profile\inf\aws-eks\terraform.log"
 ```
 
 ### 6. Configure kubectl

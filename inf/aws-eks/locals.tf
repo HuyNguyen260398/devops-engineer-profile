@@ -1,7 +1,7 @@
 # Local values for derived and computed configurations
 locals {
   # Cluster naming (shortened to avoid AWS IAM role name prefix 38-char limit)
-  cluster_name = "doe-${var.environment}-eks"
+  cluster_name = "dep-${var.environment}-eks"
 
   # Availability zones (use defaults if not provided)
   azs = length(var.availability_zones) > 0 ? var.availability_zones : slice(data.aws_availability_zones.available.names, 0, 3)

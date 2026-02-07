@@ -86,12 +86,12 @@ output "cluster_autoscaler_role_arn" {
 # Monitoring Outputs
 output "cloudwatch_log_group_name" {
   description = "CloudWatch log group name for EKS cluster logs"
-  value       = var.enable_cloudwatch_logs ? aws_cloudwatch_log_group.eks_cluster[0].name : null
+  value       = "/aws/eks/${local.cluster_name}/cluster"
 }
 
 output "cloudwatch_log_group_arn" {
   description = "CloudWatch log group ARN for EKS cluster logs"
-  value       = var.enable_cloudwatch_logs ? aws_cloudwatch_log_group.eks_cluster[0].arn : null
+  value       = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/eks/${local.cluster_name}/cluster"
 }
 
 output "prometheus_namespace" {
