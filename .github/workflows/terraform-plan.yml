@@ -1,0 +1,282 @@
+name: Terraform Plan
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "inf/**/*.tf"
+      - "inf/**/*.tfvars"
+      - ".github/workflows/terraform-plan.yml"
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to plan'
+        required: true
+        type: choice
+        options:
+          - staging
+          - production
+      directory:
+        description: 'Terraform directory'
+        required: true
+        type: choice
+        options:
+          - aws-eks
+          - aws-s3-web
+          - aws-github-oidc
+
+# Default permissions: read-only (security-first)
+permissions:
+  contents: read
+  pull-requests: write  # For PR comments
+  id-token: write       # For OIDC authentication
+
+env:
+  TERRAFORM_VERSION: "1.7.0"
+  AWS_REGION: "ap-southeast-1"
+
+# Prevent concurrent plans for the same environment
+concurrency:
+  group: terraform-plan-${{ github.event.inputs.environment || 'pr' }}-${{ github.event.inputs.directory || 'all' }}
+  cancel-in-progress: false  # Don't cancel in-progress plans
+
+jobs:
+  # =============================================================================
+  # Job 1: Detect Changes and Set Up Matrix
+  # =============================================================================
+  setup:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      has-changes: ${{ steps.set-matrix.outputs.has-changes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        with:
+          fetch-depth: 0
+
+      - name: Set up planning matrix
+        id: set-matrix
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            # Manual trigger - plan specific environment and directory
+            ENVIRONMENT="${{ github.event.inputs.environment }}"
+            DIRECTORY="${{ github.event.inputs.directory }}"
+            MATRIX="[{\"environment\":\"$ENVIRONMENT\",\"directory\":\"$DIRECTORY\"}]"
+            echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+            echo "has-changes=true" >> $GITHUB_OUTPUT
+            echo "📋 Planning: $DIRECTORY ($ENVIRONMENT)"
+          else
+            # PR trigger - detect changes and plan affected environments
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA)
+            
+            # Check which directories changed
+            MATRIX="[]"
+            
+            if echo "$CHANGED_FILES" | grep -q "^inf/aws-eks/"; then
+              MATRIX=$(echo $MATRIX | jq '. + [{"environment":"staging","directory":"aws-eks"},{"environment":"production","directory":"aws-eks"}]')
+            fi
+            
+            if echo "$CHANGED_FILES" | grep -q "^inf/aws-s3-web/"; then
+              MATRIX=$(echo $MATRIX | jq '. + [{"environment":"staging","directory":"aws-s3-web"},{"environment":"production","directory":"aws-s3-web"}]')
+            fi
+            
+            if echo "$CHANGED_FILES" | grep -q "^inf/aws-github-oidc/"; then
+              MATRIX=$(echo $MATRIX | jq '. + [{"environment":"production","directory":"aws-github-oidc"}]')
+            fi
+            
+            echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
+            
+            if [ "$MATRIX" != "[]" ]; then
+              echo "has-changes=true" >> $GITHUB_OUTPUT
+              echo "🔍 Changes detected, will plan affected environments"
+            else
+              echo "has-changes=false" >> $GITHUB_OUTPUT
+              echo "ℹ️ No Terraform changes detected"
+            fi
+          fi
+
+  # =============================================================================
+  # Job 2: Terraform Plan for Each Environment
+  # =============================================================================
+  plan:
+    name: Plan ${{ matrix.directory }} (${{ matrix.environment }})
+    needs: setup
+    if: needs.setup.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include: ${{ fromJson(needs.setup.outputs.matrix) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36  # v3.0.0
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # v4.0.0
+        with:
+          path: inf/${{ matrix.directory }}/.terraform
+          key: ${{ runner.os }}-terraform-${{ matrix.directory }}-${{ hashFiles(format('inf/{0}/.terraform.lock.hcl', matrix.directory)) }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-${{ matrix.directory }}-
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502  # v4.0.2
+        with:
+          role-to-assume: arn:aws:iam::010382427026:role/github-actions-terraform-role
+          aws-region: ${{ env.AWS_REGION }}
+          role-session-name: GitHubActions-TerraformPlan-${{ matrix.directory }}-${{ matrix.environment }}
+        continue-on-error: true
+
+      - name: Verify AWS Identity
+        run: |
+          echo "🔐 Verifying AWS credentials..."
+          aws sts get-caller-identity
+
+      - name: Terraform Init
+        working-directory: inf/${{ matrix.directory }}
+        run: |
+          echo "🔧 Initializing Terraform for ${{ matrix.environment }}..."
+          terraform init -input=false
+        continue-on-error: true
+
+      - name: Select or Create Workspace
+        working-directory: inf/${{ matrix.directory }}
+        run: |
+          echo "📂 Managing workspace: ${{ matrix.environment }}"
+          terraform workspace select ${{ matrix.environment }} || terraform workspace new ${{ matrix.environment }}
+          terraform workspace show
+
+      - name: Terraform Plan
+        id: plan
+        working-directory: inf/${{ matrix.directory }}
+        run: |
+          echo "📋 Creating Terraform plan for ${{ matrix.environment }}..."
+          
+          # Check if tfvars file exists
+          TFVARS_FILE="environments/${{ matrix.environment }}.tfvars"
+          if [ -f "$TFVARS_FILE" ]; then
+            echo "Using variables from $TFVARS_FILE"
+            terraform plan -var-file="$TFVARS_FILE" -input=false -no-color -out=tfplan-${{ matrix.environment }} | tee plan-output.txt
+          else
+            echo "No tfvars file found at $TFVARS_FILE, using defaults"
+            terraform plan -input=false -no-color -out=tfplan-${{ matrix.environment }} | tee plan-output.txt
+          fi
+          
+          # Extract plan summary
+          PLAN_SUMMARY=$(grep -E "Plan:|No changes" plan-output.txt | tail -1)
+          echo "plan_summary=$PLAN_SUMMARY" >> $GITHUB_OUTPUT
+          
+          echo "✅ Plan completed successfully"
+        continue-on-error: true
+
+      - name: Upload Plan Artifact
+        if: steps.plan.outcome == 'success'
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3  # v4.3.1
+        with:
+          name: tfplan-${{ matrix.directory }}-${{ matrix.environment }}-${{ github.run_number }}
+          path: |
+            inf/${{ matrix.directory }}/tfplan-${{ matrix.environment }}
+            inf/${{ matrix.directory }}/plan-output.txt
+          retention-days: 30
+
+      - name: Comment Plan Summary on PR
+        if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
+        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const fs = require('fs');
+            const planOutput = fs.readFileSync('inf/${{ matrix.directory }}/plan-output.txt', 'utf8');
+            const planSummary = planOutput.split('\n').slice(-50).join('\n');  // Last 50 lines
+            
+            const output = `### Terraform Plan: \`${{ matrix.directory }}\` (\`${{ matrix.environment }}\`)
+            
+            #### 📋 Plan Summary
+            \`\`\`
+            ${{ steps.plan.outputs.plan_summary }}
+            \`\`\`
+            
+            <details><summary>📄 Show Plan Details (last 50 lines)</summary>
+            
+            \`\`\`terraform
+            ${planSummary}
+            \`\`\`
+            
+            </details>
+            
+            **Environment:** \`${{ matrix.environment }}\`  
+            **Workflow:** \`${{ github.workflow }}\`  
+            **Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})  
+            **Commit:** \`${{ github.sha }}\`
+            
+            ---
+            
+            💡 **Next Steps:**
+            - Review the plan carefully
+            - Download the plan artifact for detailed inspection
+            - If approved, the plan can be applied after merge
+            `;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: output
+            });
+
+      - name: Handle Plan Failure
+        if: steps.plan.outcome == 'failure'
+        run: |
+          echo "❌ Terraform plan failed for ${{ matrix.directory }} (${{ matrix.environment }})"
+          echo "Please review the logs above for details."
+          exit 1
+
+  # =============================================================================
+  # Job 3: Plan Summary
+  # =============================================================================
+  summary:
+    name: Planning Summary
+    needs: [setup, plan]
+    if: always() && needs.setup.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "# 📋 Terraform Planning Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 🎯 Planning Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | Details |" >> $GITHUB_STEP_SUMMARY
+          echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Plan Execution | ${{ needs.plan.result == 'success' && '✅ Successful' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          if [[ "${{ needs.plan.result }}" == "success" ]]; then
+            echo "## ✅ All Plans Generated Successfully" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Plan artifacts have been uploaded and are available for review." >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "### 📦 Artifacts" >> $GITHUB_STEP_SUMMARY
+            echo "- Plan files are saved with 30-day retention" >> $GITHUB_STEP_SUMMARY
+            echo "- Download artifacts from the workflow run page" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Planning Failed" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "Please review the job logs for detailed error information." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi
+          
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Workflow Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Actor:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
