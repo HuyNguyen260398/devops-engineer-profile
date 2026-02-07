@@ -113,15 +113,15 @@ jobs:
         include: ${{ fromJson(needs.setup.outputs.matrix) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@v6
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36  # v3.0.0
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Cache Terraform providers
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # v4.0.0
+        uses: actions/cache@v5
         with:
           path: inf/${{ matrix.directory }}/.terraform
           key: ${{ runner.os }}-terraform-${{ matrix.directory }}-${{ hashFiles(format('inf/{0}/.terraform.lock.hcl', matrix.directory)) }}
@@ -129,7 +129,7 @@ jobs:
             ${{ runner.os }}-terraform-${{ matrix.directory }}-
 
       - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@e3dd6a429d7300a6a4c196c26e071d42e0343502  # v4.0.2
+        uses: aws-actions/configure-aws-credentials@v6
         with:
           role-to-assume: arn:aws:iam::010382427026:role/github-actions-terraform-role
           aws-region: ${{ env.AWS_REGION }}
@@ -180,7 +180,7 @@ jobs:
 
       - name: Upload Plan Artifact
         if: steps.plan.outcome == 'success'
-        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58bb5c2f3  # v4.3.1
+        uses: actions/upload-artifact@v6
         with:
           name: tfplan-${{ matrix.directory }}-${{ matrix.environment }}-${{ github.run_number }}
           path: |
@@ -190,7 +190,7 @@ jobs:
 
       - name: Comment Plan Summary on PR
         if: github.event_name == 'pull_request' && steps.plan.outcome == 'success'
-        uses: actions/github-script@60a0d83039c74a4aee543508d2ffcb1c3799cdea  # v7.0.1
+        uses: actions/github-script@v8
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |

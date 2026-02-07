@@ -50,7 +50,7 @@ jobs:
       has-changes: ${{ steps.set-matrix.outputs.has-changes }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@v6
         with:
           fetch-depth: 0  # Need full history to detect changes
 
@@ -109,10 +109,10 @@ jobs:
         directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@v6
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36  # v3.0.0
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
@@ -147,10 +147,10 @@ jobs:
         directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@v6
 
       - name: Cache TFLint plugins
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # v4.0.0
+        uses: actions/cache@v5
         with:
           path: ~/.tflint.d/plugins
           key: ${{ runner.os }}-tflint-${{ hashFiles('**/.tflint.hcl') }}
@@ -158,7 +158,7 @@ jobs:
             ${{ runner.os }}-tflint-
 
       - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@19a52fbac37dacde736cd9f9af9499e3b7d335c8  # v4.0.0
+        uses: terraform-linters/setup-tflint@v6
         with:
           tflint_version: ${{ env.TFLINT_VERSION }}
 
@@ -188,15 +188,15 @@ jobs:
         directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@v6
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@a1502cd9e758c50496cc9ac5308c4843bcd56d36  # v3.0.0
+        uses: hashicorp/setup-terraform@v3
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
 
       - name: Cache Terraform providers
-        uses: actions/cache@13aacd865c20de90d75de3b17ebe84f7a17d57d2  # v4.0.0
+        uses: actions/cache@v5
         with:
           path: inf/${{ matrix.directory }}/.terraform
           key: ${{ runner.os }}-terraform-${{ matrix.directory }}-${{ hashFiles(format('inf/{0}/.terraform.lock.hcl', matrix.directory)) }}
@@ -231,10 +231,10 @@ jobs:
         directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@v6
 
       - name: Run tfsec
-        uses: aquasecurity/tfsec-action@b466648d6e39e7c75324f25d83891162a721f2d6  # v1.0.3
+        uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: inf/${{ matrix.directory }}
           soft_fail: false  # Fail the build on security issues
@@ -243,7 +243,7 @@ jobs:
 
       - name: Upload tfsec SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@e8893c57a1f3a2b659b6b55564fdfdbbd2982911  # v3.24.0
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif
           category: tfsec-${{ matrix.directory }}
@@ -262,10 +262,10 @@ jobs:
         directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
     steps:
       - name: Checkout repository
-        uses: actions/checkout@b4ffde65f46336ab88eb53be808477a3936bae11  # v4.1.1
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@0a5c61591373683505ea898e09a3ea4f39ef2b9c  # v5.0.0
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
           cache: "pip"
@@ -289,7 +289,7 @@ jobs:
 
       - name: Upload Checkov SARIF
         if: always()
-        uses: github/codeql-action/upload-sarif@e8893c57a1f3a2b659b6b55564fdfdbbd2982911  # v3.24.0
+        uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: /tmp/checkov-results/results_sarif.sarif
           category: checkov-${{ matrix.directory }}
