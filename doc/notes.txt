@@ -32,3 +32,15 @@ deploy new version of html to s3
 update website after new sync to s3
 
     https://docs.aws.amazon.com/AmazonCloudFront/latest/DeveloperGuide/Invalidation.html
+
+aws portfolio web
+
+    add option to download pdf cv
+
+github actions
+
+    move aws account id to env / vars
+
+github profile
+
+    create a stunning and attractive readme
