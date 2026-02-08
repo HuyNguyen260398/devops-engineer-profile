@@ -58,7 +58,7 @@ jobs:
         id: set-matrix
         run: |
           # Define all Terraform directories
-          TERRAFORM_DIRS=("aws-eks" "aws-github-oidc" "aws-s3-web")
+          TERRAFORM_DIRS=("aws-github-oidc" "aws-s3-web")
           
           if [ "${{ github.event_name }}" == "pull_request" ]; then
             # For PRs, detect changes

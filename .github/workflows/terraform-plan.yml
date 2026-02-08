@@ -22,7 +22,6 @@ on:
         required: true
         type: choice
         options:
-          - aws-eks
           - aws-s3-web
           - aws-github-oidc
 
@@ -75,10 +74,6 @@ jobs:
             
             # Check which directories changed
             MATRIX="[]"
-            
-            if echo "$CHANGED_FILES" | grep -q "^inf/aws-eks/"; then
-              MATRIX=$(echo $MATRIX | jq '. + [{"environment":"staging","directory":"aws-eks"},{"environment":"production","directory":"aws-eks"}]')
-            fi
             
             if echo "$CHANGED_FILES" | grep -q "^inf/aws-s3-web/"; then
               MATRIX=$(echo $MATRIX | jq '. + [{"environment":"staging","directory":"aws-s3-web"},{"environment":"production","directory":"aws-s3-web"}]')
