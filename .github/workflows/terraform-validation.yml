@@ -249,8 +249,7 @@ jobs:
         with:
           working_directory: inf/terraform/${{ matrix.directory }}
           soft_fail: false # Fail the build on security issues
-          format: sarif
-          additional_args: --minimum-severity MEDIUM
+          additional_args: --format sarif --out results.sarif --minimum-severity MEDIUM
 
       - name: Upload tfsec SARIF
         if: always()
