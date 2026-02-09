@@ -5,8 +5,8 @@ on:
     branches:
       - main
     paths:
-      - "inf/**/*.tf"
-      - "inf/**/*.tfvars"
+      - "inf/terraform/**/*.tf"
+      - "inf/terraform/**/*.tfvars"
       - ".github/workflows/terraform-plan.yml"
   workflow_dispatch:
     inputs:
@@ -18,7 +18,7 @@ on:
           - staging
           - production
       directory:
-        description: "Terraform directory (relative to inf/, e.g., terraform/aws-s3-web)"
+        description: "Terraform project name (e.g., aws-s3-web, aws-github-oidc)"
         required: true
         type: string
 
@@ -54,13 +54,13 @@ jobs:
       - name: Set up planning matrix
         id: set-matrix
         run: |
-          # Auto-discover all Terraform project directories
-          echo "🔍 Discovering Terraform projects in inf/ directory..."
+          # Auto-discover all Terraform project directories in inf/terraform/
+          echo "🔍 Discovering Terraform projects in inf/terraform/ directory..."
           TERRAFORM_DIRS=()
           while IFS= read -r dir; do
-            rel_path="${dir#inf/}"
-            TERRAFORM_DIRS+=("$rel_path")
-          done < <(find inf -type f -name "*.tf" -exec dirname {} \; | sort -u)
+            project_name="$(basename "$dir")"
+            TERRAFORM_DIRS+=("$project_name")
+          done < <(find inf/terraform -mindepth 1 -maxdepth 1 -type d | sort -u)
 
           if [ ${#TERRAFORM_DIRS[@]} -eq 0 ]; then
             echo "⚠️ No Terraform projects found in inf/"
@@ -77,8 +77,8 @@ jobs:
             DIRECTORY="${{ github.event.inputs.directory }}"
             
             # Validate directory exists
-            if [ ! -d "inf/$DIRECTORY" ]; then
-              echo "❌ Directory inf/$DIRECTORY does not exist"
+            if [ ! -d "inf/terraform/$DIRECTORY" ]; then
+              echo "❌ Directory inf/terraform/$DIRECTORY does not exist"
               echo "Available directories: ${TERRAFORM_DIRS[*]}"
               exit 1
             fi
@@ -97,13 +97,13 @@ jobs:
             MATRIX="[]"
             
             for dir in "${TERRAFORM_DIRS[@]}"; do
-              if echo "$CHANGED_FILES" | grep -q "^inf/$dir/"; then
+              if echo "$CHANGED_FILES" | grep -q "^inf/terraform/$dir/"; then
                 echo "📝 Changes detected in: $dir"
                 
                 # Detect available environments for this directory
                 ENVS=()
-                if [ -d "inf/$dir/environments" ]; then
-                  for tfvars in inf/$dir/environments/*.tfvars; do
+                if [ -d "inf/terraform/$dir/environments" ]; then
+                  for tfvars in inf/terraform/$dir/environments/*.tfvars; do
                     if [ -f "$tfvars" ]; then
                       env_name=$(basename "$tfvars" .tfvars)
                       ENVS+=("$env_name")
@@ -158,20 +158,20 @@ jobs:
       - name: Cache Terraform providers
         uses: actions/cache@v5
         with:
-          path: inf/${{ matrix.directory }}/.terraform
-          key: ${{ runner.os }}-terraform-${{ matrix.directory }}-${{ hashFiles(format('inf/{0}/.terraform.lock.hcl', matrix.directory)) }}
+          path: inf/terraform/${{ matrix.directory }}/.terraform
+          key: ${{ runner.os }}-terraform-${{ matrix.directory }}-${{ hashFiles(format('inf/terraform/{0}/.terraform.lock.hcl', matrix.directory)) }}
           restore-keys: |
             ${{ runner.os }}-terraform-${{ matrix.directory }}-
 
       - name: Terraform Init
-        working-directory: inf/${{ matrix.directory }}
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "🔧 Initializing Terraform for ${{ matrix.environment }}..."
           terraform init -input=false
         continue-on-error: true
 
       - name: Select or Create Workspace
-        working-directory: inf/${{ matrix.directory }}
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "📂 Managing workspace: ${{ matrix.environment }}"
           terraform workspace select ${{ matrix.environment }} || terraform workspace new ${{ matrix.environment }}
@@ -179,7 +179,7 @@ jobs:
 
       - name: Terraform Plan
         id: plan
-        working-directory: inf/${{ matrix.directory }}
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "📋 Creating Terraform plan for ${{ matrix.environment }}..."
 
@@ -206,8 +206,8 @@ jobs:
         with:
           name: tfplan-${{ matrix.directory }}-${{ matrix.environment }}-${{ github.run_number }}
           path: |
-            inf/${{ matrix.directory }}/tfplan-${{ matrix.environment }}
-            inf/${{ matrix.directory }}/plan-output.txt
+            inf/terraform/${{ matrix.directory }}/tfplan-${{ matrix.environment }}
+            inf/terraform/${{ matrix.directory }}/plan-output.txt
           retention-days: 30
 
       - name: Comment Plan Summary on PR
@@ -217,7 +217,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
             const fs = require('fs');
-            const planOutput = fs.readFileSync('inf/${{ matrix.directory }}/plan-output.txt', 'utf8');
+            const planOutput = fs.readFileSync('inf/terraform/${{ matrix.directory }}/plan-output.txt', 'utf8');
             const planSummary = planOutput.split('\n').slice(-50).join('\n');  // Last 50 lines
 
             const output = `### Terraform Plan: \`${{ matrix.directory }}\` (\`${{ matrix.environment }}\`)

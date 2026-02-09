@@ -6,18 +6,18 @@ on:
       - main
       - develop
     paths:
-      - "inf/**/*.tf"
-      - "inf/**/*.tfvars"
-      - "inf/**/*.tfvars.example"
+      - "inf/terraform/**/*.tf"
+      - "inf/terraform/**/*.tfvars"
+      - "inf/terraform/**/*.tfvars.example"
       - ".github/workflows/terraform-validation.yml"
   push:
     branches:
       - main
       - develop
     paths:
-      - "inf/**/*.tf"
-      - "inf/**/*.tfvars"
-      - "inf/**/*.tfvars.example"
+      - "inf/terraform/**/*.tf"
+      - "inf/terraform/**/*.tfvars"
+      - "inf/terraform/**/*.tfvars.example"
       - ".github/workflows/terraform-validation.yml"
   workflow_dispatch:
 
@@ -57,14 +57,13 @@ jobs:
       - name: Detect changed Terraform directories
         id: set-matrix
         run: |
-          # Auto-discover all Terraform project directories (subdirectories in inf/ containing .tf files)
-          echo "🔍 Discovering Terraform projects in inf/ directory..."
+          # Auto-discover all Terraform project directories in inf/terraform/
+          echo "🔍 Discovering Terraform projects in inf/terraform/ directory..."
           TERRAFORM_DIRS=()
           while IFS= read -r dir; do
-            # Get relative path from inf/ (e.g., "terraform/aws-github-oidc")
-            rel_path="${dir#inf/}"
-            TERRAFORM_DIRS+=("$rel_path")
-          done < <(find inf -type f -name "*.tf" -exec dirname {} \; | sort -u)
+            project_name="$(basename "$dir")"
+            TERRAFORM_DIRS+=("$project_name")
+          done < <(find inf/terraform -mindepth 1 -maxdepth 1 -type d | sort -u)
 
           if [ ${#TERRAFORM_DIRS[@]} -eq 0 ]; then
             echo "⚠️ No Terraform projects found in inf/"
@@ -84,7 +83,7 @@ jobs:
             # Filter directories with changes
             CHANGED_DIRS=()
             for dir in "${TERRAFORM_DIRS[@]}"; do
-              if echo "$CHANGED_FILES" | grep -q "^inf/$dir/"; then
+              if echo "$CHANGED_FILES" | grep -q "^inf/terraform/$dir/"; then
                 CHANGED_DIRS+=("$dir")
               fi
             done
@@ -130,7 +129,7 @@ jobs:
 
       - name: Terraform Format Check
         id: fmt
-        working-directory: inf/${{ matrix.directory }}
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "🔍 Checking Terraform formatting..."
           terraform fmt -check -recursive -diff
@@ -175,13 +174,13 @@ jobs:
           tflint_version: ${{ env.TFLINT_VERSION }}
 
       - name: Initialize TFLint
-        working-directory: inf/${{ matrix.directory }}
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "🔧 Initializing TFLint..."
           tflint --init
 
       - name: Run TFLint
-        working-directory: inf/${{ matrix.directory }}
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "🔍 Running TFLint..."
           tflint --format=compact --recursive
@@ -210,13 +209,13 @@ jobs:
       - name: Cache Terraform providers
         uses: actions/cache@v5
         with:
-          path: inf/${{ matrix.directory }}/.terraform
-          key: ${{ runner.os }}-terraform-${{ matrix.directory }}-${{ hashFiles(format('inf/{0}/.terraform.lock.hcl', matrix.directory)) }}
+          path: inf/terraform/${{ matrix.directory }}/.terraform
+          key: ${{ runner.os }}-terraform-${{ matrix.directory }}-${{ hashFiles(format('inf/terraform/{0}/.terraform.lock.hcl', matrix.directory)) }}
           restore-keys: |
             ${{ runner.os }}-terraform-${{ matrix.directory }}-
 
       - name: Terraform Init
-        working-directory: inf/${{ matrix.directory }}
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "🔧 Initializing Terraform..."
           terraform init -backend=false -input=false
@@ -224,7 +223,7 @@ jobs:
           TF_LOG: INFO
 
       - name: Terraform Validate
-        working-directory: inf/${{ matrix.directory }}
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "✅ Validating Terraform configuration..."
           terraform validate -no-color
@@ -248,7 +247,7 @@ jobs:
       - name: Run tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
-          working_directory: inf/${{ matrix.directory }}
+          working_directory: inf/terraform/${{ matrix.directory }}
           soft_fail: false # Fail the build on security issues
           format: sarif
           additional_args: --minimum-severity MEDIUM
@@ -287,7 +286,7 @@ jobs:
           pip install checkov==${{ env.CHECKOV_VERSION }}
 
       - name: Run Checkov
-        working-directory: inf/${{ matrix.directory }}
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "🔍 Running Checkov security scan..."
           checkov --directory . \
