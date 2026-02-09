@@ -24,9 +24,9 @@ on:
 # Default permissions: read-only (security-first)
 permissions:
   contents: read
-  pull-requests: write  # For PR comments with plan output
-  id-token: write       # For OIDC authentication with AWS (if needed)
-  security-events: write  # For uploading SARIF results
+  pull-requests: write # For PR comments with plan output
+  id-token: write # For OIDC authentication with AWS (if needed)
+  security-events: write # For uploading SARIF results
 
 env:
   TERRAFORM_VERSION: "1.7.0"
@@ -52,48 +52,60 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 0  # Need full history to detect changes
+          fetch-depth: 0 # Need full history to detect changes
 
       - name: Detect changed Terraform directories
         id: set-matrix
         run: |
-          # Define all Terraform directories
-          TERRAFORM_DIRS=("aws-github-oidc" "aws-s3-web")
-          
+          # Auto-discover all Terraform project directories (subdirectories in inf/ containing .tf files)
+          echo "🔍 Discovering Terraform projects in inf/ directory..."
+          TERRAFORM_DIRS=()
+          while IFS= read -r dir; do
+            # Get relative path from inf/ (e.g., "terraform/aws-github-oidc")
+            rel_path="${dir#inf/}"
+            TERRAFORM_DIRS+=("$rel_path")
+          done < <(find inf -type f -name "*.tf" -exec dirname {} \; | sort -u)
+
+          if [ ${#TERRAFORM_DIRS[@]} -eq 0 ]; then
+            echo "⚠️ No Terraform projects found in inf/"
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "directories=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📁 Discovered Terraform projects: ${TERRAFORM_DIRS[*]}"
+
           if [ "${{ github.event_name }}" == "pull_request" ]; then
-            # For PRs, detect changes
+            # For PRs, only validate directories with changes
             BASE_SHA="${{ github.event.pull_request.base.sha }}"
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
             CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA)
-          else
-            # For push events, check all directories
-            CHANGED_FILES=$(find inf -name "*.tf" -o -name "*.tfvars" 2>/dev/null || echo "")
-          fi
-          
-          # Filter directories with changes
-          CHANGED_DIRS=()
-          for dir in "${TERRAFORM_DIRS[@]}"; do
-            if echo "$CHANGED_FILES" | grep -q "^inf/$dir/"; then
-              CHANGED_DIRS+=("$dir")
+            
+            # Filter directories with changes
+            CHANGED_DIRS=()
+            for dir in "${TERRAFORM_DIRS[@]}"; do
+              if echo "$CHANGED_FILES" | grep -q "^inf/$dir/"; then
+                CHANGED_DIRS+=("$dir")
+              fi
+            done
+            
+            # If no changes detected, exit early
+            if [ ${#CHANGED_DIRS[@]} -eq 0 ]; then
+              echo "ℹ️ No Terraform changes detected in this PR"
+              echo "has-changes=false" >> $GITHUB_OUTPUT
+              echo "directories=[]" >> $GITHUB_OUTPUT
+              exit 0
             fi
-          done
-          
-          # If no specific changes detected or it's a manual trigger, validate all
-          if [ ${#CHANGED_DIRS[@]} -eq 0 ] || [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+          else
+            # For push events and manual triggers, validate all discovered directories
             CHANGED_DIRS=("${TERRAFORM_DIRS[@]}")
           fi
-          
+
           # Convert to JSON array for matrix
           MATRIX_JSON=$(printf '%s\n' "${CHANGED_DIRS[@]}" | jq -R . | jq -s -c .)
           echo "directories=$MATRIX_JSON" >> $GITHUB_OUTPUT
-          
-          if [ ${#CHANGED_DIRS[@]} -gt 0 ]; then
-            echo "has-changes=true" >> $GITHUB_OUTPUT
-            echo "🔍 Will validate: ${CHANGED_DIRS[*]}"
-          else
-            echo "has-changes=false" >> $GITHUB_OUTPUT
-            echo "ℹ️ No Terraform changes detected"
-          fi
+          echo "has-changes=true" >> $GITHUB_OUTPUT
+          echo "🔍 Will validate: ${CHANGED_DIRS[*]}"
 
   # =============================================================================
   # Job 2: Terraform Format Check
@@ -123,7 +135,7 @@ jobs:
           echo "🔍 Checking Terraform formatting..."
           terraform fmt -check -recursive -diff
           FMT_EXIT_CODE=$?
-          
+
           if [ $FMT_EXIT_CODE -eq 0 ]; then
             echo "✅ All files are properly formatted"
             echo "status=success" >> $GITHUB_OUTPUT
@@ -237,7 +249,7 @@ jobs:
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: inf/${{ matrix.directory }}
-          soft_fail: false  # Fail the build on security issues
+          soft_fail: false # Fail the build on security issues
           format: sarif
           additional_args: --minimum-severity MEDIUM
 
@@ -285,7 +297,7 @@ jobs:
             --output cli \
             --output sarif \
             --output-file-path /tmp/checkov-results
-        continue-on-error: true  # Don't fail build, just report
+        continue-on-error: true # Don't fail build, just report
 
       - name: Upload Checkov SARIF
         if: always()
@@ -299,7 +311,7 @@ jobs:
   # =============================================================================
   summary:
     name: Validation Summary
-    needs: 
+    needs:
       - detect-changes
       - terraform-fmt
       - tflint
@@ -329,7 +341,7 @@ jobs:
           echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
           echo "- **Actor:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           # Determine overall status
           if [[ "${{ needs.terraform-fmt.result }}" == "success" ]] && \
              [[ "${{ needs.tflint.result }}" == "success" ]] && \
