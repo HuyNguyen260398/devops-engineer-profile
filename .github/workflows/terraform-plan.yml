@@ -30,7 +30,6 @@ permissions:
 
 env:
   TERRAFORM_VERSION: "1.7.0"
-  AWS_REGION: "ap-southeast-1"
 
 # Prevent concurrent plans for the same environment
 concurrency:
@@ -163,19 +162,6 @@ jobs:
           key: ${{ runner.os }}-terraform-${{ matrix.directory }}-${{ hashFiles(format('inf/{0}/.terraform.lock.hcl', matrix.directory)) }}
           restore-keys: |
             ${{ runner.os }}-terraform-${{ matrix.directory }}-
-
-      - name: Configure AWS Credentials (OIDC)
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: arn:aws:iam::010382427026:role/github-actions-terraform-role
-          aws-region: ${{ env.AWS_REGION }}
-          role-session-name: GitHubActions-TerraformPlan-${{ matrix.directory }}-${{ matrix.environment }}
-        continue-on-error: true
-
-      - name: Verify AWS Identity
-        run: |
-          echo "🔐 Verifying AWS credentials..."
-          aws sts get-caller-identity
 
       - name: Terraform Init
         working-directory: inf/${{ matrix.directory }}
