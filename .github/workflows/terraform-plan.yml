@@ -119,7 +119,7 @@ jobs:
                 
                 # Add each environment to the matrix
                 for env in "${ENVS[@]}"; do
-                  MATRIX=$(echo $MATRIX | jq --arg dir "$dir" --arg env "$env" '. + [{"environment":$env,"directory":$dir}]')
+                  MATRIX=$(echo $MATRIX | jq -c --arg dir "$dir" --arg env "$env" '. + [{"environment":$env,"directory":$dir}]')
                 done
               fi
             done
