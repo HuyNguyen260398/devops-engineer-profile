@@ -49,7 +49,7 @@ resource "aws_s3_bucket_website_configuration" "website" {
     for_each = var.routing_rules
     content {
       condition {
-        key_prefix_equals = lookup(routing_rule.value.condition, "key_prefix_equals", null)
+        key_prefix_equals               = lookup(routing_rule.value.condition, "key_prefix_equals", null)
         http_error_code_returned_equals = lookup(routing_rule.value.condition, "http_error_code_returned_equals", null)
       }
       redirect {

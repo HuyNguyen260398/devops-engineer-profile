@@ -11,25 +11,22 @@ on:
   workflow_dispatch:
     inputs:
       environment:
-        description: 'Environment to plan'
+        description: "Environment to plan"
         required: true
         type: choice
         options:
           - staging
           - production
       directory:
-        description: 'Terraform directory'
+        description: "Terraform directory (relative to inf/, e.g., terraform/aws-s3-web)"
         required: true
-        type: choice
-        options:
-          - aws-s3-web
-          - aws-github-oidc
+        type: string
 
 # Default permissions: read-only (security-first)
 permissions:
   contents: read
-  pull-requests: write  # For PR comments
-  id-token: write       # For OIDC authentication
+  pull-requests: write # For PR comments
+  id-token: write # For OIDC authentication
 
 env:
   TERRAFORM_VERSION: "1.7.0"
@@ -38,7 +35,7 @@ env:
 # Prevent concurrent plans for the same environment
 concurrency:
   group: terraform-plan-${{ github.event.inputs.environment || 'pr' }}-${{ github.event.inputs.directory || 'all' }}
-  cancel-in-progress: false  # Don't cancel in-progress plans
+  cancel-in-progress: false # Don't cancel in-progress plans
 
 jobs:
   # =============================================================================
@@ -58,10 +55,35 @@ jobs:
       - name: Set up planning matrix
         id: set-matrix
         run: |
+          # Auto-discover all Terraform project directories
+          echo "🔍 Discovering Terraform projects in inf/ directory..."
+          TERRAFORM_DIRS=()
+          while IFS= read -r dir; do
+            rel_path="${dir#inf/}"
+            TERRAFORM_DIRS+=("$rel_path")
+          done < <(find inf -type f -name "*.tf" -exec dirname {} \; | sort -u)
+
+          if [ ${#TERRAFORM_DIRS[@]} -eq 0 ]; then
+            echo "⚠️ No Terraform projects found in inf/"
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "matrix=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📁 Discovered Terraform projects: ${TERRAFORM_DIRS[*]}"
+
           if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
             # Manual trigger - plan specific environment and directory
             ENVIRONMENT="${{ github.event.inputs.environment }}"
             DIRECTORY="${{ github.event.inputs.directory }}"
+            
+            # Validate directory exists
+            if [ ! -d "inf/$DIRECTORY" ]; then
+              echo "❌ Directory inf/$DIRECTORY does not exist"
+              echo "Available directories: ${TERRAFORM_DIRS[*]}"
+              exit 1
+            fi
+            
             MATRIX="[{\"environment\":\"$ENVIRONMENT\",\"directory\":\"$DIRECTORY\"}]"
             echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
             echo "has-changes=true" >> $GITHUB_OUTPUT
@@ -72,22 +94,41 @@ jobs:
             HEAD_SHA="${{ github.event.pull_request.head.sha }}"
             CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA)
             
-            # Check which directories changed
+            # Build matrix for all changed directories with their environments
             MATRIX="[]"
             
-            if echo "$CHANGED_FILES" | grep -q "^inf/aws-s3-web/"; then
-              MATRIX=$(echo $MATRIX | jq '. + [{"environment":"staging","directory":"aws-s3-web"},{"environment":"production","directory":"aws-s3-web"}]')
-            fi
-            
-            if echo "$CHANGED_FILES" | grep -q "^inf/aws-github-oidc/"; then
-              MATRIX=$(echo $MATRIX | jq '. + [{"environment":"production","directory":"aws-github-oidc"}]')
-            fi
+            for dir in "${TERRAFORM_DIRS[@]}"; do
+              if echo "$CHANGED_FILES" | grep -q "^inf/$dir/"; then
+                echo "📝 Changes detected in: $dir"
+                
+                # Detect available environments for this directory
+                ENVS=()
+                if [ -d "inf/$dir/environments" ]; then
+                  for tfvars in inf/$dir/environments/*.tfvars; do
+                    if [ -f "$tfvars" ]; then
+                      env_name=$(basename "$tfvars" .tfvars)
+                      ENVS+=("$env_name")
+                    fi
+                  done
+                fi
+                
+                # If no environment files found, use a default
+                if [ ${#ENVS[@]} -eq 0 ]; then
+                  ENVS=("default")
+                fi
+                
+                # Add each environment to the matrix
+                for env in "${ENVS[@]}"; do
+                  MATRIX=$(echo $MATRIX | jq --arg dir "$dir" --arg env "$env" '. + [{"environment":$env,"directory":$dir}]')
+                done
+              fi
+            done
             
             echo "matrix=$MATRIX" >> $GITHUB_OUTPUT
             
             if [ "$MATRIX" != "[]" ]; then
               echo "has-changes=true" >> $GITHUB_OUTPUT
-              echo "🔍 Changes detected, will plan affected environments"
+              echo "🔍 Will plan: $(echo $MATRIX | jq -r '.[] | "\(.directory) (\(.environment))"' | tr '\n' ' ')"
             else
               echo "has-changes=false" >> $GITHUB_OUTPUT
               echo "ℹ️ No Terraform changes detected"
@@ -155,7 +196,7 @@ jobs:
         working-directory: inf/${{ matrix.directory }}
         run: |
           echo "📋 Creating Terraform plan for ${{ matrix.environment }}..."
-          
+
           # Check if tfvars file exists
           TFVARS_FILE="environments/${{ matrix.environment }}.tfvars"
           if [ -f "$TFVARS_FILE" ]; then
@@ -165,11 +206,11 @@ jobs:
             echo "No tfvars file found at $TFVARS_FILE, using defaults"
             terraform plan -input=false -no-color -out=tfplan-${{ matrix.environment }} | tee plan-output.txt
           fi
-          
+
           # Extract plan summary
           PLAN_SUMMARY=$(grep -E "Plan:|No changes" plan-output.txt | tail -1)
           echo "plan_summary=$PLAN_SUMMARY" >> $GITHUB_OUTPUT
-          
+
           echo "✅ Plan completed successfully"
         continue-on-error: true
 
@@ -192,35 +233,35 @@ jobs:
             const fs = require('fs');
             const planOutput = fs.readFileSync('inf/${{ matrix.directory }}/plan-output.txt', 'utf8');
             const planSummary = planOutput.split('\n').slice(-50).join('\n');  // Last 50 lines
-            
+
             const output = `### Terraform Plan: \`${{ matrix.directory }}\` (\`${{ matrix.environment }}\`)
-            
+
             #### 📋 Plan Summary
             \`\`\`
             ${{ steps.plan.outputs.plan_summary }}
             \`\`\`
-            
+
             <details><summary>📄 Show Plan Details (last 50 lines)</summary>
-            
+
             \`\`\`terraform
             ${planSummary}
             \`\`\`
-            
+
             </details>
-            
+
             **Environment:** \`${{ matrix.environment }}\`  
             **Workflow:** \`${{ github.workflow }}\`  
             **Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})  
             **Commit:** \`${{ github.sha }}\`
-            
+
             ---
-            
+
             💡 **Next Steps:**
             - Review the plan carefully
             - Download the plan artifact for detailed inspection
             - If approved, the plan can be applied after merge
             `;
-            
+
             github.rest.issues.createComment({
               issue_number: context.issue.number,
               owner: context.repo.owner,
@@ -254,7 +295,7 @@ jobs:
           echo "|--------|---------|" >> $GITHUB_STEP_SUMMARY
           echo "| Plan Execution | ${{ needs.plan.result == 'success' && '✅ Successful' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
-          
+
           if [[ "${{ needs.plan.result }}" == "success" ]]; then
             echo "## ✅ All Plans Generated Successfully" >> $GITHUB_STEP_SUMMARY
             echo "" >> $GITHUB_STEP_SUMMARY
@@ -269,7 +310,7 @@ jobs:
             echo "Please review the job logs for detailed error information." >> $GITHUB_STEP_SUMMARY
             exit 1
           fi
-          
+
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "## 📋 Workflow Details" >> $GITHUB_STEP_SUMMARY
           echo "- **Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY

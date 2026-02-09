@@ -6,7 +6,6 @@ github_repository  = "devops-engineer-profile"
 github_token       = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Use environment variable or secrets manager in CI/CD
 
 aws_region         = "us-east-1"
-aws_account_id     = "aws-account-id"
 aws_role_name      = "github-actions-s3-sync-role"
 s3_bucket_name     = "your-prod-s3-bucket-name"
 
@@ -19,9 +18,6 @@ enable_oidc_authentication = true
 # Fallback authentication (only use if OIDC is not available)
 # aws_access_key_id     = ""  # Use environment variable
 # aws_secret_access_key = ""  # Use environment variable
-
-# GitHub Actions environments that can assume the role (optional)
-github_actions_environments = []
 
 # Additional tags for resource identification
 tags = {

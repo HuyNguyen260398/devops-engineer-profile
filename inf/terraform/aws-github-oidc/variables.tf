@@ -30,13 +30,6 @@ variable "aws_role_name" {
   nullable    = false
 }
 
-variable "aws_account_id" {
-  description = "AWS account ID for the IAM role and resources"
-  type        = string
-  default     = ""
-  nullable    = false
-}
-
 variable "s3_bucket_name_prod" {
   description = "Name of the S3 bucket for syncing web content in production environment"
   type        = string
@@ -80,13 +73,6 @@ variable "enable_oidc_authentication" {
   description = "Enable GitHub Actions OIDC-based authentication with AWS (recommended over access keys)"
   type        = bool
   default     = true
-  nullable    = false
-}
-
-variable "github_actions_environments" {
-  description = "List of GitHub Actions environment names that can assume the IAM role"
-  type        = list(string)
-  default     = [""]
   nullable    = false
 }
 
