@@ -1,0 +1,356 @@
+name: Terraform Validation
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+    paths:
+      - "inf/terraform/**/*.tf"
+      - "inf/terraform/**/*.tfvars"
+      - "inf/terraform/**/*.tfvars.example"
+      - ".github/workflows/terraform-validation.yml"
+  push:
+    branches:
+      - main
+      - develop
+    paths:
+      - "inf/terraform/**/*.tf"
+      - "inf/terraform/**/*.tfvars"
+      - "inf/terraform/**/*.tfvars.example"
+      - ".github/workflows/terraform-validation.yml"
+  workflow_dispatch:
+
+# Default permissions: read-only (security-first)
+permissions:
+  contents: read
+  pull-requests: write # For PR comments with plan output
+  id-token: write # For OIDC authentication with AWS (if needed)
+  security-events: write # For uploading SARIF results
+
+env:
+  TERRAFORM_VERSION: "1.7.0"
+  TFLINT_VERSION: "v0.50.3"
+  TFSEC_VERSION: "v1.28.5"
+  CHECKOV_VERSION: "3.2.0"
+
+# Prevent concurrent runs on the same PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # =============================================================================
+  # Job 1: Detect Changed Terraform Directories
+  # =============================================================================
+  detect-changes:
+    runs-on: ubuntu-latest
+    outputs:
+      directories: ${{ steps.set-matrix.outputs.directories }}
+      has-changes: ${{ steps.set-matrix.outputs.has-changes }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0 # Need full history to detect changes
+
+      - name: Detect changed Terraform directories
+        id: set-matrix
+        run: |
+          # Auto-discover all Terraform project directories in inf/terraform/
+          echo "🔍 Discovering Terraform projects in inf/terraform/ directory..."
+          TERRAFORM_DIRS=()
+          while IFS= read -r dir; do
+            project_name="$(basename "$dir")"
+            TERRAFORM_DIRS+=("$project_name")
+          done < <(find inf/terraform -mindepth 1 -maxdepth 1 -type d | sort -u)
+
+          if [ ${#TERRAFORM_DIRS[@]} -eq 0 ]; then
+            echo "⚠️ No Terraform projects found in inf/"
+            echo "has-changes=false" >> $GITHUB_OUTPUT
+            echo "directories=[]" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+
+          echo "📁 Discovered Terraform projects: ${TERRAFORM_DIRS[*]}"
+
+          if [ "${{ github.event_name }}" == "pull_request" ]; then
+            # For PRs, only validate directories with changes
+            BASE_SHA="${{ github.event.pull_request.base.sha }}"
+            HEAD_SHA="${{ github.event.pull_request.head.sha }}"
+            CHANGED_FILES=$(git diff --name-only $BASE_SHA $HEAD_SHA)
+            
+            # Filter directories with changes
+            CHANGED_DIRS=()
+            for dir in "${TERRAFORM_DIRS[@]}"; do
+              if echo "$CHANGED_FILES" | grep -q "^inf/terraform/$dir/"; then
+                CHANGED_DIRS+=("$dir")
+              fi
+            done
+            
+            # If no changes detected, exit early
+            if [ ${#CHANGED_DIRS[@]} -eq 0 ]; then
+              echo "ℹ️ No Terraform changes detected in this PR"
+              echo "has-changes=false" >> $GITHUB_OUTPUT
+              echo "directories=[]" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          else
+            # For push events and manual triggers, validate all discovered directories
+            CHANGED_DIRS=("${TERRAFORM_DIRS[@]}")
+          fi
+
+          # Convert to JSON array for matrix
+          MATRIX_JSON=$(printf '%s\n' "${CHANGED_DIRS[@]}" | jq -R . | jq -s -c .)
+          echo "directories=$MATRIX_JSON" >> $GITHUB_OUTPUT
+          echo "has-changes=true" >> $GITHUB_OUTPUT
+          echo "🔍 Will validate: ${CHANGED_DIRS[*]}"
+
+  # =============================================================================
+  # Job 2: Terraform Format Check
+  # =============================================================================
+  terraform-fmt:
+    name: Format Check (${{ matrix.directory }})
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Terraform Format Check
+        id: fmt
+        working-directory: inf/terraform/${{ matrix.directory }}
+        run: |
+          echo "🔍 Checking Terraform formatting..."
+          terraform fmt -check -recursive -diff
+          FMT_EXIT_CODE=$?
+
+          if [ $FMT_EXIT_CODE -eq 0 ]; then
+            echo "✅ All files are properly formatted"
+            echo "status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Formatting issues detected. Run 'terraform fmt -recursive' to fix."
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+
+  # =============================================================================
+  # Job 3: TFLint (Terraform Linting)
+  # =============================================================================
+  tflint:
+    name: TFLint (${{ matrix.directory }})
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Cache TFLint plugins
+        uses: actions/cache@v5
+        with:
+          path: ~/.tflint.d/plugins
+          key: ${{ runner.os }}-tflint-${{ hashFiles('**/.tflint.hcl') }}
+          restore-keys: |
+            ${{ runner.os }}-tflint-
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+
+      - name: Initialize TFLint
+        working-directory: inf/terraform/${{ matrix.directory }}
+        run: |
+          echo "🔧 Initializing TFLint..."
+          tflint --init
+
+      - name: Run TFLint
+        working-directory: inf/terraform/${{ matrix.directory }}
+        run: |
+          echo "🔍 Running TFLint..."
+          tflint --format=compact --recursive
+
+  # =============================================================================
+  # Job 4: Terraform Validate
+  # =============================================================================
+  terraform-validate:
+    name: Validate (${{ matrix.directory }})
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Cache Terraform providers
+        uses: actions/cache@v5
+        with:
+          path: inf/terraform/${{ matrix.directory }}/.terraform
+          key: ${{ runner.os }}-terraform-${{ matrix.directory }}-${{ hashFiles(format('inf/terraform/{0}/.terraform.lock.hcl', matrix.directory)) }}
+          restore-keys: |
+            ${{ runner.os }}-terraform-${{ matrix.directory }}-
+
+      - name: Terraform Init
+        working-directory: inf/terraform/${{ matrix.directory }}
+        run: |
+          echo "🔧 Initializing Terraform..."
+          terraform init -backend=false -input=false
+        env:
+          TF_LOG: INFO
+
+      - name: Terraform Validate
+        working-directory: inf/terraform/${{ matrix.directory }}
+        run: |
+          echo "✅ Validating Terraform configuration..."
+          terraform validate -no-color
+
+  # =============================================================================
+  # Job 5: tfsec Security Scanning
+  # =============================================================================
+  tfsec:
+    name: tfsec (${{ matrix.directory }})
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Run tfsec
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: inf/terraform/${{ matrix.directory }}
+          soft_fail: false # Fail the build on security issues
+          additional_args: --format sarif --out results.sarif --minimum-severity MEDIUM
+
+      - name: Upload tfsec SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: results.sarif
+          category: tfsec-${{ matrix.directory }}
+
+  # =============================================================================
+  # Job 6: Checkov Security & Compliance Scanning
+  # =============================================================================
+  checkov:
+    name: Checkov (${{ matrix.directory }})
+    needs: detect-changes
+    if: needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        directory: ${{ fromJson(needs.detect-changes.outputs.directories) }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install Checkov
+        run: |
+          pip install checkov==${{ env.CHECKOV_VERSION }}
+
+      - name: Run Checkov
+        working-directory: inf/terraform/${{ matrix.directory }}
+        run: |
+          echo "🔍 Running Checkov security scan..."
+          checkov --directory . \
+            --framework terraform \
+            --compact \
+            --quiet \
+            --output cli \
+            --output sarif \
+            --output-file-path /tmp/checkov-results
+        continue-on-error: true # Don't fail build, just report
+
+      - name: Upload Checkov SARIF
+        if: always()
+        uses: github/codeql-action/upload-sarif@v4
+        with:
+          sarif_file: /tmp/checkov-results/results_sarif.sarif
+          category: checkov-${{ matrix.directory }}
+
+  # =============================================================================
+  # Job 7: Summary Report
+  # =============================================================================
+  summary:
+    name: Validation Summary
+    needs:
+      - detect-changes
+      - terraform-fmt
+      - tflint
+      - terraform-validate
+      - tfsec
+      - checkov
+    if: always() && needs.detect-changes.outputs.has-changes == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Generate Summary
+        run: |
+          echo "# 🏗️ Terraform Validation Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📊 Validation Results" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Check | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Format Check | ${{ needs.terraform-fmt.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| TFLint | ${{ needs.tflint.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Terraform Validate | ${{ needs.terraform-validate.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| tfsec Security | ${{ needs.tfsec.result == 'success' && '✅ Passed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Checkov Compliance | ${{ needs.checkov.result == 'success' && '✅ Passed' || '⚠️ Review Needed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## 📋 Workflow Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Trigger:** \`${{ github.event_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** \`${{ github.ref_name }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Commit:** \`${{ github.sha }}\`" >> $GITHUB_STEP_SUMMARY
+          echo "- **Actor:** @${{ github.actor }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          # Determine overall status
+          if [[ "${{ needs.terraform-fmt.result }}" == "success" ]] && \
+             [[ "${{ needs.tflint.result }}" == "success" ]] && \
+             [[ "${{ needs.terraform-validate.result }}" == "success" ]] && \
+             [[ "${{ needs.tfsec.result }}" == "success" ]]; then
+            echo "## ✅ Overall Status: PASSED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "All critical validation checks passed successfully!" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "## ❌ Overall Status: FAILED" >> $GITHUB_STEP_SUMMARY
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "One or more validation checks failed. Please review the logs above." >> $GITHUB_STEP_SUMMARY
+            exit 1
+          fi

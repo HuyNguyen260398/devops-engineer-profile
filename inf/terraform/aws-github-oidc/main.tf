@@ -5,43 +5,43 @@
 # GitHub repository secret for AWS region
 # Note: Requires GitHub token with 'repo' and 'workflow' scopes
 resource "github_actions_secret" "aws_region" {
-  count            = var.create_github_secrets ? 1 : 0
-  repository       = var.github_repository
-  secret_name      = "AWS_REGION"
-  plaintext_value  = var.aws_region
-  depends_on       = []
+  count           = var.create_github_secrets ? 1 : 0
+  repository      = var.github_repository
+  secret_name     = "AWS_REGION"
+  plaintext_value = var.aws_region
+  depends_on      = []
 }
 
 # GitHub repository secret for AWS access key ID (fallback authentication)
 # Only create if access key is provided and OIDC is disabled or not primary
 # Note: Requires GitHub token with 'repo' and 'workflow' scopes
 resource "github_actions_secret" "aws_access_key_id" {
-  count            = var.aws_access_key_id != "" && var.create_github_secrets ? 1 : 0
-  repository       = var.github_repository
-  secret_name      = "AWS_ACCESS_KEY_ID"
-  plaintext_value  = var.aws_access_key_id
-  depends_on       = []
+  count           = var.aws_access_key_id != "" && var.create_github_secrets ? 1 : 0
+  repository      = var.github_repository
+  secret_name     = "AWS_ACCESS_KEY_ID"
+  plaintext_value = var.aws_access_key_id
+  depends_on      = []
 }
 
 # GitHub repository secret for AWS secret access key (fallback authentication)
 # Only create if secret access key is provided and OIDC is disabled or not primary
 # Note: Requires GitHub token with 'repo' and 'workflow' scopes
 resource "github_actions_secret" "aws_secret_access_key" {
-  count            = var.aws_secret_access_key != "" && var.create_github_secrets ? 1 : 0
-  repository       = var.github_repository
-  secret_name      = "AWS_SECRET_ACCESS_KEY"
-  plaintext_value  = var.aws_secret_access_key
-  depends_on       = []
+  count           = var.aws_secret_access_key != "" && var.create_github_secrets ? 1 : 0
+  repository      = var.github_repository
+  secret_name     = "AWS_SECRET_ACCESS_KEY"
+  plaintext_value = var.aws_secret_access_key
+  depends_on      = []
 }
 
 # GitHub repository secret for AWS IAM role ARN (OIDC-based authentication)
 # Note: Requires GitHub token with 'repo' and 'workflow' scopes
 resource "github_actions_secret" "aws_role_to_assume" {
-  count            = var.enable_oidc_authentication && var.create_github_secrets ? 1 : 0
-  repository       = var.github_repository
-  secret_name      = "AWS_ROLE_TO_ASSUME"
-  plaintext_value  = aws_iam_role.github_actions_oidc[0].arn
-  depends_on       = [aws_iam_role.github_actions_oidc]
+  count           = var.enable_oidc_authentication && var.create_github_secrets ? 1 : 0
+  repository      = var.github_repository
+  secret_name     = "AWS_ROLE_TO_ASSUME"
+  plaintext_value = aws_iam_role.github_actions_oidc[0].arn
+  depends_on      = [aws_iam_role.github_actions_oidc]
 }
 
 # ==============================================================================
@@ -51,11 +51,11 @@ resource "github_actions_secret" "aws_role_to_assume" {
 # GitHub repository variable for S3 bucket name
 # Note: Requires GitHub token with 'repo' and 'workflow' scopes
 resource "github_actions_variable" "s3_bucket_name" {
-  count            = var.create_github_variables ? 1 : 0
-  repository       = var.github_repository
-  variable_name    = "S3_BUCKET_NAME"
-  value            = var.s3_bucket_name_prod
-  depends_on       = []
+  count         = var.create_github_variables ? 1 : 0
+  repository    = var.github_repository
+  variable_name = "S3_BUCKET_NAME"
+  value         = var.s3_bucket_name_prod
+  depends_on    = []
 }
 
 # ==============================================================================
@@ -72,8 +72,8 @@ resource "aws_iam_openid_connect_provider" "github" {
 
   # GitHub's OIDC provider certificate thumbprint
   thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1",  # Current thumbprint (as of 2024)
-    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"   # Legacy thumbprint
+    "6938fd4d98bab03faadb97b34396831e3780aea1", # Current thumbprint (as of 2024)
+    "1c58a3a8518e8759bf075b76b750d4f2df264fcd"  # Legacy thumbprint
   ]
 
   tags = local.common_tags

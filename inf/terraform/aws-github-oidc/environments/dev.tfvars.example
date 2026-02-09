@@ -20,9 +20,6 @@ enable_oidc_authentication = true
 # aws_access_key_id     = ""  # Use TF_VAR_aws_access_key_id environment variable
 # aws_secret_access_key = ""  # Use TF_VAR_aws_secret_access_key environment variable
 
-# GitHub Actions environments that can assume the role (optional)
-github_actions_environments = []
-
 # Additional tags for resource identification
 tags = {
   Owner       = "DevOps Team"

@@ -12,9 +12,6 @@ locals {
   # GitHub OIDC Configuration
   github_oidc_provider_url = "https://token.actions.githubusercontent.com"
   github_oidc_provider_arn = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:oidc-provider/token.actions.githubusercontent.com"
-
-  # Filter out empty environment names
-  valid_environments = [for env in var.github_actions_environments : env if env != ""]
 }
 
 # Data source to get current AWS account ID
