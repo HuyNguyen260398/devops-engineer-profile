@@ -244,26 +244,28 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
-      - name: Install tfsec
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Init Terraform
+        working-directory: inf/terraform/${{ matrix.directory }}
         run: |
-          wget -q https://github.com/aquasecurity/tfsec/releases/download/${{ env.TFSEC_VERSION }}/tfsec-linux-amd64
-          chmod +x tfsec-linux-amd64
-          sudo mv tfsec-linux-amd64 /usr/local/bin/tfsec
-          tfsec --version
+          echo "🔧 Initializing Terraform for tfsec..."
+          terraform init
 
       - name: Run tfsec
-        run: |
-          echo "🔍 Running tfsec security scan..."
-          tfsec inf/terraform/${{ matrix.directory }} \
-            --format sarif \
-            --out tfsec-${{ matrix.directory }}.sarif \
-            --minimum-severity MEDIUM
+        uses: aquasecurity/tfsec-action@v1.0.3
+        with:
+          working_directory: inf/terraform/${{ matrix.directory }}
+          soft_fail: false # Fail the build on security issues
+          additional_args: --format sarif --out results.sarif --minimum-severity MEDIUM
 
       - name: Upload tfsec SARIF
-        if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
-          sarif_file: tfsec-${{ matrix.directory }}.sarif
+          sarif_file: results.sarif
           category: tfsec-${{ matrix.directory }}
 
   # =============================================================================
