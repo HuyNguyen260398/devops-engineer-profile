@@ -72,7 +72,7 @@ This configuration supports two authentication methods:
    ```bash
    export AWS_ACCESS_KEY_ID="AKIAIOSFODNN7EXAMPLE"
    export AWS_SECRET_ACCESS_KEY="wJalrXUtnFEMI/K7MDENG/bPxRfiCYEXAMPLEKEY"
-   export AWS_DEFAULT_REGION="us-east-1"
+   export AWS_DEFAULT_REGION="ap-southeast-1"
    ```
 
 3. **Required Variables**
@@ -118,7 +118,7 @@ terraform output configuration_summary
 github_owner       = "my-org"
 github_repository  = "devops-engineer-profile"
 github_token       = var.github_token  # Set via environment variable
-aws_region         = "us-east-1"
+aws_region         = "ap-southeast-1"
 s3_bucket_name     = "my-bucket-name"
 enable_oidc_authentication = true
 ```
@@ -128,7 +128,7 @@ enable_oidc_authentication = true
 github_owner       = "my-org"
 github_repository  = "devops-engineer-profile"
 github_token       = var.github_token
-aws_region         = "us-east-1"
+aws_region         = "ap-southeast-1"
 s3_bucket_name     = "my-bucket-name"
 enable_oidc_authentication = true
 aws_access_key_id     = var.aws_access_key_id

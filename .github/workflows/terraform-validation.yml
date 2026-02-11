@@ -244,15 +244,26 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+      - name: Init Terraform
+        working-directory: inf/terraform/${{ matrix.directory }}
+        run: |
+          echo "🔧 Initializing Terraform for tfsec..."
+          terraform init
+
       - name: Run tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
         with:
           working_directory: inf/terraform/${{ matrix.directory }}
           soft_fail: false # Fail the build on security issues
           additional_args: --format sarif --out results.sarif --minimum-severity MEDIUM
+          github_token: ${{ secrets.PAT_GITHUB_ACTIONS }}
 
       - name: Upload tfsec SARIF
-        if: always()
         uses: github/codeql-action/upload-sarif@v4
         with:
           sarif_file: results.sarif

@@ -3,7 +3,7 @@
 variable "aws_region" {
   description = "AWS region where resources will be created"
   type        = string
-  default     = "us-east-1"
+  default     = "ap-southeast-1"
 }
 
 variable "environment" {
@@ -19,7 +19,7 @@ variable "environment" {
 variable "project_name" {
   description = "Project name used for resource naming and tagging"
   type        = string
-  default     = "devops-profile"
+  default     = "devops-engineer-profile"
 }
 
 variable "bucket_name" {
