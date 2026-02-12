@@ -1,0 +1,502 @@
+# Jenkins Helm Values - Production Environment (AWS EKS)
+# High Availability, Security Hardened, GitOps-ready configuration
+
+jenkins:
+  enabled: true
+  
+  controller:
+    componentName: "jenkins-controller"
+    image:
+      registry: "docker.io"
+      repository: "jenkins/jenkins"
+      tag: "2.440-jdk17"
+      pullPolicy: "IfNotPresent"
+      imagePullSecretName: ""
+    
+    # Admin credentials - MUST use AWS Secrets Manager
+    adminUser: "admin"
+    adminSecret: true
+    existingSecret: "jenkins-admin-credentials"
+    
+    # Production-grade resource allocation
+    resources:
+      requests:
+        cpu: "2"
+        memory: "4Gi"
+      limits:
+        cpu: "8"
+        memory: "8Gi"
+    
+    # Java options optimized for production
+    javaOpts: >-
+      -Xmx6144m
+      -Xms4096m
+      -XX:+UseG1GC
+      -XX:MaxGCPauseMillis=100
+      -XX:+UseStringDeduplication
+      -XX:+ParallelRefProcEnabled
+      -XX:+DisableExplicitGC
+      -XX:+UnlockExperimentalVMOptions
+      -XX:G1NewSizePercent=20
+      -XX:+UnlockDiagnosticVMOptions
+      -XX:G1SummarizeRSetStatsPeriod=1
+      -Dhudson.slaves.NodeProvisioner.initialDelay=0
+      -Dhudson.slaves.NodeProvisioner.MARGIN=50
+      -Dhudson.slaves.NodeProvisioner.MARGIN0=0.85
+      -Djenkins.model.Jenkins.slaveAgentPort=50000
+      -Djenkins.model.Jenkins.slaveAgentPortEnforce=true
+      -Djenkins.install.runSetupWizard=false
+      -Djava.awt.headless=true
+    
+    # Service configuration - Internal NLB for production
+    serviceType: LoadBalancer
+    serviceAnnotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+      service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+      service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
+      # Enable access logs
+      service.beta.kubernetes.io/aws-load-balancer-access-log-enabled: "true"
+      service.beta.kubernetes.io/aws-load-balancer-access-log-s3-bucket-name: "jenkins-prod-lb-logs"
+    
+    # Jenkins URL - Production domain
+    jenkinsUrl: "https://jenkins.example.com"
+    jenkinsUriPrefix: "/"
+    
+    # No executors on controller
+    numExecutors: 0
+    
+    # Comprehensive plugin set for production
+    installPlugins:
+      # Core
+      - kubernetes:4252.v6f6f9050e0e4
+      - workflow-aggregator:600.vb_57cdd26fdd7
+      - git:5.2.2
+      - configuration-as-code:1850.va_a_8c31d3158b_
+      - credentials-binding:670.v857b_6d8d5909
+      
+      # UI and Visualization
+      - blueocean:1.27.14
+      - pipeline-stage-view:2.34
+      - dashboard-view:2.519.v3b_8e8c8e0473
+      
+      # Monitoring and Observability
+      - prometheus:2.5.0
+      - metrics:4.2.21-451.vd51df8df52ec
+      
+      # SCM
+      - github-branch-source:1797.v86fdb_4d57d43
+      - gitlab-plugin:1.8.1
+      
+      # Container and Cloud
+      - docker-workflow:580.vc0c340686b_54
+      - kubernetes-credentials-provider:1.262.v2670ef7ea_0c5
+      - amazon-ecr:2.2
+      - aws-credentials:218.v1b_e9466ec5da_
+      
+      # Security
+      - role-strategy:727.vd344b_eec783d
+      - matrix-auth:3.2.2
+      - audit-trail:381.va_1c7088dcb_8c
+      - oic-auth:4.350.va_30a_31d8054f
+      
+      # Quality and Testing
+      - warnings-ng:10.8.0
+      - code-coverage-api:4.1.0
+      - junit:1265.v65b_14fa_f12f0
+    
+    # Additional production plugins
+    additionalPlugins:
+      - job-dsl:1.87
+      - pipeline-utility-steps:2.17.0
+      - http_request:1.18
+      - ansicolor:1.0.4
+      - timestamper:1.26
+      - ws-cleanup:0.45
+      - pipeline-aws:1.43
+      - slack:674.v31281a_5734cc
+      - email-ext:2.108
+      - build-timeout:1.33
+      - generic-webhook-trigger:2.2.2
+      - cloudbees-folder:6.858.v898218f3609d
+      - pipeline-model-definition:2.2214.vb_b_34b_2ea_9b_83
+      - lockable-resources:1214.v1b_9d13d4e724
+    
+    # Jenkins Configuration as Code (JCasC)
+    JCasC:
+      defaultConfig: true
+      configScripts:
+        welcome-message: |
+          jenkins:
+            systemMessage: "Jenkins Production Environment - EKS Cluster - GitOps Managed"
+            quietPeriod: 5
+            scmCheckoutRetryCount: 3
+        
+        security-config: |
+          jenkins:
+            securityRealm:
+              local:
+                allowsSignup: false
+            authorizationStrategy:
+              roleBased:
+                roles:
+                  global:
+                    - name: "admin"
+                      description: "Jenkins administrators"
+                      permissions:
+                        - "Overall/Administer"
+                      assignments:
+                        - "admin"
+                    - name: "developer"
+                      description: "Jenkins developers"
+                      permissions:
+                        - "Overall/Read"
+                        - "Job/Build"
+                        - "Job/Cancel"
+                        - "Job/Read"
+                        - "Job/Workspace"
+                        - "View/Read"
+                      assignments:
+                        - "authenticated"
+                    - name: "viewer"
+                      description: "Read-only access"
+                      permissions:
+                        - "Overall/Read"
+                        - "Job/Read"
+                        - "View/Read"
+                      assignments:
+                        - "viewer"
+            
+            crumbIssuer:
+              standard:
+                excludeClientIPFromCrumb: false
+            
+            remotingSecurity:
+              enabled: true
+        
+        kubernetes-cloud: |
+          jenkins:
+            clouds:
+              - kubernetes:
+                  name: "eks-production"
+                  serverUrl: "https://kubernetes.default"
+                  namespace: "jenkins-production"
+                  jenkinsUrl: "http://jenkins:8080"
+                  jenkinsTunnel: "jenkins-agent:50000"
+                  containerCapStr: "50"
+                  connectTimeout: 5
+                  readTimeout: 15
+                  retentionTimeout: 5
+                  maxRequestsPerHostStr: 64
+                  podLabels:
+                    - key: "jenkins/agent"
+                      value: "true"
+                    - key: "environment"
+                      value: "production"
+                  templates:
+                    - name: "jenkins-agent-default"
+                      namespace: "jenkins-production"
+                      label: "jenkins-agent"
+                      nodeUsageMode: NORMAL
+                      serviceAccount: "jenkins-agent"
+                      idleMinutes: 10
+                      containers:
+                        - name: "jnlp"
+                          image: "jenkins/inbound-agent:latest-jdk17"
+                          workingDir: "/home/jenkins/agent"
+                          ttyEnabled: true
+                          resourceRequestCpu: "1"
+                          resourceRequestMemory: "2Gi"
+                          resourceLimitCpu: "4"
+                          resourceLimitMemory: "4Gi"
+                    
+                    - name: "jenkins-agent-docker"
+                      namespace: "jenkins-production"
+                      label: "docker"
+                      nodeUsageMode: EXCLUSIVE
+                      serviceAccount: "jenkins-agent"
+                      idleMinutes: 5
+                      yaml: |
+                        spec:
+                          securityContext:
+                            fsGroup: 1000
+                            runAsUser: 1000
+                          containers:
+                          - name: jnlp
+                            image: jenkins/inbound-agent:latest-jdk17
+                            resources:
+                              requests:
+                                cpu: 500m
+                                memory: 1Gi
+                              limits:
+                                cpu: 1
+                                memory: 2Gi
+                          - name: docker
+                            image: docker:24-dind
+                            securityContext:
+                              privileged: true
+                            env:
+                            - name: DOCKER_TLS_CERTDIR
+                              value: ""
+                            resources:
+                              requests:
+                                cpu: 2
+                                memory: 4Gi
+                              limits:
+                                cpu: 4
+                                memory: 8Gi
+                            volumeMounts:
+                            - name: docker-storage
+                              mountPath: /var/lib/docker
+                          volumes:
+                          - name: docker-storage
+                            emptyDir: {}
+                    
+                    - name: "jenkins-agent-maven"
+                      namespace: "jenkins-production"
+                      label: "maven"
+                      nodeUsageMode: EXCLUSIVE
+                      serviceAccount: "jenkins-agent"
+                      containers:
+                        - name: "maven"
+                          image: "maven:3.9-eclipse-temurin-17"
+                          command: "/bin/sh -c"
+                          args: "cat"
+                          ttyEnabled: true
+                          resourceRequestCpu: "1"
+                          resourceRequestMemory: "2Gi"
+                          resourceLimitCpu: "4"
+                          resourceLimitMemory: "4Gi"
+                    
+                    - name: "jenkins-agent-nodejs"
+                      namespace: "jenkins-production"
+                      label: "nodejs"
+                      nodeUsageMode: EXCLUSIVE
+                      serviceAccount: "jenkins-agent"
+                      containers:
+                        - name: "nodejs"
+                          image: "node:20-alpine"
+                          command: "/bin/sh -c"
+                          args: "cat"
+                          ttyEnabled: true
+                          resourceRequestCpu: "1"
+                          resourceRequestMemory: "2Gi"
+                          resourceLimitCpu: "4"
+                          resourceLimitMemory: "4Gi"
+        
+        location-config: |
+          unclassified:
+            location:
+              url: "https://jenkins.example.com"
+              adminAddress: "jenkins-admin@example.com"
+        
+        global-libraries: |
+          unclassified:
+            globalLibraries:
+              libraries:
+              - name: "shared-pipeline-library"
+                retriever:
+                  modernSCM:
+                    scm:
+                      git:
+                        remote: "https://github.com/your-org/jenkins-shared-library.git"
+                        credentialsId: "github-credentials"
+                defaultVersion: "main"
+                implicit: false
+                allowVersionOverride: true
+    
+    # Security context - Production hardened
+    securityContext:
+      runAsUser: 1000
+      fsGroup: 1000
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    
+    # Container security context
+    containerSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      readOnlyRootFilesystem: false
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    
+    # Production health checks with strict thresholds
+    healthProbes: true
+    probes:
+      startupProbe:
+        httpGet:
+          path: '/login'
+          port: http
+        initialDelaySeconds: 120
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 24
+      livenessProbe:
+        httpGet:
+          path: '/login'
+          port: http
+        initialDelaySeconds: 180
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 5
+      readinessProbe:
+        httpGet:
+          path: '/login'
+          port: http
+        initialDelaySeconds: 120
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+    
+    # Ingress with TLS termination
+    ingress:
+      enabled: true
+      ingressClassName: "nginx"
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-prod"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "100m"
+        nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+        nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
+        # Rate limiting
+        nginx.ingress.kubernetes.io/limit-rps: "100"
+        # WAF
+        nginx.ingress.kubernetes.io/enable-modsecurity: "true"
+        nginx.ingress.kubernetes.io/enable-owasp-core-rules: "true"
+      hosts:
+        - host: "jenkins.example.com"
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: jenkins-production-tls
+          hosts:
+            - jenkins.example.com
+    
+    # Pod disruption budget for high availability
+    podDisruptionBudget:
+      enabled: true
+      maxUnavailable: 0
+      annotations: {}
+    
+    # Affinity for spreading across AZs
+    affinity:
+      podAntiAffinity:
+        preferredDuringSchedulingIgnoredDuringExecution:
+          - weight: 100
+            podAffinityTerm:
+              labelSelector:
+                matchExpressions:
+                  - key: app.kubernetes.io/component
+                    operator: In
+                    values:
+                      - jenkins-controller
+              topologyKey: topology.kubernetes.io/zone
+  
+  # Persistence - Enterprise-grade EBS with snapshots
+  persistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: "gp3"  # AWS EBS gp3 for production
+    accessMode: "ReadWriteOnce"
+    size: "100Gi"
+    annotations:
+      # Enable EBS volume snapshots via EBS Snapshot Controller
+      snapshot.storage.kubernetes.io/is-default-class: "true"
+    labels:
+      environment: "production"
+      backup: "enabled"
+    volumes: []
+    mounts: []
+  
+  # Agent configuration
+  agent:
+    enabled: true
+    defaultsProviderTemplate: "jenkins-agent-default"
+    namespace: "jenkins-production"
+    
+    # Keep pods for debugging failed builds
+    podRetention: "OnFailure"
+    
+    # Agent resources
+    resources:
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+      limits:
+        cpu: "4"
+        memory: "4Gi"
+    
+    # Agent security
+    runAsUser: 1000
+    runAsGroup: 1000
+    
+    # Pod templates configuration
+    podTemplates:
+      jnlp: |
+        - name: jnlp
+          image: jenkins/inbound-agent:latest-jdk17
+          workingDir: /home/jenkins/agent
+          resourceRequestCpu: 1
+          resourceRequestMemory: 2Gi
+          resourceLimitCpu: 4
+          resourceLimitMemory: 4Gi
+  
+  # Service Account with IRSA for AWS access
+  serviceAccount:
+    create: true
+    name: "jenkins"
+    annotations:
+      # Configure IRSA for accessing AWS services
+      eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/jenkins-production-role"
+  
+  # Service Account for agents
+  serviceAccountAgent:
+    create: true
+    name: "jenkins-agent"
+    annotations:
+      eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/jenkins-agent-production-role"
+  
+  # RBAC
+  rbac:
+    create: true
+    readSecrets: true
+  
+  # Network Policy - Production strict rules
+  networkPolicy:
+    enabled: true
+    apiVersion: networking.k8s.io/v1
+    internalAgents:
+      allowed: true
+      namespaceLabels:
+        name: "jenkins-production"
+    externalAgents:
+      ipCIDR: "10.0.0.0/8"  # VPC CIDR
+  
+  # Prometheus monitoring - Production grade
+  prometheus:
+    enabled: true
+    serviceMonitorNamespace: "monitoring"
+    serviceMonitorAdditionalLabels:
+      release: "prometheus"
+    prometheusRuleNamespace: "monitoring"
+    relabelings:
+      - sourceLabels: [__meta_kubernetes_pod_name]
+        separator: ;
+        regex: ^(.*)$
+        targetLabel: pod
+        replacement: $1
+        action: replace
+  
+  # Backup configuration - Critical for production
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"  # Daily at 2 AM
+    annotations:
+      backup.velero.io/backup-volumes: "jenkins-home"
+      backup.velero.io/backup-volumes-excludes: "tmp,cache"

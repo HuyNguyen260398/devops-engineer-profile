@@ -1,0 +1,93 @@
+# ArgoCD Application for Jenkins Production Environment
+# GitOps deployment configuration for EKS production cluster
+# Requires manual approval for sync
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins-production
+  namespace: argocd
+  labels:
+    environment: production
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/component: ci-cd
+    critical: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    notifications.argoproj.io/subscribe.on-deployed.slack: "devops-production"
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: "devops-critical-alerts"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: "devops-critical-alerts"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: production  # Ensure this ArgoCD project exists with strict RBAC
+  
+  source:
+    repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main  # Or use tags/releases for production
+    path: ops/jenkins/helm
+    helm:
+      valueFiles:
+        - values/values-production.yaml
+      # Parameter overrides should come from separate secure source
+      parameters: []
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jenkins-production
+  
+  syncPolicy:
+    # Manual sync for production - NO automated sync
+    automated: null
+    
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 10m
+  
+  # Ignore differences in runtime fields
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+        - /spec/replicas
+    - group: ""
+      kind: Secret
+      name: jenkins-admin-credentials
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: PersistentVolumeClaim
+      jsonPointers:
+        - /spec/resources/requests/storage
+  
+  # Sync windows - only during maintenance windows
+  syncWindows:
+    - kind: deny
+      schedule: "0 0-7,19-23 * * *"  # Deny outside business hours
+      duration: 12h
+      applications:
+        - jenkins-production
+      namespaces:
+        - jenkins-production
+    - kind: allow
+      schedule: "0 20-22 * * 6"  # Allow Saturday 8-10 PM for planned maintenance
+      duration: 2h
+      applications:
+        - jenkins-production
+      namespaces:
+        - jenkins-production
+      manualSync: true
+  
+  # Resource tracking for enhanced observability
+  revisionHistoryLimit: 10

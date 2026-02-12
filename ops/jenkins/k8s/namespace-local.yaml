@@ -1,0 +1,10 @@
+# Namespace for Jenkins Local Development
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jenkins
+  labels:
+    name: jenkins
+    environment: local
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/component: ci-cd

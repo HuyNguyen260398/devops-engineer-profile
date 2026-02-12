@@ -1,0 +1,73 @@
+# ArgoCD Application for Jenkins Staging Environment
+# GitOps deployment configuration for EKS staging cluster
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins-staging
+  namespace: argocd
+  labels:
+    environment: staging
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/component: ci-cd
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    notifications.argoproj.io/subscribe.on-deployed.slack: "devops-notifications"
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: "devops-alerts"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: staging  # Ensure this ArgoCD project exists
+  
+  source:
+    repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: ops/jenkins/helm
+    helm:
+      valueFiles:
+        - values/values-staging.yaml
+      # Override parameters if needed
+      parameters: []
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jenkins-staging
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 5m
+  
+  # Define health assessment for custom resources
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+    - group: ""
+      kind: Secret
+      name: jenkins-admin-credentials
+      jsonPointers:
+        - /data
+  
+  # Sync windows - allow syncing during business hours only
+  syncWindows:
+    - kind: allow
+      schedule: "0 8-18 * * 1-5"  # Monday-Friday, 8 AM - 6 PM
+      duration: 10h
+      applications:
+        - jenkins-staging
+      namespaces:
+        - jenkins-staging
