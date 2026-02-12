@@ -1,0 +1,55 @@
+# ArgoCD Application for Jenkins Local Development
+# This is for reference only - typically you won't use ArgoCD for local development
+# Deploy manually using: helm install jenkins ./helm -f values/values-local.yaml -n jenkins
+
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins-local
+  namespace: argocd
+  labels:
+    environment: local
+    app.kubernetes.io/name: jenkins
+  annotations:
+    argocd.argoproj.io/sync-wave: "2"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  
+  source:
+    repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: ops/jenkins/helm
+    helm:
+      valueFiles:
+        - values/values-local.yaml
+      parameters:
+        - name: jenkins.controller.adminPassword
+          value: "admin123"  # Only for local dev
+  
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jenkins
+  
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
