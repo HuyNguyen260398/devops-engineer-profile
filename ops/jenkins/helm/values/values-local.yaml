@@ -9,13 +9,14 @@ jenkins:
     image:
       registry: "docker.io"
       repository: "jenkins/jenkins"
-      tag: "2.440-jdk17"
+      tag: "2.550-jdk21"
       pullPolicy: "IfNotPresent"
     
-    # Admin credentials (Use secrets in production!)
-    adminUser: "admin"
-    # Generate password with: openssl rand -base64 32
-    adminPassword: "admin123"  # CHANGE THIS!
+    admin:
+      # Admin credentials (Use secrets in production!)
+      username: "admin"
+      # Generate password with: openssl rand -base64 32
+      password: "admin123"  # CHANGE THIS!
     
     # Resource limits for local environment
     resources:
@@ -49,19 +50,7 @@ jenkins:
     
     # Installation of plugins
     installPlugins:
-      - kubernetes:4252.v6f6f9050e0e4
-      - workflow-aggregator:600.vb_57cdd26fdd7
-      - git:5.2.2
-      - configuration-as-code:1850.va_a_8c31d3158b_
-      - credentials-binding:670.v857b_6d8d5909
       - blueocean:1.27.14
-      - prometheus:2.5.0
-      - github-branch-source:1797.v86fdb_4d57d43
-      - pipeline-stage-view:2.34
-      - docker-workflow:580.vc0c340686b_54
-      - kubernetes-credentials-provider:1.262.v2670ef7ea_0c5
-      - role-strategy:727.vd344b_eec783d
-      - matrix-auth:3.2.2
     
     # Additional plugins for GitOps and modern workflows
     additionalPlugins:
@@ -164,7 +153,7 @@ jenkins:
   persistence:
     enabled: true
     existingClaim: ""
-    storageClass: "standard"  # Use default local storage class
+    storageClass: "hostpath"  # Use default local storage class
     accessMode: "ReadWriteOnce"
     size: "8Gi"
     volumes: []
@@ -218,8 +207,4 @@ jenkins:
   
   # Network Policy (disabled for local)
   networkPolicy:
-    enabled: false
-  
-  # Backup configuration (disabled for local)
-  backup:
     enabled: false
