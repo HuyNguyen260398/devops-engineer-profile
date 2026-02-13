@@ -10,4 +10,4 @@ metadata:
     app.kubernetes.io/component: ci-cd
     app.kubernetes.io/part-of: devops-platform
   annotations:
-    description: "Jenkins CI/CD Server - Staging Environment"
+    description: "DEP Jenkins - Staging"
