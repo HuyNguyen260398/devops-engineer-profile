@@ -5,6 +5,15 @@
 
 ---
 
+## ♾️ .github/ - GitHub Actions Workflows
+
+### Workflows
+- ✅ **Create workflow for AWS S3 web sync**
+
+- ✅ **Create workflow for Terraform validation and plan**
+
+---
+
 ## 📝 doc/ - Documentation
 
 ### GitHub Profile Enhancement
@@ -15,6 +24,13 @@
 ## 🏗️ inf/ - Infrastructure as Code
 
 ### Terraform Configurations
+- ✅ **Add Terraform configuration for AWS EKS deployment**
+
+- [ ] **Add Terraform configuration for Jenkins deployment to AWS EKS**
+
+- [ ] **Add Terraform configuration for ArgoCD deployment to AWS EKS**
+
+- [ ] **Add Terraform configuration for Prometheus and Grafana monitoring AWS EKS**
 
 ---
 
@@ -30,11 +46,11 @@
 ### aws-s3-web (Portfolio Website)
 
 #### New Features
-- [ ] **Add News/Feeds Section**
+- ✅ **Add News/Feeds Section**
 
-- [ ] **Add GitHub Activities/Projects Showcase**
+- ✅ **Add GitHub Activities/Projects Showcase**
 
-- [ ] **Add downloadable PDF CV option**
+- ✅ **Add downloadable PDF CV option**
 
 ---
 
@@ -69,6 +85,6 @@ This TODO list is organized to match the project's directory structure:
 
 ### Task Management
 - Use `- [ ]` for pending tasks
-- Use `- [x]` for completed tasks
+- Use `- ✅` for completed tasks
 - Move completed items to the "Completed Items" section with date
 - Bold text indicates high-priority or critical tasks

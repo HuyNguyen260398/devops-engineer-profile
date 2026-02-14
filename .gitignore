@@ -65,6 +65,7 @@ build/
 *.jar
 *.tar.gz
 *.zip
+*.tgz
 
 # OS-specific
 Thumbs.db
@@ -93,3 +94,6 @@ temp/
 # Local development overrides
 local/
 .local/
+
+# Helm charts
+chart.lock
