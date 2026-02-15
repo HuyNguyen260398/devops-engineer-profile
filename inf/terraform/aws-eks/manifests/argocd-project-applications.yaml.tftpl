@@ -1,0 +1,92 @@
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: applications
+  namespace: ${namespace}
+  labels:
+    app.kubernetes.io/name: applications
+    app.kubernetes.io/part-of: argocd
+    app.kubernetes.io/managed-by: terraform
+    environment: ${environment}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "Application workloads for ${cluster_name} - ${environment}"
+
+  # Source repositories allowed for this project
+  sourceRepos:
+    - '*'
+
+  # Destination clusters and namespaces (application-specific namespaces)
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: default
+    - server: https://kubernetes.default.svc
+      namespace: 'apps-*'
+    - server: https://kubernetes.default.svc
+      namespace: staging
+    - server: https://kubernetes.default.svc
+      namespace: production
+
+  # Restrict cluster-scoped resources for application workloads
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+
+  # Namespace-scoped resources
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: ServiceAccount
+    - group: ''
+      kind: PersistentVolumeClaim
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: apps
+      kind: DaemonSet
+    - group: batch
+      kind: Job
+    - group: batch
+      kind: CronJob
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: policy
+      kind: PodDisruptionBudget
+
+  # Deny access to cluster-wide sensitive resources
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+
+  # Orphaned resources monitoring
+  orphanedResources:
+    warn: true
+
+  # Roles for this project
+  roles:
+    - name: app-admin
+      description: "Full access to applications project"
+      policies:
+        - p, proj:applications:app-admin, applications, *, applications/*, allow
+      groups:
+        - devops-team
+        - dev-team
+    - name: app-viewer
+      description: "Read-only access to applications project"
+      policies:
+        - p, proj:applications:app-viewer, applications, get, applications/*, allow
+      groups:
+        - viewer-team

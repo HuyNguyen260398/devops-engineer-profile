@@ -1,0 +1,41 @@
+{{- if .Values.apps }}
+{{- range $name, $app := .Values.apps }}
+{{- if $app.enabled }}
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {{ $name }}
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: {{ $name }}
+    app.kubernetes.io/part-of: argocd-apps
+    app.kubernetes.io/managed-by: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: {{ default "applications" $app.project }}
+  source:
+    repoURL: {{ default $.Values.source.repoURL $app.repoURL }}
+    targetRevision: {{ default $.Values.source.targetRevision $app.targetRevision }}
+    path: {{ $app.path }}
+  destination:
+    server: {{ $.Values.destination.server }}
+    namespace: {{ $app.namespace }}
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - PruneLast=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 30s
+        factor: 2
+        maxDuration: 3m0s
+{{- end }}
+{{- end }}
+{{- end }}

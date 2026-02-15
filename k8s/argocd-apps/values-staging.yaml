@@ -1,0 +1,10 @@
+# Staging environment overrides for App-of-Apps
+
+source:
+  targetRevision: develop
+
+apps:
+  ingress-nginx:
+    enabled: true
+  sample-app:
+    enabled: true

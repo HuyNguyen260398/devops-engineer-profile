@@ -124,3 +124,30 @@ output "environment" {
   description = "Environment name"
   value       = var.environment
 }
+
+# ArgoCD Outputs
+output "argocd_namespace" {
+  description = "Kubernetes namespace where ArgoCD is deployed"
+  value       = var.enable_argocd ? var.argocd_namespace : null
+}
+
+output "argocd_server_url" {
+  description = "ArgoCD server URL (internal cluster service)"
+  value       = var.enable_argocd ? "https://argocd-server.${var.argocd_namespace}.svc.cluster.local" : null
+}
+
+output "argocd_irsa_role_arn" {
+  description = "IAM role ARN for ArgoCD IRSA"
+  value       = var.enable_argocd ? module.argocd_irsa[0].iam_role_arn : null
+}
+
+output "argocd_access_info" {
+  description = "Information about accessing ArgoCD dashboard"
+  value = var.enable_argocd ? {
+    namespace    = var.argocd_namespace
+    service      = "argocd-server"
+    port         = 443
+    port_forward = "kubectl port-forward -n ${var.argocd_namespace} svc/argocd-server 8080:443"
+    note         = "Access ArgoCD at https://localhost:8080 after port-forwarding. Default username: admin"
+  } : null
+}
