@@ -56,13 +56,13 @@ using Terraform, Helm, and the App-of-Apps GitOps pattern.
 - Monitoring: Prometheus ServiceMonitor for all components
 - RBAC: Role-based access (devops, developer, readonly)
 
-### App-of-Apps Pattern (`k8s/argocd-apps/`)
+### App-of-Apps Pattern (`ops/k8s/argocd-apps/`)
 
 The App-of-Apps pattern uses a root ArgoCD Application to manage child
 applications declaratively:
 
 ```
-k8s/
+ops/k8s/
 ├── argocd-apps/                  # Root Helm chart
 │   ├── Chart.yaml
 │   ├── values.yaml               # Default values (all apps disabled)
