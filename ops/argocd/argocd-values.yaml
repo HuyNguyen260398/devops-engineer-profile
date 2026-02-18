@@ -1,15 +1,15 @@
 # ============================================================================
-# ArgoCD Helm Values - Production Configuration
+# ArgoCD Helm Values - Base / Production Configuration
 # ============================================================================
-# This values file configures ArgoCD for production use on AWS EKS
-# following GitOps best practices.
+# Base values for ArgoCD Helm chart, shared across environments.
+# - Production (AWS EKS): Referenced by Terraform in inf/terraform/aws-eks/
+# - Local testing:        Override with argocd-values-local.yaml
+#
+# See deploy-argocd-local.sh for local cluster deployment.
 # ============================================================================
 
 # Global configuration
 global:
-  # Use specific image tag for reproducibility (avoid :latest)
-  image:
-    tag: "v2.13.3"
 
   # Security context for all pods
   securityContext:
@@ -17,8 +17,6 @@ global:
     runAsUser: 999
     runAsGroup: 999
     fsGroup: 999
-    seccompProfile:
-      type: RuntimeDefault
 
   # Network policy
   networkPolicy:

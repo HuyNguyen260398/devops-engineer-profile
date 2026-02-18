@@ -62,9 +62,9 @@ resource "helm_release" "argocd" {
   version    = var.argocd_chart_version
   namespace  = kubernetes_namespace.argocd.metadata[0].name
 
-  # Use values file for base configuration
+  # Use values file for base configuration (located in ops/argocd for local testing)
   values = [
-    file("${path.module}/helm-values/argocd-values.yaml")
+    file("${path.root}/../../../ops/argocd/argocd-values.yaml")
   ]
 
   # Override IRSA service account annotations

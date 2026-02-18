@@ -1,0 +1,149 @@
+# ============================================================================
+# ArgoCD Helm Values - Local Development Override
+# ============================================================================
+# Lightweight overrides for testing ArgoCD on a local Kubernetes cluster
+# (Docker Desktop, minikube, kind, k3s, etc.).
+#
+# Usage:
+#   helm install argocd argo/argo-cd -n argocd \
+#     -f argocd-values.yaml \
+#     -f argocd-values-local.yaml
+# ============================================================================
+
+# Override global settings for local environment
+global:
+  # Network policy disabled (local clusters often lack a CNI that supports it)
+  networkPolicy:
+    create: false
+
+# ============================================================================
+# ArgoCD Server - scaled down for local
+# ============================================================================
+server:
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+  pdb:
+    enabled: false
+
+  autoscaling:
+    enabled: false
+
+  # Metrics / ServiceMonitor disabled (no Prometheus locally by default)
+  metrics:
+    enabled: false
+    serviceMonitor:
+      enabled: false
+
+  # Expose via NodePort for easy local access
+  service:
+    type: NodePort
+    nodePortHttps: 30443
+
+# ============================================================================
+# Repo Server - scaled down for local
+# ============================================================================
+repoServer:
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  pdb:
+    enabled: false
+
+  autoscaling:
+    enabled: false
+
+  metrics:
+    enabled: false
+    serviceMonitor:
+      enabled: false
+
+# ============================================================================
+# Application Controller - same replica, fewer resources
+# ============================================================================
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 1Gi
+
+  metrics:
+    enabled: false
+    serviceMonitor:
+      enabled: false
+
+# ============================================================================
+# ApplicationSet Controller - scaled down
+# ============================================================================
+applicationSet:
+  replicas: 1
+
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+  metrics:
+    enabled: false
+    serviceMonitor:
+      enabled: false
+
+# ============================================================================
+# Notifications Controller - minimal resources
+# ============================================================================
+notifications:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 50m
+      memory: 64Mi
+
+  metrics:
+    enabled: false
+    serviceMonitor:
+      enabled: false
+
+# ============================================================================
+# Redis - minimal resources
+# ============================================================================
+redis:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# ============================================================================
+# Configs - local overrides
+# ============================================================================
+configs:
+  cm:
+    # Keep admin enabled for local testing
+    admin.enabled: true
+
+  params:
+    server.insecure: true
