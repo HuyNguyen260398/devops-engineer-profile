@@ -21,6 +21,14 @@ This Terraform configuration deploys a production-ready Amazon Elastic Kubernete
 - **Managed Node Groups**: AWS-managed node lifecycle with automated updates
 - **Load Balancing**: Integrated with AWS ELB for service exposure
 
+### GitOps with ArgoCD
+
+- **ArgoCD**: Declarative, GitOps continuous delivery tool for Kubernetes
+- **App-of-Apps Pattern**: Bootstrap application that manages all other applications
+- **IRSA Integration**: Secure AWS access for ArgoCD via IAM Roles for Service Accounts
+- **RBAC**: Role-based access for `devops-team` and `dev-team` groups
+- **ArgoCD Projects**: Separate projects for `infrastructure` and `applications` workloads
+
 ### Monitoring & Observability
 
 #### AWS CloudWatch
@@ -61,6 +69,21 @@ Creates the network foundation:
 - **Route Tables** for public and private subnets
 
 **Tags applied**: Kubernetes discovery tags for subnet auto-detection by load balancers
+
+---
+
+### GitOps Layer
+
+#### ArgoCD (`argocd.tf`)
+Deploys ArgoCD for GitOps-based continuous delivery:
+- **Kubernetes Namespace** (`argocd`) with standard labels
+- **IRSA IAM Role** with ECR read-only access for ArgoCD service accounts
+- **Helm Release** (`argo-cd` chart) with production-grade values from `ops/argocd/argocd-values.yaml`
+- **App-of-Apps Bootstrap** application (points to a Git repository for application definitions)
+- **ArgoCD Project: Infrastructure** — scoped to `kube-system`, `monitoring`, `ingress-nginx`, `cert-manager`, `external-secrets`, `argocd` namespaces
+- **ArgoCD Project: Applications** — scoped to `default`, `apps-*`, `staging`, `production` namespaces
+
+**Connects to**: EKS OIDC provider, Helm values in `ops/argocd/`
 
 ---
 
@@ -178,13 +201,18 @@ EKS Cluster Module
 IRSA Modules (IAM Roles with OIDC Trust)
     ├─→ EBS CSI Driver Role
     ├─→ Cluster Autoscaler Role
-    └─→ CloudWatch Observability Role
+    ├─→ CloudWatch Observability Role
+    └─→ ArgoCD Role (ECR read-only)
     ↓
 Helm Releases (Kubernetes Workloads)
     ├─→ CloudWatch Agent
     ├─→ Prometheus Stack
     ├─→ Metrics Server
-    └─→ Cluster Autoscaler
+    ├─→ Cluster Autoscaler
+    └─→ ArgoCD (GitOps)
+          ├─→ App-of-Apps Bootstrap
+          ├─→ Project: Infrastructure
+          └─→ Project: Applications
 ```
 
 ### Key Connections
@@ -195,6 +223,8 @@ Helm Releases (Kubernetes Workloads)
 - **Security Groups**: Control traffic between cluster, nodes, and external access
 - **CloudWatch**: Centralized logging for control plane, VPC flows, and container insights
 - **Prometheus**: Scrapes metrics from nodes, pods, and Kubernetes API
+- **ArgoCD ↔ Git**: Syncs application state from Git repositories
+- **ArgoCD ↔ IRSA**: Service accounts annotated with IAM role for ECR access
 
 ### Environment Differences
 
@@ -262,16 +292,28 @@ Your AWS credentials must have permissions to create:
 ## File Structure
 
 ```
-inf/aws-eks/
+inf/terraform/aws-eks/
 ├── main.tf                      # VPC, EKS cluster, node groups, and autoscaler
+├── argocd.tf                    # ArgoCD Helm release, IRSA, projects, App-of-Apps
 ├── monitoring.tf                # CloudWatch, Prometheus, Grafana configurations
 ├── variables.tf                 # Input variable definitions
 ├── outputs.tf                   # Output value definitions
 ├── locals.tf                    # Local value computations
 ├── provider.tf                  # Provider configurations
-└── environments/
-    ├── staging.tfvars           # Staging environment values
-    └── production.tfvars        # Production environment values
+├── environments/
+│   ├── example.tfvars           # Example variable values
+│   ├── staging.tfvars           # Staging environment values
+│   └── production.tfvars        # Production environment values
+└── manifests/
+    ├── argocd-app-of-apps.yaml.tftpl            # App-of-Apps bootstrap template
+    ├── argocd-project-infrastructure.yaml.tftpl # Infrastructure project template
+    └── argocd-project-applications.yaml.tftpl   # Applications project template
+
+ops/argocd/                      # Shared Helm values (used by Terraform and local testing)
+├── argocd-values.yaml           # Base Helm values for all environments
+├── argocd-values-local.yaml     # Lightweight overrides for local clusters
+├── deploy-argocd-local.sh       # Helper script for local install/upgrade/uninstall
+└── README.md                    # Local deployment guide with Helm/kubectl commands
 ```
 
 ## Usage
@@ -279,7 +321,7 @@ inf/aws-eks/
 ### 1. Initialize Terraform
 
 ```bash
-cd inf/aws-eks
+cd inf/terraform/aws-eks
 terraform init
 ```
 
@@ -291,25 +333,39 @@ Edit environment-specific files in `environments/` to customize:
 - Monitoring settings
 - Resource tags
 
-### 3. Set Grafana Admin Password
+### 3. Set Sensitive Variables
 
 ```bash
 # Linux/macOS
 export TF_VAR_grafana_admin_password="your-secure-password"
+export TF_VAR_argocd_admin_password_hash="<bcrypt-hash>"
 
 # Windows PowerShell
 $env:TF_VAR_grafana_admin_password="your-secure-password"
+$env:TF_VAR_argocd_admin_password_hash="<bcrypt-hash>"
+```
+
+Generate the ArgoCD password hash:
+
+```bash
+# Linux/macOS
+htpasswd -nbBC 10 '' 'your-password' | tr -d ':\n' | sed 's/$2y/$2a/'
+
+# Or use Python
+python -c "import bcrypt; print(bcrypt.hashpw(b'your-password', bcrypt.gensalt(rounds=10)).decode())"
 ```
 
 ### 4. Plan Deployment
 
 #### Staging
 ```bash
+cd inf/terraform/aws-eks
 terraform plan -var-file="environments/staging.tfvars"
 ```
 
 #### Production
 ```bash
+cd inf/terraform/aws-eks
 terraform plan -var-file="environments/production.tfvars"
 ```
 
@@ -329,7 +385,7 @@ terraform apply -var-file="environments/production.tfvars"
 Monitor the output for any errors and confirm successful resource creation.
 ```bash
 $Env:TF_LOG="DEBUG"
-$Env:TF_LOG_PATH="C:\Workspace\devops-engineer-profile\inf\aws-eks\terraform.log"
+$Env:TF_LOG_PATH="C:\Workspace\devops-engineer-profile\inf\terraform\aws-eks\terraform.log"
 ```
 
 ### 6. Configure kubectl
@@ -353,7 +409,105 @@ kubectl get pods -A
 
 # Check monitoring namespace
 kubectl get pods -n monitoring
+
+# Check ArgoCD namespace
+kubectl get pods -n argocd
 ```
+
+## ArgoCD (GitOps)
+
+### Overview
+
+ArgoCD is deployed via Terraform (`argocd.tf`) with the following components:
+
+- **Helm Release**: Installs the `argo-cd` chart with production-grade values
+- **IRSA**: IAM role granting ArgoCD ECR read-only access
+- **App-of-Apps**: Bootstrap application that manages all other applications via Git
+- **Projects**: `infrastructure` and `applications` projects with scoped namespace access
+
+### Configuration Variables
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `enable_argocd` | Enable ArgoCD deployment | `true` |
+| `argocd_namespace` | Kubernetes namespace | `argocd` |
+| `argocd_chart_version` | Helm chart version | `7.7.10` |
+| `argocd_admin_password_hash` | Bcrypt hash of admin password | `""` |
+| `argocd_app_of_apps_repo_url` | Git repo URL for App-of-Apps | `""` |
+| `argocd_app_of_apps_target_revision` | Git branch/tag/commit | `HEAD` |
+| `argocd_app_of_apps_path` | Path in repo for app definitions | `k8s/argocd-apps` |
+
+### Helm Values
+
+The base Helm values file is shared between Terraform (EKS) and local testing:
+
+```
+ops/argocd/argocd-values.yaml    <-- base configuration (used by argocd.tf)
+ops/argocd/argocd-values-local.yaml  <-- local overrides (not used by Terraform)
+```
+
+Terraform references the values file via:
+
+```hcl
+values = [
+  file("${path.root}/../../../ops/argocd/argocd-values.yaml")
+]
+```
+
+IRSA annotations and the admin password hash are applied as Helm `set` overrides
+in `argocd.tf`.
+
+### RBAC Policies
+
+Configured in the Helm values:
+
+| Role | Permissions |
+|------|-------------|
+| `role:readonly` (default) | Read-only access to all resources |
+| `role:devops` | Full access to applications, clusters, repositories, projects |
+| `role:developer` | Get/sync applications, view logs |
+
+Group mappings: `devops-team` → `role:devops`, `dev-team` → `role:developer`
+
+### Accessing ArgoCD on EKS
+
+```bash
+# Port-forward to access the ArgoCD UI
+kubectl port-forward -n argocd svc/argocd-server 8080:443
+
+# Open in browser
+# URL: https://localhost:8080
+# Username: admin
+```
+
+Retrieve the admin password:
+
+```powershell
+kubectl -n argocd get secret argocd-initial-admin-secret `
+  -o jsonpath="{.data.password}" | ForEach-Object {
+    [System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String($_))
+  }
+```
+
+### Local Testing
+
+Before deploying to EKS, test the ArgoCD chart on a local Kubernetes cluster.
+See the full guide at `ops/argocd/README.md`.
+
+```bash
+cd ops/argocd
+bash deploy-argocd-local.sh install
+```
+
+### ArgoCD Manifest Templates
+
+The `manifests/` directory contains Terraform template files:
+
+| Template | Purpose |
+|----------|---------|
+| `argocd-app-of-apps.yaml.tftpl` | Bootstrap App-of-Apps application with automated sync |
+| `argocd-project-infrastructure.yaml.tftpl` | Project for infra components (monitoring, ingress, etc.) |
+| `argocd-project-applications.yaml.tftpl` | Project for application workloads |
 
 ## Accessing Monitoring Tools
 
