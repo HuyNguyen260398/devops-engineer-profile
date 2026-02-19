@@ -1,0 +1,49 @@
+# ============================================================================
+# ArgoCD Helm Values – AWS EKS Overrides
+# ============================================================================
+# Layer on top of argocd-values.yaml for AWS EKS deployments.
+#
+# Usage:
+#   helm upgrade --install argocd argo/argo-cd \
+#     --namespace argocd \
+#     --version 9.4.2 \
+#     -f argocd-values.yaml \
+#     -f argocd-values-aws.yaml \
+#     --wait --timeout 15m
+#
+# IRSA setup:
+#   Set ARGOCD_IRSA_ROLE_ARN before running deploy-aws.sh – the script
+#   will substitute this placeholder via envsubst.
+#   Retrieve the ARN from Terraform:
+#     cd inf/terraform/aws-eks-argocd
+#     terraform output -raw argocd_irsa_role_arn
+# ============================================================================
+
+# ============================================================================
+# IRSA – annotate service accounts so pods can assume the IAM role
+# ============================================================================
+server:
+  serviceAccount:
+    create: true
+    name: argocd-server
+    annotations:
+      eks.amazonaws.com/role-arn: "${ARGOCD_IRSA_ROLE_ARN}"
+
+  # Disable built-in Helm-managed Ingress; a standalone ALB Ingress is
+  # applied separately via ops/argocd/manifests/ingress.yaml.
+  ingress:
+    enabled: false
+
+repoServer:
+  serviceAccount:
+    create: true
+    name: argocd-repo-server
+    annotations:
+      eks.amazonaws.com/role-arn: "${ARGOCD_IRSA_ROLE_ARN}"
+
+controller:
+  serviceAccount:
+    create: true
+    name: argocd-application-controller
+    annotations:
+      eks.amazonaws.com/role-arn: "${ARGOCD_IRSA_ROLE_ARN}"

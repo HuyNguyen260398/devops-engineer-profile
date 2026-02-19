@@ -1,0 +1,65 @@
+# ============================================================================
+# ArgoCD App-of-Apps – Bootstrap Application
+# ============================================================================
+# This manifest bootstraps the GitOps App-of-Apps pattern:
+#   ArgoCD watches this Git repository path → discovers and syncs all other
+#   Application manifests defined there.
+#
+# This file uses shell-style variable placeholders. Do NOT apply it directly.
+# Use deploy-aws.sh which substitutes variables via envsubst, or manually
+# replace each ${VARIABLE} before applying.
+#
+# Required environment variables:
+#   ARGOCD_APPS_REPO_URL        Git repository URL (e.g. https://github.com/org/repo)
+#   ARGOCD_APPS_TARGET_REVISION Branch or tag to track     (default: HEAD)
+#   ARGOCD_APPS_PATH            Path inside repo            (default: ops/k8s/argocd-apps)
+#   ENVIRONMENT                 staging | production
+#
+# Apply (via deploy-aws.sh):
+#   bash ops/argocd/deploy-aws.sh app-of-apps staging
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: app-of-apps
+    app.kubernetes.io/part-of: argocd
+    app.kubernetes.io/managed-by: kubectl
+    environment: ${ENVIRONMENT}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+spec:
+  project: default
+  source:
+    repoURL: ${ARGOCD_APPS_REPO_URL}
+    targetRevision: ${ARGOCD_APPS_TARGET_REVISION:-HEAD}
+    path: ${ARGOCD_APPS_PATH:-ops/k8s/argocd-apps}
+    helm:
+      valueFiles:
+        - values.yaml
+        - values-${ENVIRONMENT}.yaml
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

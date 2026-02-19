@@ -163,49 +163,8 @@ variable "aws_lb_controller_chart_version" {
   default     = "1.11.0"
 }
 
-# ArgoCD Configuration
-variable "enable_argocd" {
-  description = "Enable ArgoCD deployment for GitOps"
-  type        = bool
-  default     = true
-}
-
-variable "argocd_namespace" {
-  description = "Kubernetes namespace for ArgoCD"
-  type        = string
-  default     = "argocd"
-}
-
-variable "argocd_chart_version" {
-  description = "ArgoCD Helm chart version"
-  type        = string
-  default     = "7.7.10"
-}
-
-variable "argocd_admin_password_hash" {
-  description = "Bcrypt hash of ArgoCD admin password. Generate with: htpasswd -nbBC 10 '' '<password>' | tr -d ':\\n' | sed 's/$2y/$2a/'"
-  type        = string
-  sensitive   = true
-  default     = ""
-}
-
-variable "argocd_app_of_apps_repo_url" {
-  description = "Git repository URL for the App-of-Apps pattern"
-  type        = string
-  default     = ""
-}
-
-variable "argocd_app_of_apps_target_revision" {
-  description = "Git revision (branch/tag/commit) for the App-of-Apps repository"
-  type        = string
-  default     = "HEAD"
-}
-
-variable "argocd_app_of_apps_path" {
-  description = "Path within the repository where App-of-Apps definitions are stored"
-  type        = string
-  default     = "k8s/argocd-apps"
-}
+# ArgoCD is deployed via Helm/kubectl commands and managed by
+# inf/terraform/aws-eks-argocd/ (IRSA role) + ops/argocd/ (manifests).
 
 # Tags
 variable "additional_tags" {

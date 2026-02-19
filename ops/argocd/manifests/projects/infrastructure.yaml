@@ -1,17 +1,25 @@
+# ============================================================================
+# ArgoCD Project – Infrastructure
+# ============================================================================
+# Manages infrastructure components (monitoring, ingress controllers, etc.)
+# deployed to the cluster. Grants broad namespace-scoped resource access
+# but restricts potentially dangerous cluster-scoped resources.
+#
+# Apply:  kubectl apply -f ops/argocd/manifests/projects/infrastructure.yaml
+# ============================================================================
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: infrastructure
-  namespace: ${namespace}
+  namespace: argocd
   labels:
     app.kubernetes.io/name: infrastructure
     app.kubernetes.io/part-of: argocd
-    app.kubernetes.io/managed-by: terraform
-    environment: ${environment}
+    app.kubernetes.io/managed-by: kubectl
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  description: "Infrastructure components for ${cluster_name} - ${environment}"
+  description: "Infrastructure components (monitoring, ingress, cert-manager, etc.)"
 
   # Source repositories allowed for this project
   sourceRepos:
@@ -47,7 +55,7 @@ spec:
     - group: storage.k8s.io
       kind: StorageClass
 
-  # Namespace-scoped resources (allow all)
+  # Namespace-scoped resources – allow all for infrastructure
   namespaceResourceWhitelist:
     - group: '*'
       kind: '*'
@@ -59,11 +67,9 @@ spec:
     - group: ''
       kind: LimitRange
 
-  # Orphaned resources monitoring
   orphanedResources:
     warn: true
 
-  # Roles for this project
   roles:
     - name: infra-admin
       description: "Full access to infrastructure project"

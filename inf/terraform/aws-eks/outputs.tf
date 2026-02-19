@@ -125,43 +125,11 @@ output "environment" {
   value       = var.environment
 }
 
-# ArgoCD Outputs
-output "argocd_namespace" {
-  description = "Kubernetes namespace where ArgoCD is deployed"
-  value       = var.enable_argocd ? var.argocd_namespace : null
-}
-
-output "argocd_server_url" {
-  description = "ArgoCD server URL (internal cluster service)"
-  value       = var.enable_argocd ? "https://argocd-server.${var.argocd_namespace}.svc.cluster.local" : null
-}
-
-output "argocd_irsa_role_arn" {
-  description = "IAM role ARN for ArgoCD IRSA"
-  value       = var.enable_argocd ? module.argocd_irsa[0].iam_role_arn : null
-}
-
-output "argocd_access_info" {
-  description = "Information about accessing ArgoCD dashboard"
-  value = var.enable_argocd ? {
-    namespace    = var.argocd_namespace
-    service      = "argocd-server"
-    port         = 80
-    port_forward = "kubectl port-forward -n ${var.argocd_namespace} svc/argocd-server 8080:80"
-    note         = "Access ArgoCD via ALB Ingress URL or port-forward. Default username: admin"
-  } : null
-}
-
 # AWS Load Balancer Controller Outputs
 output "aws_lb_controller_role_arn" {
   description = "IAM role ARN for AWS Load Balancer Controller"
   value       = var.enable_aws_lb_controller ? module.aws_lb_controller_irsa[0].iam_role_arn : null
 }
 
-output "argocd_ingress_info" {
-  description = "How to get the ArgoCD ALB URL after deployment"
-  value = var.enable_argocd && var.enable_aws_lb_controller ? {
-    command = "kubectl get ingress -n ${var.argocd_namespace} argocd-server -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'"
-    note    = "The ALB may take 2-3 minutes to provision. Access ArgoCD at http://<ALB_DNS_NAME>"
-  } : null
-}
+# ArgoCD – managed by inf/terraform/aws-eks-argocd
+# Use that module's outputs for the IRSA role ARN and deployment info.

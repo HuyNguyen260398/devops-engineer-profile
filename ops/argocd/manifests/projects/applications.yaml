@@ -1,17 +1,25 @@
+# ============================================================================
+# ArgoCD Project – Applications
+# ============================================================================
+# Manages application workloads deployed to the cluster.
+# Provides restricted access versus the infrastructure project —
+# no broad cluster-scoped resource permissions.
+#
+# Apply:  kubectl apply -f ops/argocd/manifests/projects/applications.yaml
+# ============================================================================
 apiVersion: argoproj.io/v1alpha1
 kind: AppProject
 metadata:
   name: applications
-  namespace: ${namespace}
+  namespace: argocd
   labels:
     app.kubernetes.io/name: applications
     app.kubernetes.io/part-of: argocd
-    app.kubernetes.io/managed-by: terraform
-    environment: ${environment}
+    app.kubernetes.io/managed-by: kubectl
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  description: "Application workloads for ${cluster_name} - ${environment}"
+  description: "Application workloads (services, deployments, etc.)"
 
   # Source repositories allowed for this project
   sourceRepos:
@@ -28,12 +36,12 @@ spec:
     - server: https://kubernetes.default.svc
       namespace: production
 
-  # Restrict cluster-scoped resources for application workloads
+  # Only allow Namespace creation at cluster scope
   clusterResourceWhitelist:
     - group: ''
       kind: Namespace
 
-  # Namespace-scoped resources
+  # Namespace-scoped resources allowed for application workloads
   namespaceResourceWhitelist:
     - group: ''
       kind: ConfigMap
@@ -64,18 +72,15 @@ spec:
     - group: policy
       kind: PodDisruptionBudget
 
-  # Deny access to cluster-wide sensitive resources
   namespaceResourceBlacklist:
     - group: ''
       kind: ResourceQuota
     - group: ''
       kind: LimitRange
 
-  # Orphaned resources monitoring
   orphanedResources:
     warn: true
 
-  # Roles for this project
   roles:
     - name: app-admin
       description: "Full access to applications project"

@@ -1,0 +1,18 @@
+# Production environment – ArgoCD AWS infrastructure
+# Copy to production.tfvars and fill in your values.
+# Usage: terraform apply -var-file environments/production.tfvars
+
+environment  = "production"
+project_name = "devops-engineer-profile"
+aws_region   = "ap-southeast-1"
+
+# EKS cluster that ArgoCD is deployed on
+cluster_name = "dep-production-eks"
+
+argocd_namespace = "argocd"
+
+additional_tags = {
+  CostCenter = "engineering"
+  Owner      = "devops-team"
+  Purpose    = "gitops"
+}
