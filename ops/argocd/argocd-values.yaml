@@ -11,6 +11,11 @@
 # Global configuration
 global:
 
+  # Domain for ArgoCD Ingress host routing
+  # Set to your custom domain (e.g., argocd.example.com) when available.
+  # Empty string disables host-based routing, allowing access via ALB DNS directly.
+  domain: ""
+
   # Security context for all pods
   securityContext:
     runAsNonRoot: true
@@ -62,14 +67,22 @@ server:
       drop:
         - ALL
 
-  # Ingress configuration (disabled by default, enable for external access)
+  # Ingress configuration via AWS ALB (requires AWS Load Balancer Controller)
   ingress:
-    enabled: false
-    # Uncomment below for AWS ALB Ingress
-    # ingressClassName: alb
+    enabled: true
+    ingressClassName: alb
+    annotations:
+      alb.ingress.kubernetes.io/scheme: internet-facing
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+      alb.ingress.kubernetes.io/healthcheck-path: /healthz
+      alb.ingress.kubernetes.io/tags: "Environment=staging,ManagedBy=terraform"
+      alb.ingress.kubernetes.io/group.name: argocd
+    # No host restriction — accepts traffic on any hostname (ALB DNS or custom domain)
+    # When a custom domain is available, replace with: hosts: ["argocd.your-domain.com"]
+    hostname: ""
+    # TLS with ACM certificate (uncomment when domain is available)
     # annotations:
-    #   alb.ingress.kubernetes.io/scheme: internet-facing
-    #   alb.ingress.kubernetes.io/target-type: ip
     #   alb.ingress.kubernetes.io/certificate-arn: "<ACM_CERTIFICATE_ARN>"
     #   alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
     #   alb.ingress.kubernetes.io/ssl-redirect: "443"

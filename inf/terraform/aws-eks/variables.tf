@@ -144,6 +144,25 @@ variable "enable_ebs_csi_driver" {
   default     = true
 }
 
+# AWS Load Balancer Controller Configuration
+variable "enable_aws_lb_controller" {
+  description = "Enable AWS Load Balancer Controller for ALB/NLB Ingress"
+  type        = bool
+  default     = true
+}
+
+variable "aws_lb_controller_version" {
+  description = "AWS Load Balancer Controller application version (used to fetch IAM policy)"
+  type        = string
+  default     = "2.11.0"
+}
+
+variable "aws_lb_controller_chart_version" {
+  description = "AWS Load Balancer Controller Helm chart version"
+  type        = string
+  default     = "1.11.0"
+}
+
 # ArgoCD Configuration
 variable "enable_argocd" {
   description = "Enable ArgoCD deployment for GitOps"
