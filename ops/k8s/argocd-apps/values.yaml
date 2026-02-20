@@ -1,0 +1,34 @@
+# Default values for App-of-Apps
+# Override per environment using values-<environment>.yaml
+
+# ArgoCD destination cluster
+destination:
+  server: https://kubernetes.default.svc
+
+# GitOps source repository
+source:
+  repoURL: https://github.com/devops-engineer-profile/devops-engineer-profile.git
+  targetRevision: HEAD
+
+# Application toggles
+apps:
+  ingress-nginx:
+    enabled: false
+    namespace: ingress-nginx
+    path: k8s/manifests/ingress-nginx
+  cert-manager:
+    enabled: false
+    namespace: cert-manager
+    path: k8s/manifests/cert-manager
+  external-secrets:
+    enabled: false
+    namespace: external-secrets
+    path: k8s/manifests/external-secrets
+  monitoring:
+    enabled: false
+    namespace: monitoring
+    path: k8s/manifests/monitoring
+  sample-app:
+    enabled: false
+    namespace: default
+    path: k8s/manifests/sample-app

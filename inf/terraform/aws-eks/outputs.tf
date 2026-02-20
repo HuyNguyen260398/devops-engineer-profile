@@ -124,3 +124,12 @@ output "environment" {
   description = "Environment name"
   value       = var.environment
 }
+
+# AWS Load Balancer Controller Outputs
+output "aws_lb_controller_role_arn" {
+  description = "IAM role ARN for AWS Load Balancer Controller"
+  value       = var.enable_aws_lb_controller ? module.aws_lb_controller_irsa[0].iam_role_arn : null
+}
+
+# ArgoCD – managed by inf/terraform/aws-eks-argocd
+# Use that module's outputs for the IRSA role ARN and deployment info.

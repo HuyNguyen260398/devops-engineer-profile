@@ -1,0 +1,57 @@
+# ============================================================================
+# ArgoCD – AWS Application Load Balancer Ingress
+# ============================================================================
+# Managed separately from the ArgoCD Helm release so the ALB lifecycle is
+# fully under operator control and avoids the Helm-finalizer deadlock that
+# prevents `terraform destroy` from detaching the Internet Gateway.
+#
+# Prerequisites:
+#   - AWS Load Balancer Controller running in kube-system
+#   - ArgoCD installed in the argocd namespace
+#
+# Apply:
+#   kubectl apply -f ops/argocd/manifests/ingress.yaml
+#
+# After apply, retrieve the ALB DNS name:
+#   kubectl get ingress argocd-server -n argocd \
+#     -o jsonpath='{.status.loadBalancer.ingress[0].hostname}'
+# ============================================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: argocd-server
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: argocd-server
+    app.kubernetes.io/part-of: argocd
+    app.kubernetes.io/managed-by: kubectl
+  annotations:
+    # ALB scheme – use "internal" for private-only access
+    alb.ingress.kubernetes.io/scheme: internet-facing
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP":80}]'
+    alb.ingress.kubernetes.io/healthcheck-path: /healthz
+    alb.ingress.kubernetes.io/healthcheck-interval-seconds: "15"
+    alb.ingress.kubernetes.io/healthcheck-timeout-seconds: "5"
+    alb.ingress.kubernetes.io/healthy-threshold-count: "2"
+    alb.ingress.kubernetes.io/unhealthy-threshold-count: "3"
+    # Group name allows multiple Ingresses to share a single ALB
+    alb.ingress.kubernetes.io/group.name: argocd
+    # -------------------------------------------------------------------------
+    # HTTPS / TLS (uncomment once a custom domain + ACM certificate is ready)
+    # -------------------------------------------------------------------------
+    # alb.ingress.kubernetes.io/certificate-arn: "<ACM_CERTIFICATE_ARN>"
+    # alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+    # alb.ingress.kubernetes.io/ssl-redirect: "443"
+spec:
+  ingressClassName: alb
+  rules:
+    - http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: argocd-server
+                port:
+                  number: 80

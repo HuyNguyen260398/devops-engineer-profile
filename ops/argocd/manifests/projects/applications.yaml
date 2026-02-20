@@ -1,0 +1,97 @@
+# ============================================================================
+# ArgoCD Project – Applications
+# ============================================================================
+# Manages application workloads deployed to the cluster.
+# Provides restricted access versus the infrastructure project —
+# no broad cluster-scoped resource permissions.
+#
+# Apply:  kubectl apply -f ops/argocd/manifests/projects/applications.yaml
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: applications
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: applications
+    app.kubernetes.io/part-of: argocd
+    app.kubernetes.io/managed-by: kubectl
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "Application workloads (services, deployments, etc.)"
+
+  # Source repositories allowed for this project
+  sourceRepos:
+    - '*'
+
+  # Destination clusters and namespaces (application-specific namespaces)
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: default
+    - server: https://kubernetes.default.svc
+      namespace: 'apps-*'
+    - server: https://kubernetes.default.svc
+      namespace: staging
+    - server: https://kubernetes.default.svc
+      namespace: production
+
+  # Only allow Namespace creation at cluster scope
+  clusterResourceWhitelist:
+    - group: ''
+      kind: Namespace
+
+  # Namespace-scoped resources allowed for application workloads
+  namespaceResourceWhitelist:
+    - group: ''
+      kind: ConfigMap
+    - group: ''
+      kind: Secret
+    - group: ''
+      kind: Service
+    - group: ''
+      kind: ServiceAccount
+    - group: ''
+      kind: PersistentVolumeClaim
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: apps
+      kind: DaemonSet
+    - group: batch
+      kind: Job
+    - group: batch
+      kind: CronJob
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: policy
+      kind: PodDisruptionBudget
+
+  namespaceResourceBlacklist:
+    - group: ''
+      kind: ResourceQuota
+    - group: ''
+      kind: LimitRange
+
+  orphanedResources:
+    warn: true
+
+  roles:
+    - name: app-admin
+      description: "Full access to applications project"
+      policies:
+        - p, proj:applications:app-admin, applications, *, applications/*, allow
+      groups:
+        - devops-team
+        - dev-team
+    - name: app-viewer
+      description: "Read-only access to applications project"
+      policies:
+        - p, proj:applications:app-viewer, applications, get, applications/*, allow
+      groups:
+        - viewer-team
