@@ -6,6 +6,10 @@ data "aws_availability_zones" "available" {
 data "aws_caller_identity" "current" {}
 
 # VPC Module
+# Flow Logs are enabled below via enable_flow_log = true. tfsec raises a false positive
+# because it only inspects the aws_vpc resource inside the module source and cannot
+# correlate it with the separate aws_flow_log resource the module creates.
+# tfsec:ignore:aws-ec2-require-vpc-flow-logs-for-all-vpcs
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
   version = "~> 5.0"
@@ -44,6 +48,14 @@ module "vpc" {
 }
 
 # EKS Cluster Module
+# Public endpoint: gated by cluster_endpoint_public_access (default false) + a validated
+# CIDR list that rejects 0.0.0.0/0. The check fires for staging where public access is
+# intentionally enabled with a restricted, organisation-specific CIDR.
+# Node egress: worker nodes must reach ECR/Docker Hub (image pulls), AWS service endpoints,
+# and OS package repos. Blocking internet egress would prevent pods from scheduling.
+# tfsec:ignore:aws-eks-no-public-cluster-access
+# tfsec:ignore:aws-eks-no-public-cluster-access-to-cidr
+# tfsec:ignore:aws-ec2-no-public-egress-sgr
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "~> 20.0"

@@ -55,9 +55,9 @@ variable "cluster_version" {
 }
 
 variable "cluster_endpoint_public_access" {
-  description = "Enable public access to cluster API endpoint"
+  description = "Enable public access to cluster API endpoint. Disabled by default; enable only for staging with a restricted CIDR."
   type        = bool
-  default     = true
+  default     = false
 }
 
 variable "cluster_endpoint_private_access" {
@@ -67,9 +67,17 @@ variable "cluster_endpoint_private_access" {
 }
 
 variable "cluster_endpoint_public_access_cidrs" {
-  description = "CIDR blocks allowed to access public cluster endpoint"
+  description = "CIDR blocks allowed to access the public cluster endpoint. Must be set to specific IP ranges — never '0.0.0.0/0' in production."
   type        = list(string)
-  default     = ["0.0.0.0/0"]
+  default     = []
+
+  validation {
+    condition = alltrue([
+      for cidr in var.cluster_endpoint_public_access_cidrs :
+      cidr != "0.0.0.0/0" && cidr != "::/0"
+    ])
+    error_message = "cluster_endpoint_public_access_cidrs must not contain '0.0.0.0/0' or '::/0'. Restrict to your organisation's IP ranges."
+  }
 }
 
 # Node Group Configuration
@@ -97,31 +105,6 @@ variable "cloudwatch_log_retention_days" {
   description = "Number of days to retain CloudWatch logs"
   type        = number
   default     = 7
-}
-
-variable "enable_prometheus" {
-  description = "Enable Prometheus monitoring stack"
-  type        = bool
-  default     = true
-}
-
-variable "enable_grafana" {
-  description = "Enable Grafana dashboards"
-  type        = bool
-  default     = true
-}
-
-variable "prometheus_namespace" {
-  description = "Kubernetes namespace for Prometheus"
-  type        = string
-  default     = "monitoring"
-}
-
-variable "grafana_admin_password" {
-  description = "Admin password for Grafana (sensitive)"
-  type        = string
-  sensitive   = true
-  default     = ""
 }
 
 # Auto-scaling Configuration

@@ -32,13 +32,6 @@ locals {
 
   # CloudWatch log group name
   # cloudwatch_log_group = "/aws/eks/${local.cluster_name}/cluster"
-
-  # Monitoring configuration
-  # monitoring_config = {
-  #   namespace          = var.prometheus_namespace
-  #   prometheus_enabled = var.enable_prometheus
-  #   grafana_enabled    = var.enable_grafana
-  #   cloudwatch_enabled = var.enable_cloudwatch_logs
   # }
 
   # OIDC provider ARN for IRSA
