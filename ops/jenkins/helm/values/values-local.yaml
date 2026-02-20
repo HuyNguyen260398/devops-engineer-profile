@@ -1,0 +1,210 @@
+# Jenkins Helm Values - Local Development Environment
+# For use with Minikube, Kind, Docker Desktop, or other local Kubernetes clusters
+
+jenkins:
+  enabled: true
+  
+  controller:
+    componentName: "jenkins-controller"
+    image:
+      registry: "docker.io"
+      repository: "jenkins/jenkins"
+      tag: "2.550-jdk21"
+      pullPolicy: "IfNotPresent"
+    
+    admin:
+      # Admin credentials (Use secrets in production!)
+      username: "admin"
+      # Generate password with: openssl rand -base64 32
+      password: "admin123"  # CHANGE THIS!
+    
+    # Resource limits for local environment
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "2Gi"
+    
+    # Java options
+    javaOpts: >-
+      -Xmx1536m
+      -Xms1024m
+      -XX:+UseG1GC
+      -XX:MaxGCPauseMillis=100
+      -Dhudson.slaves.NodeProvisioner.initialDelay=0
+      -Dhudson.slaves.NodeProvisioner.MARGIN=50
+      -Dhudson.slaves.NodeProvisioner.MARGIN0=0.85
+    
+    # Service configuration
+    serviceType: NodePort
+    nodePort: 32000
+    
+    # Jenkins URL (update with your local setup)
+    jenkinsUrl: "http://localhost:32000"
+    jenkinsUriPrefix: "/"
+    
+    # Number of executors on the controller (keep low, use agents)
+    numExecutors: 0
+    
+    # Installation of plugins
+    installPlugins:
+      - blueocean:1.27.14
+    
+    # Additional plugins for GitOps and modern workflows
+    additionalPlugins:
+      - job-dsl:1.87
+      - pipeline-utility-steps:2.17.0
+      - http_request:1.18
+      - ansicolor:1.0.4
+      - timestamper:1.26
+      - ws-cleanup:0.45
+    
+    # Jenkins Configuration as Code (JCasC)
+    JCasC:
+      defaultConfig: true
+      configScripts:
+        welcome-message: |
+          jenkins:
+            systemMessage: "Jenkins Local Development Environment - Configured via JCasC"
+        security-config: |
+          jenkins:
+            securityRealm:
+              local:
+                allowsSignup: false
+            authorizationStrategy:
+              loggedInUsersCanDoAnything:
+                allowAnonymousRead: false
+        kubernetes-cloud: |
+          jenkins:
+            clouds:
+              - kubernetes:
+                  name: "kubernetes"
+                  serverUrl: "https://kubernetes.default"
+                  namespace: "jenkins"
+                  jenkinsUrl: "http://jenkins:8080"
+                  jenkinsTunnel: "jenkins-agent:50000"
+                  containerCapStr: "10"
+                  connectTimeout: 5
+                  readTimeout: 15
+                  retentionTimeout: 5
+                  maxRequestsPerHostStr: 32
+                  templates:
+                    - name: "jenkins-agent"
+                      namespace: "jenkins"
+                      label: "jenkins-agent"
+                      nodeUsageMode: NORMAL
+                      containers:
+                        - name: "jnlp"
+                          image: "jenkins/inbound-agent:latest"
+                          workingDir: "/home/jenkins/agent"
+                          ttyEnabled: true
+                          resourceRequestCpu: "500m"
+                          resourceRequestMemory: "512Mi"
+                          resourceLimitCpu: "1"
+                          resourceLimitMemory: "1Gi"
+    
+    # Security context
+    securityContext:
+      runAsUser: 1000
+      fsGroup: 1000
+      runAsNonRoot: true
+    
+    # Container security context
+    containerSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      readOnlyRootFilesystem: false
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    
+    # Health checks
+    healthProbes: true
+    probes:
+      startupProbe:
+        httpGet:
+          path: '/login'
+          port: http
+        initialDelaySeconds: 60
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 12
+      livenessProbe:
+        httpGet:
+          path: '/login'
+          port: http
+        initialDelaySeconds: 90
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 5
+      readinessProbe:
+        httpGet:
+          path: '/login'
+          port: http
+        initialDelaySeconds: 60
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+  
+  # Persistence configuration
+  persistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: "hostpath"  # Use default local storage class
+    accessMode: "ReadWriteOnce"
+    size: "8Gi"
+    volumes: []
+    mounts: []
+  
+  # Agent configuration
+  agent:
+    enabled: true
+    defaultsProviderTemplate: "jenkins-agent"
+    jenkinsUrl: ""
+    jenkinsTunnel: ""
+    kubernetesConnectTimeout: 5
+    kubernetesReadTimeout: 15
+    maxRequestsPerHostStr: "32"
+    namespace: "jenkins"
+    
+    # Agent pod template
+    podTemplates:
+      jnlp: |
+        - name: jnlp
+          image: jenkins/inbound-agent:latest
+          workingDir: /home/jenkins/agent
+          resourceRequestCpu: 500m
+          resourceRequestMemory: 512Mi
+          resourceLimitCpu: 1
+          resourceLimitMemory: 1Gi
+    
+    # Common agent resources
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "512Mi"
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+    
+    # Agent runtime class and security
+    runAsUser: 1000
+    runAsGroup: 1000
+    
+  # Service Account
+  serviceAccount:
+    create: true
+    name: "jenkins"
+    annotations: {}
+  
+  # RBAC
+  rbac:
+    create: true
+    readSecrets: true
+  
+  # Network Policy (disabled for local)
+  networkPolicy:
+    enabled: false

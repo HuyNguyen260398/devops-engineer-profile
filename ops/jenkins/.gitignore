@@ -1,0 +1,66 @@
+# Jenkins Deployment .gitignore
+
+# Helm generated files
+helm/charts/
+helm/Chart.lock
+helm/*.tgz
+
+# Helm local cache
+.helm/
+
+# Kubernetes secrets (if accidentally saved locally)
+*-secret.yaml
+*-credentials.yaml
+*.secret
+secrets/
+
+# Environment-specific overrides (unless explicitly tracked)
+helm/values/values-local-override.yaml
+helm/values/values-staging-override.yaml
+helm/values/values-production-override.yaml
+
+# Backup files
+*.bak
+*.backup
+*.old
+*.orig
+
+# Temporary files
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Logs
+*.log
+
+# Terraform state (if any)
+*.tfstate
+*.tfstate.*
+.terraform/
+
+# Test outputs
+test-output/
+test-results/
+
+# Private keys and certificates (if any)
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+
+# Personal notes
+notes.txt
+todo.txt
+scratch.md
+
+# Generated documentation
+docs/generated/

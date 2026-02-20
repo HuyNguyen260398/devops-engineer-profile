@@ -1,0 +1,45 @@
+# Helm ignore patterns
+# Ignore CI/CD files
+.github/
+.gitlab-ci.yml
+.travis.yml
+
+# Ignore documentation
+README.md
+NOTES.md
+*.md
+
+# Ignore development files
+.git/
+.gitignore
+.gitattributes
+.editorconfig
+
+# Ignore IDE files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Ignore test files
+test/
+tests/
+*_test.yaml
+*_test.yml
+
+# Ignore ArgoCD files (they reference this chart)
+../argocd/
+
+# Ignore example and backup files
+*.example
+*.bak
+*.backup
+*.tmp
+
+# Ignore OS files
+.DS_Store
+Thumbs.db
+
+# Ignore environment-specific overrides (keep values/)
+# environments/

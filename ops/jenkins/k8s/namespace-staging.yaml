@@ -1,0 +1,13 @@
+# Namespace for Jenkins Staging Environment (EKS)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jenkins-staging
+  labels:
+    name: jenkins-staging
+    environment: staging
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/component: ci-cd
+    app.kubernetes.io/part-of: devops-platform
+  annotations:
+    description: "DEP Jenkins - Staging"

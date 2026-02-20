@@ -1,0 +1,333 @@
+# Jenkins Helm Values - Staging Environment (AWS EKS)
+# GitOps-ready configuration for ArgoCD deployment
+
+jenkins:
+  enabled: true
+  
+  controller:
+    componentName: "jenkins-controller"
+    image:
+      registry: "docker.io"
+      repository: "jenkins/jenkins"
+      tag: "2.440-jdk17"
+      pullPolicy: "IfNotPresent"
+    
+    # Admin credentials - USE AWS SECRETS MANAGER IN PRODUCTION
+    # Stored in Kubernetes secret created separately
+    adminUser: "admin"
+    adminSecret: true
+    existingSecret: "jenkins-admin-credentials"
+    
+    # Resource configuration for staging
+    resources:
+      requests:
+        cpu: "1"
+        memory: "2Gi"
+      limits:
+        cpu: "4"
+        memory: "4Gi"
+    
+    # Java options optimized for staging workloads
+    javaOpts: >-
+      -Xmx3072m
+      -Xms2048m
+      -XX:+UseG1GC
+      -XX:MaxGCPauseMillis=100
+      -XX:+UseStringDeduplication
+      -Dhudson.slaves.NodeProvisioner.initialDelay=0
+      -Dhudson.slaves.NodeProvisioner.MARGIN=50
+      -Dhudson.slaves.NodeProvisioner.MARGIN0=0.85
+      -Djenkins.model.Jenkins.slaveAgentPort=50000
+      -Djenkins.model.Jenkins.slaveAgentPortEnforce=true
+    
+    # Service configuration - Use LoadBalancer or pair with Ingress
+    serviceType: LoadBalancer
+    serviceAnnotations:
+      service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+      service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+      service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+    
+    # Jenkins URL - Update with actual LoadBalancer DNS or Ingress hostname
+    jenkinsUrl: "http://jenkins-staging.example.com"
+    jenkinsUriPrefix: "/"
+    
+    # No executors on controller - use agents only
+    numExecutors: 0
+    
+    # Core plugins for CI/CD
+    installPlugins:
+      - kubernetes:4252.v6f6f9050e0e4
+      - workflow-aggregator:600.vb_57cdd26fdd7
+      - git:5.2.2
+      - configuration-as-code:1850.va_a_8c31d3158b_
+      - credentials-binding:670.v857b_6d8d5909
+      - blueocean:1.27.14
+      - prometheus:2.5.0
+      - github-branch-source:1797.v86fdb_4d57d43
+      - pipeline-stage-view:2.34
+      - docker-workflow:580.vc0c340686b_54
+      - kubernetes-credentials-provider:1.262.v2670ef7ea_0c5
+      - role-strategy:727.vd344b_eec783d
+      - matrix-auth:3.2.2
+      - amazon-ecr:2.2
+      - aws-credentials:218.v1b_e9466ec5da_
+    
+    # Additional plugins
+    additionalPlugins:
+      - job-dsl:1.87
+      - pipeline-utility-steps:2.17.0
+      - http_request:1.18
+      - ansicolor:1.0.4
+      - timestamper:1.26
+      - ws-cleanup:0.45
+      - pipeline-aws:1.43
+      - slack:674.v31281a_5734cc
+      - email-ext:2.108
+      - build-timeout:1.33
+    
+    # Jenkins Configuration as Code (JCasC)
+    JCasC:
+      defaultConfig: true
+      configScripts:
+        welcome-message: |
+          jenkins:
+            systemMessage: "Jenkins Staging Environment - EKS Cluster - GitOps Managed"
+        
+        security-config: |
+          jenkins:
+            securityRealm:
+              local:
+                allowsSignup: false
+            authorizationStrategy:
+              roleBased:
+                roles:
+                  global:
+                    - name: "admin"
+                      description: "Jenkins administrators"
+                      permissions:
+                        - "Overall/Administer"
+                      assignments:
+                        - "admin"
+                    - name: "developer"
+                      description: "Jenkins developers"
+                      permissions:
+                        - "Overall/Read"
+                        - "Job/Build"
+                        - "Job/Cancel"
+                        - "Job/Read"
+                        - "View/Read"
+                      assignments:
+                        - "authenticated"
+        
+        kubernetes-cloud: |
+          jenkins:
+            clouds:
+              - kubernetes:
+                  name: "eks-staging"
+                  serverUrl: "https://kubernetes.default"
+                  namespace: "jenkins-staging"
+                  jenkinsUrl: "http://jenkins:8080"
+                  jenkinsTunnel: "jenkins-agent:50000"
+                  containerCapStr: "20"
+                  connectTimeout: 5
+                  readTimeout: 15
+                  retentionTimeout: 5
+                  maxRequestsPerHostStr: 64
+                  podLabels:
+                    - key: "jenkins/agent"
+                      value: "true"
+                  templates:
+                    - name: "jenkins-agent-default"
+                      namespace: "jenkins-staging"
+                      label: "jenkins-agent"
+                      nodeUsageMode: NORMAL
+                      serviceAccount: "jenkins-agent"
+                      containers:
+                        - name: "jnlp"
+                          image: "jenkins/inbound-agent:latest-jdk17"
+                          workingDir: "/home/jenkins/agent"
+                          ttyEnabled: true
+                          resourceRequestCpu: "500m"
+                          resourceRequestMemory: "1Gi"
+                          resourceLimitCpu: "2"
+                          resourceLimitMemory: "2Gi"
+                    - name: "jenkins-agent-docker"
+                      namespace: "jenkins-staging"
+                      label: "docker"
+                      nodeUsageMode: EXCLUSIVE
+                      serviceAccount: "jenkins-agent"
+                      yaml: |
+                        spec:
+                          containers:
+                          - name: docker
+                            image: docker:24-dind
+                            securityContext:
+                              privileged: true
+                            env:
+                            - name: DOCKER_TLS_CERTDIR
+                              value: ""
+                            resources:
+                              requests:
+                                cpu: 1
+                                memory: 2Gi
+                              limits:
+                                cpu: 2
+                                memory: 4Gi
+        
+        location-config: |
+          unclassified:
+            location:
+              url: "http://jenkins-staging.example.com"
+              adminAddress: "jenkins-admin@example.com"
+    
+    # Security context
+    securityContext:
+      runAsUser: 1000
+      fsGroup: 1000
+      runAsNonRoot: true
+      seccompProfile:
+        type: RuntimeDefault
+    
+    # Container security context
+    containerSecurityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      readOnlyRootFilesystem: false
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+    
+    # Health checks with appropriate timeouts for staging
+    healthProbes: true
+    probes:
+      startupProbe:
+        httpGet:
+          path: '/login'
+          port: http
+        initialDelaySeconds: 90
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 18
+      livenessProbe:
+        httpGet:
+          path: '/login'
+          port: http
+        initialDelaySeconds: 120
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 5
+      readinessProbe:
+        httpGet:
+          path: '/login'
+          port: http
+        initialDelaySeconds: 90
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+    
+    # Ingress configuration (optional - use if LoadBalancer not preferred)
+    ingress:
+      enabled: false
+      ingressClassName: "nginx"
+      annotations:
+        cert-manager.io/cluster-issuer: "letsencrypt-staging"
+        nginx.ingress.kubernetes.io/ssl-redirect: "true"
+        nginx.ingress.kubernetes.io/proxy-body-size: "50m"
+      hosts:
+        - host: "jenkins-staging.example.com"
+          paths:
+            - path: /
+              pathType: Prefix
+      tls:
+        - secretName: jenkins-staging-tls
+          hosts:
+            - jenkins-staging.example.com
+  
+  # Persistence - Use AWS EBS via EBS CSI Driver
+  persistence:
+    enabled: true
+    existingClaim: ""
+    storageClass: "gp3"  # AWS EBS gp3 storage class
+    accessMode: "ReadWriteOnce"
+    size: "50Gi"
+    annotations: {}
+    labels: {}
+    volumes: []
+    mounts: []
+  
+  # Agent configuration
+  agent:
+    enabled: true
+    defaultsProviderTemplate: "jenkins-agent-default"
+    namespace: "jenkins-staging"
+    
+    # Pod retention for debugging
+    podRetention: "Default"
+    
+    # Agent resources
+    resources:
+      requests:
+        cpu: "500m"
+        memory: "1Gi"
+      limits:
+        cpu: "2"
+        memory: "2Gi"
+    
+    # Agent security
+    runAsUser: 1000
+    runAsGroup: 1000
+    
+    # Agent pod template (basic)
+    podTemplates:
+      jnlp: |
+        - name: jnlp
+          image: jenkins/inbound-agent:latest-jdk17
+          workingDir: /home/jenkins/agent
+          resourceRequestCpu: 500m
+          resourceRequestMemory: 1Gi
+          resourceLimitCpu: 2
+          resourceLimitMemory: 2Gi
+  
+  # Service Account with IRSA annotations for AWS
+  serviceAccount:
+    create: true
+    name: "jenkins"
+    annotations:
+      # Uncomment and configure for IRSA (IAM Roles for Service Accounts)
+      # eks.amazonaws.com/role-arn: "arn:aws:iam::ACCOUNT_ID:role/jenkins-staging-role"
+  
+  # Service Account for agents
+  serviceAccountAgent:
+    create: true
+    name: "jenkins-agent"
+    annotations: {}
+  
+  # RBAC
+  rbac:
+    create: true
+    readSecrets: true
+  
+  # Network Policy - Enable for enhanced security
+  networkPolicy:
+    enabled: true
+    internalAgents:
+      allowed: true
+      namespaceLabels: {}
+    externalAgents:
+      ipCIDR: "10.0.0.0/8"  # Adjust to your VPC CIDR
+  
+  # Prometheus monitoring
+  prometheus:
+    enabled: true
+    serviceMonitorNamespace: "monitoring"
+    serviceMonitorAdditionalLabels:
+      release: "prometheus"
+  
+  # Backup configuration
+  backup:
+    enabled: true
+    schedule: "0 2 * * *"
+    annotations:
+      # Use Velero for backups in EKS
+      backup.velero.io/backup-volumes: "jenkins-home"

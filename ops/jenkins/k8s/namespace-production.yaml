@@ -1,0 +1,16 @@
+# Namespace for Jenkins Production Environment (EKS)
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jenkins-production
+  labels:
+    name: jenkins-production
+    environment: production
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/component: ci-cd
+    app.kubernetes.io/part-of: devops-platform
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/audit: restricted
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    description: "DEP Jenkins - Prod"
