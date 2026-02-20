@@ -138,37 +138,16 @@ variable "enable_irsa" {
   default     = true
 }
 
-variable "enable_ebs_csi_driver" {
-  description = "Enable EBS CSI driver for persistent volumes"
-  type        = bool
-  default     = true
-}
-
-# AWS Load Balancer Controller Configuration
-variable "enable_aws_lb_controller" {
-  description = "Enable AWS Load Balancer Controller for ALB/NLB Ingress"
-  type        = bool
-  default     = true
-}
-
-variable "aws_lb_controller_version" {
-  description = "AWS Load Balancer Controller application version (used to fetch IAM policy)"
-  type        = string
-  default     = "2.11.0"
-}
-
-variable "aws_lb_controller_chart_version" {
-  description = "AWS Load Balancer Controller Helm chart version"
-  type        = string
-  default     = "1.11.0"
-}
-
-# ArgoCD is deployed via Helm/kubectl commands and managed by
-# inf/terraform/aws-eks-argocd/ (IRSA role) + ops/argocd/ (manifests).
-
-# Tags
+# Additional Tags
 variable "additional_tags" {
   description = "Additional tags to apply to all resources"
   type        = map(string)
   default     = {}
+}
+
+# EBS CSI Driver Configuration
+variable "enable_ebs_csi_driver" {
+  description = "Enable EBS CSI driver for persistent volumes"
+  type        = bool
+  default     = true
 }
