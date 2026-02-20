@@ -78,6 +78,14 @@ variable "cluster_endpoint_public_access_cidrs" {
     ])
     error_message = "cluster_endpoint_public_access_cidrs must not contain '0.0.0.0/0' or '::/0'. Restrict to your organisation's IP ranges."
   }
+
+  validation {
+    condition = alltrue([
+      for cidr in var.cluster_endpoint_public_access_cidrs :
+      !can(regex("^(10\\.|172\\.(1[6-9]|2[0-9]|3[01])\\.|192\\.168\\.)", cidr))
+    ])
+    error_message = "cluster_endpoint_public_access_cidrs must not contain RFC-1918 private ranges (10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16). AWS EKS only accepts public IPs for the public endpoint access list."
+  }
 }
 
 # Node Group Configuration

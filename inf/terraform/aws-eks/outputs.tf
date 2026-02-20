@@ -94,21 +94,6 @@ output "cloudwatch_log_group_arn" {
   value       = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/eks/${local.cluster_name}/cluster"
 }
 
-output "prometheus_namespace" {
-  description = "Kubernetes namespace where Prometheus stack is deployed"
-  value       = var.enable_prometheus ? var.prometheus_namespace : null
-}
-
-output "grafana_endpoint_info" {
-  description = "Information about accessing Grafana dashboard"
-  value = var.enable_grafana ? {
-    namespace = var.prometheus_namespace
-    service   = "kube-prometheus-stack-grafana"
-    port      = 80
-    note      = "Use kubectl port-forward to access: kubectl port-forward -n ${var.prometheus_namespace} svc/kube-prometheus-stack-grafana 3000:80"
-  } : null
-}
-
 # Configuration Outputs
 output "kubeconfig_command" {
   description = "Command to configure kubectl"
