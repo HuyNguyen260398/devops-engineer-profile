@@ -53,15 +53,20 @@ module "vpc" {
 # intentionally enabled with a restricted, organisation-specific CIDR.
 # Node egress: worker nodes must reach ECR/Docker Hub (image pulls), AWS service endpoints,
 # and OS package repos. Blocking internet egress would prevent pods from scheduling.
+# Secret encryption: enabled via encryption_config (passed as a module argument referencing
+# aws_kms_key.eks_secrets). tfsec inspects only the aws_eks_cluster resource inside the
+# module source and cannot correlate it with the encryption_config block the module injects,
+# so this is a false positive.
 # tfsec:ignore:aws-eks-no-public-cluster-access
 # tfsec:ignore:aws-eks-no-public-cluster-access-to-cidr
 # tfsec:ignore:aws-ec2-no-public-egress-sgr
+# tfsec:ignore:aws-eks-encrypt-secrets
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
   version = "21.15.1"
 
-  name  = local.cluster_name
-  kubernetes_version  = var.cluster_version
+  name               = local.cluster_name
+  kubernetes_version = var.cluster_version
 
   # Cluster endpoint access
   endpoint_public_access       = var.cluster_endpoint_public_access
@@ -158,11 +163,39 @@ module "eks" {
     } : null
   }
 
+  # Secret encryption at rest using a customer-managed KMS key
+  create_kms_key = false # We create and manage the KMS key externally for full control
+  # Both branches must share the same object type. The conditional is moved inside the
+  # object so that provider_key_arn is always present (null when encryption is disabled),
+  # satisfying Terraform's type consistency requirement for conditional expressions.
+  encryption_config = {
+    provider_key_arn = var.enable_secret_encryption ? aws_kms_key.eks_secrets[0].arn : null
+    resources        = ["secrets"]
+  }
+
   # Authentication mode (API is preferred over aws-auth ConfigMap in v20+)
   authentication_mode                      = "API_AND_CONFIG_MAP"
   enable_cluster_creator_admin_permissions = true
 
   tags = local.common_tags
+}
+
+# KMS Key for EKS Secret Encryption (envelope encryption at rest)
+resource "aws_kms_key" "eks_secrets" {
+  count = var.enable_secret_encryption ? 1 : 0
+
+  description             = "KMS key for EKS cluster ${local.cluster_name} secret encryption"
+  deletion_window_in_days = 7
+  enable_key_rotation     = true
+
+  tags = local.common_tags
+}
+
+resource "aws_kms_alias" "eks_secrets" {
+  count = var.enable_secret_encryption ? 1 : 0
+
+  name          = "alias/${local.cluster_name}-secrets"
+  target_key_id = aws_kms_key.eks_secrets[0].key_id
 }
 
 # IAM Role for EBS CSI Driver (if enabled)

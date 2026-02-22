@@ -154,3 +154,10 @@ variable "enable_ebs_csi_driver" {
   type        = bool
   default     = true
 }
+
+# Secret Encryption Configuration
+variable "enable_secret_encryption" {
+  description = "Enable envelope encryption of Kubernetes Secrets at rest using a customer-managed KMS key. Recommended for all environments."
+  type        = bool
+  default     = true
+}
