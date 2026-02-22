@@ -20,20 +20,15 @@ locals {
   ]
 
   # Common tags
+  # NOTE: timestamp() is intentionally excluded from CreatedAt — using it causes
+  # Terraform to show a perpetual diff on every plan, triggering needless resource
+  # updates. Track resource age via CloudTrail or AWS Config instead.
   common_tags = merge(
     {
       Project     = var.project_name
       Environment = var.environment
       ManagedBy   = "terraform"
-      CreatedAt   = formatdate("YYYY-MM-DD", timestamp())
     },
     var.additional_tags
   )
-
-  # CloudWatch log group name
-  # cloudwatch_log_group = "/aws/eks/${local.cluster_name}/cluster"
-  # }
-
-  # OIDC provider ARN for IRSA
-  # oidc_provider_arn = var.enable_irsa ? module.eks.oidc_provider_arn : ""
 }

@@ -29,7 +29,7 @@ permissions:
   security-events: write # For uploading SARIF results
 
 env:
-  TERRAFORM_VERSION: "1.7.0"
+  TERRAFORM_VERSION: "1.9.8"
   TFLINT_VERSION: "v0.50.3"
   TFSEC_VERSION: "v1.28.5"
   CHECKOV_VERSION: "3.2.0"

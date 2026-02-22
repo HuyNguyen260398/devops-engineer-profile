@@ -1,38 +1,28 @@
 terraform {
-  required_version = ">= 1.5.0"
+  required_version = ">= 1.14.0"
 
   required_providers {
     aws = {
       source  = "hashicorp/aws"
-      version = "~> 5.0"
+      version = "~> 6.0.0"
     }
     kubernetes = {
       source  = "hashicorp/kubernetes"
-      version = "~> 2.23"
+      version = "~> 3.0.0"
     }
     helm = {
       source  = "hashicorp/helm"
-      version = "~> 2.11"
+      version = "~> 3.1.0"
     }
     kubectl = {
       source  = "gavinbunney/kubectl"
-      version = "~> 1.14"
+      version = "~> 1.18.0"
     }
     http = {
       source  = "hashicorp/http"
-      version = "~> 3.0"
+      version = "~> 3.0.0"
     }
   }
-
-  # Remote backend configuration
-  # Uncomment and configure for production use
-  # backend "s3" {
-  #   bucket         = "your-terraform-state-bucket"
-  #   key            = "eks/terraform.tfstate"
-  #   region         = "ap-southeast-1"
-  #   encrypt        = true
-  #   dynamodb_table = "terraform-state-lock"
-  # }
 }
 
 provider "aws" {

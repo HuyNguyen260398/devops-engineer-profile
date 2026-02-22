@@ -205,7 +205,9 @@ resource "helm_release" "cluster_autoscaler" {
   repository = "https://kubernetes.github.io/autoscaler"
   chart      = "cluster-autoscaler"
   namespace  = "kube-system"
-  version    = "9.29.3"
+  # Check latest: helm repo add autoscaler https://kubernetes.github.io/autoscaler
+  #               helm search repo autoscaler/cluster-autoscaler --versions
+  version = "9.43.2"
 
   set {
     name  = "autoDiscovery.clusterName"
@@ -230,6 +232,27 @@ resource "helm_release" "cluster_autoscaler" {
   set {
     name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
     value = module.cluster_autoscaler_irsa[0].iam_role_arn
+  }
+
+  depends_on = [module.eks]
+}
+
+# Deploy Metrics Server (required for HPA — Horizontal Pod Autoscaler)
+# Without metrics-server, `kubectl top` and all HPA resources will fail.
+resource "helm_release" "metrics_server" {
+  count = var.enable_metrics_server ? 1 : 0
+
+  name       = "metrics-server"
+  repository = "https://kubernetes-sigs.github.io/metrics-server/"
+  chart      = "metrics-server"
+  namespace  = "kube-system"
+  # Check latest: helm repo add metrics-server https://kubernetes-sigs.github.io/metrics-server/
+  #               helm search repo metrics-server/metrics-server --versions
+  version = "3.12.2"
+
+  set {
+    name  = "args[0]"
+    value = "--kubelet-insecure-tls"
   }
 
   depends_on = [module.eks]

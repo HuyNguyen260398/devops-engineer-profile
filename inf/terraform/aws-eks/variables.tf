@@ -49,9 +49,9 @@ variable "private_subnet_cidrs" {
 
 # EKS Cluster Configuration
 variable "cluster_version" {
-  description = "Kubernetes version for EKS cluster"
+  description = "Kubernetes version for EKS cluster. Keep within 2 minor versions of latest to stay in AWS support window."
   type        = string
-  default     = "1.28"
+  default     = "1.32"
 }
 
 variable "cluster_endpoint_public_access" {
@@ -98,6 +98,16 @@ variable "node_groups" {
     instance_types = list(string)
     capacity_type  = string
     disk_size      = number
+    # Optional: Kubernetes node labels applied to every node in the group.
+    # Useful for node affinity / workload segregation (e.g. { "role" = "worker" }).
+    labels = optional(map(string), {})
+    # Optional: Kubernetes taints applied to every node in the group.
+    # Useful for dedicated node groups (e.g. GPU or spot-only workloads).
+    taints = optional(list(object({
+      key    = string
+      value  = optional(string)
+      effect = string # NO_SCHEDULE | NO_EXECUTE | PREFER_NO_SCHEDULE
+    })), [])
   }))
   default = {}
 }
@@ -118,6 +128,13 @@ variable "cloudwatch_log_retention_days" {
 # Auto-scaling Configuration
 variable "enable_cluster_autoscaler" {
   description = "Enable Kubernetes Cluster Autoscaler"
+  type        = bool
+  default     = true
+}
+
+# Metrics Server Configuration
+variable "enable_metrics_server" {
+  description = "Deploy metrics-server into kube-system. Required for Horizontal Pod Autoscaler (HPA) and `kubectl top` to function."
   type        = bool
   default     = true
 }
