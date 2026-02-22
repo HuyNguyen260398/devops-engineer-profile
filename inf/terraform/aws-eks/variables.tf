@@ -103,11 +103,6 @@ variable "node_groups" {
     labels = optional(map(string), {})
     # Optional: Kubernetes taints applied to every node in the group.
     # Useful for dedicated node groups (e.g. GPU or spot-only workloads).
-    taints = optional(list(object({
-      key    = string
-      value  = optional(string)
-      effect = string # NO_SCHEDULE | NO_EXECUTE | PREFER_NO_SCHEDULE
-    })), [])
   }))
   default = {}
 }

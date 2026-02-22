@@ -12,7 +12,7 @@ data "aws_caller_identity" "current" {}
 # tfsec:ignore:aws-ec2-require-vpc-flow-logs-for-all-vpcs
 module "vpc" {
   source  = "terraform-aws-modules/vpc/aws"
-  version = "~> 5.0"
+  version = "6.6.0"
 
   name = "${local.cluster_name}-vpc"
   cidr = var.vpc_cidr
@@ -58,21 +58,21 @@ module "vpc" {
 # tfsec:ignore:aws-ec2-no-public-egress-sgr
 module "eks" {
   source  = "terraform-aws-modules/eks/aws"
-  version = "~> 20.0"
+  version = "21.15.1"
 
-  cluster_name    = local.cluster_name
-  cluster_version = var.cluster_version
+  name  = local.cluster_name
+  kubernetes_version  = var.cluster_version
 
   # Cluster endpoint access
-  cluster_endpoint_public_access       = var.cluster_endpoint_public_access
-  cluster_endpoint_private_access      = var.cluster_endpoint_private_access
-  cluster_endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
+  endpoint_public_access       = var.cluster_endpoint_public_access
+  endpoint_private_access      = var.cluster_endpoint_private_access
+  endpoint_public_access_cidrs = var.cluster_endpoint_public_access_cidrs
 
   # Enable IRSA for service accounts
   enable_irsa = var.enable_irsa
 
   # CloudWatch logging
-  cluster_enabled_log_types = var.enable_cloudwatch_logs ? [
+  enabled_log_types = var.enable_cloudwatch_logs ? [
     "api",
     "audit",
     "authenticator",
@@ -87,7 +87,7 @@ module "eks" {
   subnet_ids = module.vpc.private_subnets
 
   # Cluster security group
-  cluster_security_group_additional_rules = {
+  security_group_additional_rules = {
     ingress_nodes_ephemeral_ports = {
       description                = "Nodes to cluster API"
       protocol                   = "tcp"
@@ -133,7 +133,7 @@ module "eks" {
   eks_managed_node_groups = var.node_groups
 
   # Cluster add-ons
-  cluster_addons = {
+  addons = {
     coredns = {
       most_recent = true
     }
@@ -145,7 +145,7 @@ module "eks" {
     }
     aws-ebs-csi-driver = var.enable_ebs_csi_driver ? {
       most_recent              = true
-      service_account_role_arn = module.ebs_csi_driver_irsa[0].iam_role_arn
+      service_account_role_arn = module.ebs_csi_irsa[0].iam_role_arn
     } : null
   }
 
@@ -157,12 +157,12 @@ module "eks" {
 }
 
 # IAM Role for EBS CSI Driver (if enabled)
-module "ebs_csi_driver_irsa" {
+module "ebs_csi_irsa" {
   count   = var.enable_ebs_csi_driver ? 1 : 0
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "6.4.0"
 
-  role_name_prefix = "${local.cluster_name}-ebs-csi-"
+  use_name_prefix = "${local.cluster_name}-ebs-csi-"
 
   attach_ebs_csi_policy = true
 
@@ -179,10 +179,10 @@ module "ebs_csi_driver_irsa" {
 # IAM Role for Cluster Autoscaler (if enabled)
 module "cluster_autoscaler_irsa" {
   count   = var.enable_cluster_autoscaler ? 1 : 0
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
+  version = "6.4.0"
 
-  role_name_prefix = "${local.cluster_name}-cluster-autoscaler-"
+  use_name_prefix = "${local.cluster_name}-cluster-autoscaler-"
 
   attach_cluster_autoscaler_policy = true
   cluster_autoscaler_cluster_names = [local.cluster_name]
@@ -209,30 +209,28 @@ resource "helm_release" "cluster_autoscaler" {
   #               helm search repo autoscaler/cluster-autoscaler --versions
   version = "9.43.2"
 
-  set {
-    name  = "autoDiscovery.clusterName"
-    value = local.cluster_name
-  }
-
-  set {
-    name  = "awsRegion"
-    value = var.aws_region
-  }
-
-  set {
-    name  = "rbac.serviceAccount.create"
-    value = "true"
-  }
-
-  set {
-    name  = "rbac.serviceAccount.name"
-    value = "cluster-autoscaler"
-  }
-
-  set {
-    name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-    value = module.cluster_autoscaler_irsa[0].iam_role_arn
-  }
+  set = [
+    {
+      name  = "autoDiscovery.clusterName"
+      value = local.cluster_name
+    },
+    {
+      name  = "awsRegion"
+      value = var.aws_region
+    },
+    {
+      name  = "rbac.serviceAccount.create"
+      value = "true"
+    },
+    {
+      name  = "rbac.serviceAccount.name"
+      value = "cluster-autoscaler"
+    },
+    {
+      name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
+      value = module.cluster_autoscaler_irsa[0].iam_role_arn
+    }
+  ]
 
   depends_on = [module.eks]
 }
@@ -250,10 +248,12 @@ resource "helm_release" "metrics_server" {
   #               helm search repo metrics-server/metrics-server --versions
   version = "3.12.2"
 
-  set {
-    name  = "args[0]"
-    value = "--kubelet-insecure-tls"
-  }
+  set = [
+    {
+      name  = "args[0]"
+      value = "--kubelet-insecure-tls"
+    }
+  ]
 
   depends_on = [module.eks]
 }
