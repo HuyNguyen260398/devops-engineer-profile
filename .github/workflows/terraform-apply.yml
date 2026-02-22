@@ -26,7 +26,7 @@ permissions:
     id-token: write # For OIDC authentication with AWS
 
 env:
-    TERRAFORM_VERSION: "1.9.8"
+    TERRAFORM_VERSION: "1.14.3"
 
 # Prevent concurrent applies for the same environment+directory to avoid state conflicts.
 concurrency:
