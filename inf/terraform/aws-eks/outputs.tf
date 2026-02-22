@@ -75,12 +75,12 @@ output "cluster_iam_role_arn" {
 
 output "ebs_csi_driver_role_arn" {
   description = "IAM role ARN for EBS CSI driver"
-  value       = var.enable_ebs_csi_driver ? module.ebs_csi_driver_irsa[0].iam_role_arn : null
+  value       = var.enable_ebs_csi_driver ? module.ebs_csi_irsa[0].arn : null
 }
 
 output "cluster_autoscaler_role_arn" {
   description = "IAM role ARN for Cluster Autoscaler"
-  value       = var.enable_cluster_autoscaler ? module.cluster_autoscaler_irsa[0].iam_role_arn : null
+  value       = var.enable_cluster_autoscaler ? module.cluster_autoscaler_irsa[0].arn : null
 }
 
 # Monitoring Outputs
@@ -92,21 +92,6 @@ output "cloudwatch_log_group_name" {
 output "cloudwatch_log_group_arn" {
   description = "CloudWatch log group ARN for EKS cluster logs"
   value       = "arn:aws:logs:${var.aws_region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/eks/${local.cluster_name}/cluster"
-}
-
-output "prometheus_namespace" {
-  description = "Kubernetes namespace where Prometheus stack is deployed"
-  value       = var.enable_prometheus ? var.prometheus_namespace : null
-}
-
-output "grafana_endpoint_info" {
-  description = "Information about accessing Grafana dashboard"
-  value = var.enable_grafana ? {
-    namespace = var.prometheus_namespace
-    service   = "kube-prometheus-stack-grafana"
-    port      = 80
-    note      = "Use kubectl port-forward to access: kubectl port-forward -n ${var.prometheus_namespace} svc/kube-prometheus-stack-grafana 3000:80"
-  } : null
 }
 
 # Configuration Outputs
@@ -124,12 +109,3 @@ output "environment" {
   description = "Environment name"
   value       = var.environment
 }
-
-# AWS Load Balancer Controller Outputs
-output "aws_lb_controller_role_arn" {
-  description = "IAM role ARN for AWS Load Balancer Controller"
-  value       = var.enable_aws_lb_controller ? module.aws_lb_controller_irsa[0].iam_role_arn : null
-}
-
-# ArgoCD – managed by inf/terraform/aws-eks-argocd
-# Use that module's outputs for the IRSA role ARN and deployment info.
