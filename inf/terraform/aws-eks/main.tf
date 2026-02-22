@@ -133,19 +133,28 @@ module "eks" {
   eks_managed_node_groups = var.node_groups
 
   # Cluster add-ons
+  # vpc-cni and kube-proxy MUST use before_compute = true so that they are created
+  # before the managed node group. The EKS module's default add-on resource has
+  # depends_on = [module.eks_managed_node_group], which creates a circular deadlock:
+  #   nodes can never become Ready without the CNI plugin →
+  #   CNI (and kube-proxy) are never installed because they wait on healthy nodes.
+  # before_compute = true moves these to a separate resource with no node-group dependency.
   addons = {
     coredns = {
       most_recent = true
+      # CoreDNS needs schedulable nodes, so it runs after node group is healthy (default).
     }
     kube-proxy = {
-      most_recent = true
+      most_recent    = true
+      before_compute = true # Required before nodes join — sets up iptables service routing.
     }
     vpc-cni = {
-      most_recent = true
+      most_recent    = true
+      before_compute = true # Required before nodes join — CNI plugin initialises node networking.
     }
     aws-ebs-csi-driver = var.enable_ebs_csi_driver ? {
       most_recent              = true
-      service_account_role_arn = module.ebs_csi_irsa[0].iam_role_arn
+      service_account_role_arn = module.ebs_csi_irsa[0].arn
     } : null
   }
 
@@ -162,7 +171,8 @@ module "ebs_csi_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.4.0"
 
-  use_name_prefix = "${local.cluster_name}-ebs-csi-"
+  name            = "${local.cluster_name}-ebs-csi"
+  use_name_prefix = true
 
   attach_ebs_csi_policy = true
 
@@ -182,7 +192,8 @@ module "cluster_autoscaler_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.4.0"
 
-  use_name_prefix = "${local.cluster_name}-cluster-autoscaler-"
+  name            = "${local.cluster_name}-cluster-autoscaler"
+  use_name_prefix = true
 
   attach_cluster_autoscaler_policy = true
   cluster_autoscaler_cluster_names = [local.cluster_name]
@@ -228,7 +239,7 @@ resource "helm_release" "cluster_autoscaler" {
     },
     {
       name  = "rbac.serviceAccount.annotations.eks\\.amazonaws\\.com/role-arn"
-      value = module.cluster_autoscaler_irsa[0].iam_role_arn
+      value = module.cluster_autoscaler_irsa[0].arn
     }
   ]
 

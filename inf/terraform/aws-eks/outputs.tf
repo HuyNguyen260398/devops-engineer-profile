@@ -75,12 +75,12 @@ output "cluster_iam_role_arn" {
 
 output "ebs_csi_driver_role_arn" {
   description = "IAM role ARN for EBS CSI driver"
-  value       = var.enable_ebs_csi_driver ? module.ebs_csi_irsa[0].iam_role_arn : null
+  value       = var.enable_ebs_csi_driver ? module.ebs_csi_irsa[0].arn : null
 }
 
 output "cluster_autoscaler_role_arn" {
   description = "IAM role ARN for Cluster Autoscaler"
-  value       = var.enable_cluster_autoscaler ? module.cluster_autoscaler_irsa[0].iam_role_arn : null
+  value       = var.enable_cluster_autoscaler ? module.cluster_autoscaler_irsa[0].arn : null
 }
 
 # Monitoring Outputs
