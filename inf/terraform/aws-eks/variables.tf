@@ -98,11 +98,7 @@ variable "node_groups" {
     instance_types = list(string)
     capacity_type  = string
     disk_size      = number
-    # Optional: Kubernetes node labels applied to every node in the group.
-    # Useful for node affinity / workload segregation (e.g. { "role" = "worker" }).
-    labels = optional(map(string), {})
-    # Optional: Kubernetes taints applied to every node in the group.
-    # Useful for dedicated node groups (e.g. GPU or spot-only workloads).
+    labels         = optional(map(string), {})
   }))
   default = {}
 }
