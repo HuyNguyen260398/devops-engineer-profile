@@ -23,8 +23,8 @@ data "http" "lb_controller_iam_policy" {
 resource "aws_iam_policy" "lb_controller" {
   count = var.enable_aws_lb_controller ? 1 : 0
 
-  name_prefix = "${local.cluster_name}-aws-lb-controller-"
-  description = "IAM policy for AWS Load Balancer Controller on EKS cluster ${local.cluster_name}"
+  name_prefix = "${var.cluster_name}-aws-lb-controller-"
+  description = "IAM policy for AWS Load Balancer Controller on EKS cluster ${var.cluster_name}"
   policy      = data.http.lb_controller_iam_policy[0].response_body
 
   tags = local.common_tags
@@ -39,7 +39,7 @@ module "aws_lb_controller_irsa" {
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
   version = "~> 5.0"
 
-  role_name_prefix = "${local.cluster_name}-aws-lb-ctrl-"
+  role_name_prefix = "${var.cluster_name}-aws-lb-ctrl-"
 
   role_policy_arns = {
     policy = aws_iam_policy.lb_controller[0].arn
@@ -47,7 +47,7 @@ module "aws_lb_controller_irsa" {
 
   oidc_providers = {
     main = {
-      provider_arn               = module.eks.oidc_provider_arn
+      provider_arn               = local.oidc_provider_arn
       namespace_service_accounts = ["kube-system:aws-load-balancer-controller"]
     }
   }
@@ -70,7 +70,7 @@ resource "helm_release" "aws_lb_controller" {
 
   set {
     name  = "clusterName"
-    value = local.cluster_name
+    value = var.cluster_name
   }
 
   set {
@@ -80,7 +80,7 @@ resource "helm_release" "aws_lb_controller" {
 
   set {
     name  = "vpcId"
-    value = module.vpc.vpc_id
+    value = var.vpc_id
   }
 
   set {
@@ -139,7 +139,6 @@ resource "helm_release" "aws_lb_controller" {
   timeout = 300
 
   depends_on = [
-    module.eks,
     aws_iam_policy.lb_controller
   ]
 }

@@ -29,7 +29,7 @@ permissions:
   id-token: write # For OIDC authentication
 
 env:
-  TERRAFORM_VERSION: "1.7.0"
+  TERRAFORM_VERSION: "1.14.3"
 
 # Prevent concurrent plans for the same environment
 concurrency:
@@ -111,9 +111,10 @@ jobs:
                   done
                 fi
                 
-                # If no environment files found, use a default
+                # If no environment files found, skip this directory
                 if [ ${#ENVS[@]} -eq 0 ]; then
-                  ENVS=("default")
+                  echo "⚠️ No tfvars files found for $dir, skipping (no environments/ tfvars detected)"
+                  continue
                 fi
                 
                 # Add each environment to the matrix
@@ -181,6 +182,7 @@ jobs:
         id: plan
         working-directory: inf/terraform/${{ matrix.directory }}
         run: |
+          set -o pipefail
           echo "📋 Creating Terraform plan for ${{ matrix.environment }}..."
 
           # Check if tfvars file exists
@@ -189,8 +191,8 @@ jobs:
             echo "Using variables from $TFVARS_FILE"
             terraform plan -var-file="$TFVARS_FILE" -input=false -no-color -out=tfplan-${{ matrix.environment }} | tee plan-output.txt
           else
-            echo "No tfvars file found at $TFVARS_FILE, using defaults"
-            terraform plan -input=false -no-color -out=tfplan-${{ matrix.environment }} | tee plan-output.txt
+            echo "❌ No tfvars file found at $TFVARS_FILE — cannot plan without required variables"
+            exit 1
           fi
 
           # Extract plan summary

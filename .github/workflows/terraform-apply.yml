@@ -1,0 +1,180 @@
+name: Terraform Apply
+
+on:
+    # Manual trigger — preferred approach; always review the plan before applying.
+    workflow_dispatch:
+        inputs:
+            environment:
+                description: "Environment to apply"
+                required: true
+                type: choice
+                options:
+                    - staging
+                    - production
+            directory:
+                description: "Terraform project name (e.g. aws-eks, aws-s3-web)"
+                required: true
+                type: string
+            confirm:
+                description: 'Type "apply" to confirm you have reviewed the plan'
+                required: true
+                type: string
+
+# Default permissions: read-only (security-first)
+permissions:
+    contents: read
+    id-token: write # For OIDC authentication with AWS
+
+env:
+    TERRAFORM_VERSION: "1.14.3"
+
+# Prevent concurrent applies for the same environment+directory to avoid state conflicts.
+concurrency:
+    group: terraform-apply-${{ github.event.inputs.environment }}-${{ github.event.inputs.directory }}
+    cancel-in-progress: false # Never cancel an in-progress apply
+
+jobs:
+    # =============================================================================
+    # Job 1: Safety Gate
+    # Validates the confirmation word and blocks unintended applies.
+    # =============================================================================
+    gate:
+        name: Safety Gate
+        runs-on: ubuntu-latest
+        steps:
+            - name: Validate confirmation
+              run: |
+                  if [ "${{ github.event.inputs.confirm }}" != "apply" ]; then
+                    echo "❌ Confirmation failed. You must type 'apply' to proceed."
+                    echo "You entered: '${{ github.event.inputs.confirm }}'"
+                    exit 1
+                  fi
+                  echo "✅ Confirmation accepted — proceeding with apply."
+
+            - name: Validate directory exists
+              uses: actions/checkout@v4
+              with:
+                  sparse-checkout: inf/terraform
+
+            - name: Check directory
+              run: |
+                  if [ ! -d "inf/terraform/${{ github.event.inputs.directory }}" ]; then
+                    echo "❌ Directory inf/terraform/${{ github.event.inputs.directory }} does not exist."
+                    exit 1
+                  fi
+                  echo "✅ Directory confirmed: inf/terraform/${{ github.event.inputs.directory }}"
+
+    # =============================================================================
+    # Job 2: Terraform Apply
+    # Runs after the safety gate passes.
+    # For production: add an Environment protection rule in repo Settings →
+    #   Environments → production → Required reviewers to require human approval.
+    # =============================================================================
+    apply:
+        name: Apply ${{ github.event.inputs.directory }} (${{ github.event.inputs.environment }})
+        needs: gate
+        runs-on: ubuntu-latest
+        # Reference a GitHub Environment to enforce branch protection + required reviewers.
+        # Create "staging" and "production" environments in:
+        #   Repository → Settings → Environments
+        environment: ${{ github.event.inputs.environment }}
+
+        steps:
+            - name: Checkout repository
+              uses: actions/checkout@v4
+
+            - name: Configure AWS credentials via OIDC
+              uses: aws-actions/configure-aws-credentials@v4
+              with:
+                  # IAM role must trust github.com/actions/oidc-provider and allow
+                  # the sts:AssumeRoleWithWebIdentity action.
+                  # Provision this role with inf/terraform/aws-github-oidc/.
+                  role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+                  aws-region: ap-southeast-1
+
+            - name: Setup Terraform
+              uses: hashicorp/setup-terraform@v3
+              with:
+                  terraform_version: ${{ env.TERRAFORM_VERSION }}
+
+            - name: Cache Terraform providers
+              uses: actions/cache@v4
+              with:
+                  path: inf/terraform/${{ github.event.inputs.directory }}/.terraform
+                  key: ${{ runner.os }}-terraform-${{ github.event.inputs.directory }}-${{ hashFiles(format('inf/terraform/{0}/.terraform.lock.hcl', github.event.inputs.directory)) }}
+                  restore-keys: |
+                      ${{ runner.os }}-terraform-${{ github.event.inputs.directory }}-
+
+            - name: Terraform Init
+              working-directory: inf/terraform/${{ github.event.inputs.directory }}
+              run: |
+                  echo "🔧 Initializing Terraform..."
+                  terraform init -input=false
+
+            - name: Select or Create Workspace
+              working-directory: inf/terraform/${{ github.event.inputs.directory }}
+              run: |
+                  terraform workspace select ${{ github.event.inputs.environment }} \
+                    || terraform workspace new ${{ github.event.inputs.environment }}
+                  terraform workspace show
+
+            - name: Terraform Plan (pre-apply verification)
+              id: plan
+              working-directory: inf/terraform/${{ github.event.inputs.directory }}
+              run: |
+                  TFVARS_FILE="environments/${{ github.event.inputs.environment }}.tfvars"
+                  if [ -f "$TFVARS_FILE" ]; then
+                    terraform plan \
+                      -var-file="$TFVARS_FILE" \
+                      -input=false \
+                      -no-color \
+                      -out=tfplan
+                  else
+                    terraform plan \
+                      -input=false \
+                      -no-color \
+                      -out=tfplan
+                  fi
+
+            - name: Terraform Apply
+              id: apply
+              working-directory: inf/terraform/${{ github.event.inputs.directory }}
+              run: |
+                  echo "🚀 Applying Terraform plan..."
+                  terraform apply -input=false -no-color tfplan
+                  echo "✅ Apply completed successfully."
+
+            - name: Capture Outputs
+              if: steps.apply.outcome == 'success'
+              working-directory: inf/terraform/${{ github.event.inputs.directory }}
+              run: |
+                  echo "## 📤 Terraform Outputs" >> $GITHUB_STEP_SUMMARY
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+                  terraform output -no-color 2>/dev/null || echo "(no outputs defined)"
+                  echo '```' >> $GITHUB_STEP_SUMMARY
+
+            - name: Apply Summary
+              if: always()
+              run: |
+                  echo "# 🚀 Terraform Apply Summary" >> $GITHUB_STEP_SUMMARY
+                  echo "" >> $GITHUB_STEP_SUMMARY
+                  echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+                  echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Directory** | \`${{ github.event.inputs.directory }}\` |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Environment** | \`${{ github.event.inputs.environment }}\` |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Result** | ${{ steps.apply.outcome == 'success' && '✅ Success' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Actor** | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Commit** | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+                  echo "| **Run** | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
+
+            - name: Handle Apply Failure
+              if: steps.apply.outcome == 'failure'
+              run: |
+                  echo "❌ Terraform apply failed."
+                  echo ""
+                  echo "Remediation steps:"
+                  echo "  1. Review the error output above."
+                  echo "  2. Fix the root cause in code and open a new PR."
+                  echo "  3. For state issues: run 'terraform state list' and 'terraform state rm' as needed."
+                  echo "  4. NEVER manually edit the remote state file."
+                  exit 1
