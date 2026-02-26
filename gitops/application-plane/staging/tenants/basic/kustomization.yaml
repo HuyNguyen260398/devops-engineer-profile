@@ -1,0 +1,5 @@
+# Staging basic tier tenants (shared pool)
+# Add tenant YAML files here and reference them in resources
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: []

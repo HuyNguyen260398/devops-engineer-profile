@@ -1,0 +1,80 @@
+# ============================================================================
+# ArgoCD AppProject – Application Workloads
+# ============================================================================
+# Manages application-level workloads like Jenkins, web apps, microservices.
+# Restricts to application namespaces and standard Kubernetes resource types.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: applications
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: applications
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "Application workloads deployed via GitOps tier strategy"
+
+  sourceRepos:
+    - "*"
+
+  destinations:
+    # Application namespaces follow pattern: <app>-<tier> or <tenant-id>
+    - server: https://kubernetes.default.svc
+      namespace: "jenkins"
+    - server: https://kubernetes.default.svc
+      namespace: "jenkins-*"
+    - server: https://kubernetes.default.svc
+      namespace: "apps-*"
+    - server: https://kubernetes.default.svc
+      namespace: "pool-*"
+    - server: https://kubernetes.default.svc
+      namespace: "default"
+
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: apps
+      kind: DaemonSet
+    - group: apps
+      kind: ReplicaSet
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: policy
+      kind: PodDisruptionBudget
+    - group: batch
+      kind: Job
+    - group: batch
+      kind: CronJob
+
+  roles:
+    - name: app-admin
+      description: "Full access to application project"
+      policies:
+        - p, proj:applications:app-admin, applications, *, applications/*, allow
+    - name: app-viewer
+      description: "Read-only access to application project"
+      policies:
+        - p, proj:applications:app-viewer, applications, get, applications/*, allow

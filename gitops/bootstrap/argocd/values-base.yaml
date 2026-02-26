@@ -1,0 +1,159 @@
+# ============================================================================
+# ArgoCD Helm Values - Base Configuration
+# ============================================================================
+# Production-grade base configuration shared across all environments.
+# Environment-specific overrides are layered via values-local.yaml or
+# values-aws.yaml.
+
+global:
+  logging:
+    format: json
+    level: info
+
+# ── Server ─────────────────────────────────────────────────────────────────
+server:
+  replicas: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+    targetCPUUtilizationPercentage: 70
+    targetMemoryUtilizationPercentage: 80
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+  containerSecurityContext:
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# ── Controller ─────────────────────────────────────────────────────────────
+controller:
+  replicas: 1
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+
+  containerSecurityContext:
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+
+  metrics:
+    enabled: true
+    serviceMonitor:
+      enabled: true
+
+# ── Repo Server ────────────────────────────────────────────────────────────
+repoServer:
+  replicas: 2
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 5
+
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: "1"
+      memory: "1Gi"
+
+  containerSecurityContext:
+    runAsNonRoot: true
+    readOnlyRootFilesystem: true
+    allowPrivilegeEscalation: false
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+
+# ── ApplicationSet Controller ──────────────────────────────────────────────
+applicationSet:
+  replicas: 2
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ── Redis ──────────────────────────────────────────────────────────────────
+redis:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+# ── Notifications ──────────────────────────────────────────────────────────
+notifications:
+  enabled: true
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+# ── RBAC ───────────────────────────────────────────────────────────────────
+configs:
+  rbac:
+    policy.default: role:readonly
+    policy.csv: |
+      # DevOps team - full admin access
+      p, role:devops, applications, *, */*, allow
+      p, role:devops, clusters, *, *, allow
+      p, role:devops, repositories, *, *, allow
+      p, role:devops, projects, *, *, allow
+      p, role:devops, logs, *, *, allow
+      p, role:devops, exec, *, */*, allow
+
+      # Developer team - read access + sync
+      p, role:developer, applications, get, */*, allow
+      p, role:developer, applications, sync, */*, allow
+      p, role:developer, logs, get, */*, allow
+      p, role:developer, projects, get, *, allow
+
+      # Tenant admin - manage own namespace
+      p, role:tenant-admin, applications, *, */*, allow
+      p, role:tenant-admin, logs, get, */*, allow
+
+  params:
+    server.insecure: false
+    controller.status.processors: 20
+    controller.operation.processors: 10
+    controller.self.heal.timeout.seconds: 5
+    reposerver.parallelism.limit: 0
+    timeout.reconciliation: 180s

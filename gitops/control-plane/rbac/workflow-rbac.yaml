@@ -1,0 +1,74 @@
+# ============================================================================
+# Control Plane RBAC - ServiceAccount and Permissions
+# ============================================================================
+# Provides the Argo Workflows service account with necessary permissions
+# to manage ArgoCD applications and Kubernetes resources for
+# tenant onboarding, offboarding, and deployment operations.
+# ============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argo-workflows
+  labels:
+    app.kubernetes.io/name: argo-workflows
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gitops-workflow-sa
+  namespace: argo-workflows
+  labels:
+    app.kubernetes.io/name: gitops-workflow-sa
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+---
+# ClusterRole for reading ArgoCD applications and managing namespaces
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: gitops-workflow-role
+  labels:
+    app.kubernetes.io/name: gitops-workflow-role
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+rules:
+  # Read ArgoCD applications
+  - apiGroups: ["argoproj.io"]
+    resources: ["applications"]
+    verbs: ["get", "list", "watch"]
+  # Manage namespaces for tenant onboarding/offboarding
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "create", "delete"]
+  # Read pods, services, deployments for health checks and backups
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "persistentvolumeclaims"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments", "statefulsets", "replicasets"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: gitops-workflow-binding
+  labels:
+    app.kubernetes.io/name: gitops-workflow-binding
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: gitops-workflow-role
+subjects:
+  - kind: ServiceAccount
+    name: gitops-workflow-sa
+    namespace: argo-workflows

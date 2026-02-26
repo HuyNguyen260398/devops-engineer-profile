@@ -1,0 +1,124 @@
+# ============================================================================
+# Staging - Pooled Environment: pool-1
+# ============================================================================
+# Shared Jenkins instance for basic-tier tenants in staging.
+# More constrained than production pool; suitable for testing shared config.
+# ============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: pool-1-staging
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/instance: pool-1-staging
+    app.kubernetes.io/component: ci-cd
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    pool: pool-1
+    tier: basic
+    environment: staging
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: pool-1-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/instance: pool-1-staging
+    app.kubernetes.io/component: ci-cd
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    pool: pool-1
+    tier: basic
+    environment: staging
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    description: "Shared Jenkins pool for basic tier tenants (staging)"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+
+  source:
+    repoURL: https://github.com/your-org/devops-engineer-profile.git
+    targetRevision: main
+    path: gitops/helm-charts/jenkins
+    helm:
+      releaseName: pool-1-staging
+      values: |
+        tenantId: "pool-1-staging"
+        tier: "basic"
+        environment: "staging"
+        jenkins:
+          enabled: true
+          controller:
+            resources:
+              requests:
+                cpu: "500m"
+                memory: "1Gi"
+              limits:
+                cpu: "2"
+                memory: "2Gi"
+            javaOpts: >-
+              -Xmx1536m
+              -Xms512m
+              -XX:+UseG1GC
+              -Djenkins.install.runSetupWizard=false
+            numExecutors: 0
+            serviceType: ClusterIP
+            installPlugins:
+              - kubernetes:4252.v6f6f9050e0e4
+              - workflow-aggregator:600.vb_57cdd26fdd7
+              - git:5.2.2
+              - configuration-as-code:1850.va_a_8c31d3158b_
+              - credentials-binding:670.v857b_6d8d5909
+              - prometheus:2.5.0
+            podSecurityContextOverride:
+              runAsNonRoot: true
+              runAsUser: 1000
+              fsGroup: 1000
+              seccompProfile:
+                type: RuntimeDefault
+            containerSecurityContext:
+              runAsUser: 1000
+              runAsGroup: 1000
+              readOnlyRootFilesystem: true
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+          agent:
+            enabled: true
+            resources:
+              requests:
+                cpu: "250m"
+                memory: "256Mi"
+              limits:
+                cpu: "1"
+                memory: "1Gi"
+          persistence:
+            enabled: true
+            size: "20Gi"
+            storageClass: "gp3"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pool-1-staging
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

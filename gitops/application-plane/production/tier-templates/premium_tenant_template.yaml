@@ -1,0 +1,226 @@
+# ============================================================================
+# Premium Tier Template - Silo/Dedicated Deployment
+# ============================================================================
+# Premium tier tenants get fully dedicated, isolated resources. Jenkins gets
+# its own namespace, dedicated controller with HA, dedicated storage, and
+# full monitoring. Resources are not shared with any other tenant.
+#
+# Pattern: Silo/Dedicated model from EKS SaaS GitOps Workshop (Lab 2)
+#
+# Variables to replace:
+#   {TENANT_ID}        - Unique tenant identifier
+#   {RELEASE_VERSION}  - Helm chart version to deploy
+# ============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {TENANT_ID}
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/instance: {TENANT_ID}
+    app.kubernetes.io/managed-by: argocd
+    tenant: {TENANT_ID}
+    tier: premium
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {TENANT_ID}-premium
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/instance: {TENANT_ID}
+    app.kubernetes.io/component: ci-cd
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    tenant: {TENANT_ID}
+    tier: premium
+    environment: production
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    notifications.argoproj.io/subscribe.on-deployed.slack: "devops-production"
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: "devops-critical-alerts"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: "devops-critical-alerts"
+    description: "Premium tier tenant - fully dedicated Jenkins"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: applications
+
+  source:
+    repoURL: https://github.com/your-org/devops-engineer-profile.git
+    targetRevision: HEAD
+    path: gitops/helm-charts/jenkins
+    helm:
+      releaseName: {TENANT_ID}-premium
+      values: |
+        tenantId: "{TENANT_ID}"
+        tier: "premium"
+        environment: "production"
+        jenkins:
+          enabled: true
+          controller:
+            image:
+              tag: "2.440-jdk17"
+            resources:
+              requests:
+                cpu: "2"
+                memory: "4Gi"
+              limits:
+                cpu: "8"
+                memory: "8Gi"
+            javaOpts: >-
+              -Xmx6144m
+              -Xms4096m
+              -XX:+UseG1GC
+              -XX:MaxGCPauseMillis=100
+              -XX:+UseStringDeduplication
+              -XX:+ParallelRefProcEnabled
+              -XX:+DisableExplicitGC
+              -XX:+UnlockExperimentalVMOptions
+              -XX:G1NewSizePercent=20
+              -Dhudson.slaves.NodeProvisioner.initialDelay=0
+              -Dhudson.slaves.NodeProvisioner.MARGIN=50
+              -Dhudson.slaves.NodeProvisioner.MARGIN0=0.85
+              -Djenkins.model.Jenkins.slaveAgentPort=50000
+              -Djenkins.model.Jenkins.slaveAgentPortEnforce=true
+              -Djenkins.install.runSetupWizard=false
+              -Djava.awt.headless=true
+            serviceType: LoadBalancer
+            serviceAnnotations:
+              service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+              service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+              service.beta.kubernetes.io/aws-load-balancer-cross-zone-load-balancing-enabled: "true"
+              service.beta.kubernetes.io/aws-load-balancer-backend-protocol: "tcp"
+              service.beta.kubernetes.io/aws-load-balancer-connection-idle-timeout: "3600"
+              service.beta.kubernetes.io/aws-load-balancer-access-log-enabled: "true"
+            adminSecret: true
+            existingSecret: "jenkins-admin-credentials"
+            jenkinsUrl: "https://jenkins-{TENANT_ID}.example.com"
+            ingress:
+              enabled: true
+              annotations:
+                kubernetes.io/ingress.class: "nginx"
+                cert-manager.io/cluster-issuer: "letsencrypt-prod"
+              hostName: "jenkins-{TENANT_ID}.example.com"
+              tls:
+                - secretName: jenkins-{TENANT_ID}-tls
+                  hosts:
+                    - "jenkins-{TENANT_ID}.example.com"
+            installPlugins:
+              - kubernetes:4252.v6f6f9050e0e4
+              - workflow-aggregator:600.vb_57cdd26fdd7
+              - git:5.2.2
+              - configuration-as-code:1850.va_a_8c31d3158b_
+              - credentials-binding:670.v857b_6d8d5909
+              - blueocean:1.27.14
+              - prometheus:2.5.0
+              - github-branch-source:1797.v86fdb_4d57d43
+              - pipeline-stage-view:2.34
+              - docker-workflow:580.vc0c340686b_54
+              - kubernetes-credentials-provider:1.262.v2670ef7ea_0c5
+              - role-strategy:727.vd344b_eec783d
+              - matrix-auth:3.2.2
+              - amazon-ecr:2.2
+              - aws-credentials:218.v1b_e9466ec5da_
+            additionalPlugins:
+              - job-dsl:1.87
+              - pipeline-utility-steps:2.17.0
+              - http_request:1.18
+              - ansicolor:1.0.4
+              - timestamper:1.26
+              - ws-cleanup:0.45
+              - audit-trail:3.11.0
+              - authorize-project:1.7.2
+            JCasC:
+              defaultConfig: true
+              configScripts:
+                security-config: |
+                  jenkins:
+                    securityRealm:
+                      local:
+                        allowsSignup: false
+                    authorizationStrategy:
+                      roleBased:
+                        roles:
+                          globalRoles:
+                            - name: "admin"
+                              permissions:
+                                - "Overall/Administer"
+                              entries:
+                                - user: "admin"
+                            - name: "reader"
+                              permissions:
+                                - "Overall/Read"
+                                - "Job/Read"
+                              entries:
+                                - group: "authenticated"
+          agent:
+            enabled: true
+            resources:
+              requests:
+                cpu: "1"
+                memory: "1Gi"
+              limits:
+                cpu: "4"
+                memory: "4Gi"
+            maxRequestsPerHostStr: "50"
+            podTemplates:
+              default: |
+                - name: default
+                  label: default
+                  serviceAccount: jenkins-agent
+                  containers:
+                    - name: jnlp
+                      image: jenkins/inbound-agent:latest
+                      resourceRequestCpu: "512m"
+                      resourceRequestMemory: "512Mi"
+                      resourceLimitCpu: "2"
+                      resourceLimitMemory: "2Gi"
+              docker: |
+                - name: docker
+                  label: docker
+                  serviceAccount: jenkins-agent
+                  containers:
+                    - name: docker
+                      image: docker:24-dind
+                      privileged: true
+                      resourceRequestCpu: "1"
+                      resourceRequestMemory: "1Gi"
+                      resourceLimitCpu: "4"
+                      resourceLimitMemory: "4Gi"
+          persistence:
+            enabled: true
+            size: "100Gi"
+            storageClass: "gp3"
+          backup:
+            enabled: true
+            schedule: "0 */6 * * *"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {TENANT_ID}
+
+  syncPolicy:
+    # Premium tier uses MANUAL sync for production safety
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - RespectIgnoreDifferences=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 10m
+
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates

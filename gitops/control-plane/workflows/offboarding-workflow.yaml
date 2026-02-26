@@ -1,0 +1,326 @@
+# ============================================================================
+# Tenant Offboarding Workflow Template
+# ============================================================================
+# Argo Workflow that automates the offboarding (removal) of a tenant.
+# Based on Lab 3 of the AWS EKS SaaS GitOps Workshop, adapted for ArgoCD.
+#
+# This workflow:
+#   1. Validates the tenant exists
+#   2. Optionally creates a backup of tenant data
+#   3. Removes tenant manifest from git repository
+#   4. ArgoCD prunes the resources (cascade delete)
+#   5. Cleans up any orphaned resources
+#
+# Usage:
+#   argo submit offboarding-workflow.yaml \
+#     -p tenant-id=acme-corp \
+#     -p tier=advanced \
+#     -p environment=production \
+#     -p create-backup=true
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: tenant-offboarding
+  namespace: argo-workflows
+  labels:
+    app.kubernetes.io/name: tenant-offboarding
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    description: "Automated tenant offboarding workflow"
+spec:
+  entrypoint: offboard-tenant
+  serviceAccountName: gitops-workflow-sa
+
+  arguments:
+    parameters:
+      - name: tenant-id
+        description: "Unique identifier for the tenant to offboard"
+      - name: tier
+        description: "Tier strategy of the tenant"
+        enum:
+          - basic
+          - advanced
+          - premium
+      - name: environment
+        description: "Target environment"
+        enum:
+          - local
+          - staging
+          - production
+      - name: create-backup
+        description: "Whether to create a backup before offboarding"
+        default: "true"
+        enum:
+          - "true"
+          - "false"
+      - name: git-repo
+        description: "Git repository URL"
+        default: "https://github.com/your-org/devops-engineer-profile.git"
+      - name: git-branch
+        description: "Git branch to commit to"
+        default: "main"
+
+  templates:
+    # ---- Main entrypoint ----
+    - name: offboard-tenant
+      steps:
+        - - name: validate-tenant
+            template: validate-exists
+            arguments:
+              parameters:
+                - name: tenant-id
+                  value: "{{workflow.parameters.tenant-id}}"
+                - name: tier
+                  value: "{{workflow.parameters.tier}}"
+
+        - - name: create-backup
+            template: backup-tenant-data
+            when: "'{{workflow.parameters.create-backup}}' == 'true'"
+            arguments:
+              parameters:
+                - name: tenant-id
+                  value: "{{workflow.parameters.tenant-id}}"
+                - name: tier
+                  value: "{{workflow.parameters.tier}}"
+                - name: environment
+                  value: "{{workflow.parameters.environment}}"
+
+        - - name: remove-from-git
+            template: git-remove
+            arguments:
+              parameters:
+                - name: tenant-id
+                  value: "{{workflow.parameters.tenant-id}}"
+                - name: tier
+                  value: "{{workflow.parameters.tier}}"
+                - name: environment
+                  value: "{{workflow.parameters.environment}}"
+
+        - - name: wait-for-deletion
+            template: verify-deletion
+            arguments:
+              parameters:
+                - name: tenant-id
+                  value: "{{workflow.parameters.tenant-id}}"
+                - name: tier
+                  value: "{{workflow.parameters.tier}}"
+
+        - - name: cleanup-orphans
+            template: cleanup-resources
+            arguments:
+              parameters:
+                - name: tenant-id
+                  value: "{{workflow.parameters.tenant-id}}"
+                - name: environment
+                  value: "{{workflow.parameters.environment}}"
+
+    # ---- Validate tenant exists ----
+    - name: validate-exists
+      inputs:
+        parameters:
+          - name: tenant-id
+          - name: tier
+      script:
+        image: bitnami/kubectl:1.29
+        command: [sh]
+        source: |
+          set -euo pipefail
+
+          TENANT_ID="{{inputs.parameters.tenant-id}}"
+          TIER="{{inputs.parameters.tier}}"
+          APP_NAME="${TENANT_ID}-${TIER}"
+
+          echo "=== Validating tenant exists ==="
+          echo "  Application: ${APP_NAME}"
+
+          if ! kubectl get application "${APP_NAME}" -n argocd >/dev/null 2>&1; then
+            echo "ERROR: ArgoCD application '${APP_NAME}' not found."
+            echo "Tenant may already have been offboarded."
+            exit 1
+          fi
+
+          echo "Tenant '${TENANT_ID}' found. Proceeding with offboarding."
+
+    # ---- Backup tenant data ----
+    - name: backup-tenant-data
+      inputs:
+        parameters:
+          - name: tenant-id
+          - name: tier
+          - name: environment
+      script:
+        image: bitnami/kubectl:1.29
+        command: [sh]
+        source: |
+          set -euo pipefail
+
+          TENANT_ID="{{inputs.parameters.tenant-id}}"
+          TIER="{{inputs.parameters.tier}}"
+          ENV="{{inputs.parameters.environment}}"
+          NAMESPACE="${TENANT_ID}"
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+          echo "=== Creating backup for tenant '${TENANT_ID}' ==="
+
+          # For basic tier, namespace is pool-based
+          if [ "${TIER}" = "basic" ]; then
+            NAMESPACE="pool-1-${ENV}"
+          fi
+
+          # Export all resources in the tenant namespace
+          echo "Backing up resources from namespace: ${NAMESPACE}"
+          kubectl get all -n "${NAMESPACE}" -l "tenant=${TENANT_ID}" -o yaml > /tmp/backup-${TENANT_ID}-${TIMESTAMP}.yaml 2>/dev/null || true
+
+          # Export PVCs
+          kubectl get pvc -n "${NAMESPACE}" -l "tenant=${TENANT_ID}" -o yaml >> /tmp/backup-${TENANT_ID}-${TIMESTAMP}.yaml 2>/dev/null || true
+
+          # Export ConfigMaps and Secrets (metadata only for secrets)
+          kubectl get configmap -n "${NAMESPACE}" -l "tenant=${TENANT_ID}" -o yaml >> /tmp/backup-${TENANT_ID}-${TIMESTAMP}.yaml 2>/dev/null || true
+
+          echo "Backup saved. In production, this should be uploaded to S3/GCS."
+          echo "Backup file: /tmp/backup-${TENANT_ID}-${TIMESTAMP}.yaml"
+
+    # ---- Remove from git ----
+    - name: git-remove
+      inputs:
+        parameters:
+          - name: tenant-id
+          - name: tier
+          - name: environment
+      script:
+        image: alpine/git:2.43.0
+        command: [sh]
+        env:
+          - name: GIT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: git-credentials
+                key: token
+          - name: GIT_USER
+            valueFrom:
+              secretKeyRef:
+                name: git-credentials
+                key: username
+        source: |
+          set -euo pipefail
+
+          TENANT_ID="{{inputs.parameters.tenant-id}}"
+          TIER="{{inputs.parameters.tier}}"
+          ENV="{{inputs.parameters.environment}}"
+          REPO="{{workflow.parameters.git-repo}}"
+          BRANCH="{{workflow.parameters.git-branch}}"
+
+          TENANT_DIR="gitops/application-plane/${ENV}/tenants/${TIER}"
+          MANIFEST_FILE="${TENANT_DIR}/${TENANT_ID}.yaml"
+          KUSTOMIZATION_FILE="${TENANT_DIR}/kustomization.yaml"
+
+          echo "=== Removing tenant manifest from git ==="
+
+          # Clone repository
+          REPO_WITH_AUTH=$(echo "${REPO}" | sed "s|https://|https://${GIT_USER}:${GIT_TOKEN}@|")
+          git clone --depth 1 --branch "${BRANCH}" "${REPO_WITH_AUTH}" /tmp/repo
+          cd /tmp/repo
+
+          git config user.email "gitops-bot@example.com"
+          git config user.name "GitOps Offboarding Bot"
+
+          # Remove tenant manifest
+          if [ -f "${MANIFEST_FILE}" ]; then
+            git rm "${MANIFEST_FILE}"
+            echo "Removed: ${MANIFEST_FILE}"
+          else
+            echo "WARNING: Manifest file not found: ${MANIFEST_FILE}"
+          fi
+
+          # Remove from kustomization.yaml
+          if [ -f "${KUSTOMIZATION_FILE}" ]; then
+            sed -i "/- ${TENANT_ID}.yaml/d" "${KUSTOMIZATION_FILE}"
+
+            # If resources list is now empty, set it to []
+            if ! grep -qE '^\s+-\s' "${KUSTOMIZATION_FILE}"; then
+              sed -i 's/^resources:$/resources: []/' "${KUSTOMIZATION_FILE}"
+            fi
+
+            git add "${KUSTOMIZATION_FILE}"
+          fi
+
+          # Commit and push
+          git commit -m "feat(tenant): offboard ${TENANT_ID} from ${TIER} tier in ${ENV}
+
+          Automated by: tenant-offboarding workflow
+          Tenant ID: ${TENANT_ID}
+          Tier: ${TIER}
+          Environment: ${ENV}
+          Backup created: {{workflow.parameters.create-backup}}"
+
+          git push origin "${BRANCH}"
+
+          echo "=== Successfully removed tenant from ${BRANCH} ==="
+
+    # ---- Verify deletion ----
+    - name: verify-deletion
+      inputs:
+        parameters:
+          - name: tenant-id
+          - name: tier
+      retryStrategy:
+        limit: 10
+        retryPolicy: "Always"
+        backoff:
+          duration: "15s"
+          factor: 2
+          maxDuration: "5m"
+      script:
+        image: bitnami/kubectl:1.29
+        command: [sh]
+        source: |
+          set -euo pipefail
+
+          TENANT_ID="{{inputs.parameters.tenant-id}}"
+          TIER="{{inputs.parameters.tier}}"
+          APP_NAME="${TENANT_ID}-${TIER}"
+
+          echo "Waiting for ArgoCD application '${APP_NAME}' to be deleted..."
+
+          if kubectl get application "${APP_NAME}" -n argocd >/dev/null 2>&1; then
+            echo "Application still exists. Will retry..."
+            exit 1
+          fi
+
+          echo "=== Tenant '${TENANT_ID}' successfully offboarded ==="
+
+    # ---- Cleanup orphaned resources ----
+    - name: cleanup-resources
+      inputs:
+        parameters:
+          - name: tenant-id
+          - name: environment
+      script:
+        image: bitnami/kubectl:1.29
+        command: [sh]
+        source: |
+          set -euo pipefail
+
+          TENANT_ID="{{inputs.parameters.tenant-id}}"
+          ENV="{{inputs.parameters.environment}}"
+
+          echo "=== Cleaning up orphaned resources for tenant '${TENANT_ID}' ==="
+
+          # Check if namespace still exists (for non-basic tiers)
+          if kubectl get namespace "${TENANT_ID}" >/dev/null 2>&1; then
+            echo "Namespace '${TENANT_ID}' still exists. Checking for remaining resources..."
+
+            REMAINING=$(kubectl get all -n "${TENANT_ID}" --no-headers 2>/dev/null | wc -l)
+            if [ "${REMAINING}" -eq 0 ]; then
+              echo "No resources remaining. Deleting namespace..."
+              kubectl delete namespace "${TENANT_ID}" --wait=false
+            else
+              echo "WARNING: ${REMAINING} resources still in namespace. Manual cleanup may be required."
+              kubectl get all -n "${TENANT_ID}" 2>/dev/null
+            fi
+          fi
+
+          echo "=== Cleanup complete ==="

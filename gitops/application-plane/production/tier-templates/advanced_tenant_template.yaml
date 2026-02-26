@@ -1,0 +1,132 @@
+# ============================================================================
+# Advanced Tier Template - Hybrid Deployment
+# ============================================================================
+# Advanced tier tenants get a dedicated namespace with some dedicated
+# resources and some shared. For Jenkins, the controller is dedicated
+# but agents may share a pool. This reduces cost while providing isolation
+# for the CI/CD controller.
+#
+# Pattern: Hybrid model from EKS SaaS GitOps Workshop (Lab 2)
+#
+# Variables to replace:
+#   {TENANT_ID}        - Unique tenant identifier
+#   {RELEASE_VERSION}  - Helm chart version to deploy
+# ============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: {TENANT_ID}
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/instance: {TENANT_ID}
+    app.kubernetes.io/managed-by: argocd
+    tenant: {TENANT_ID}
+    tier: advanced
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: {TENANT_ID}-advanced
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/instance: {TENANT_ID}
+    app.kubernetes.io/component: ci-cd
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    tenant: {TENANT_ID}
+    tier: advanced
+    environment: production
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
+    description: "Advanced tier tenant - hybrid Jenkins deployment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: applications
+
+  source:
+    repoURL: https://github.com/your-org/devops-engineer-profile.git
+    targetRevision: HEAD
+    path: gitops/helm-charts/jenkins
+    helm:
+      releaseName: {TENANT_ID}-advanced
+      values: |
+        tenantId: "{TENANT_ID}"
+        tier: "advanced"
+        environment: "production"
+        jenkins:
+          enabled: true
+          controller:
+            image:
+              tag: "2.440-jdk17"
+            resources:
+              requests:
+                cpu: "1"
+                memory: "2Gi"
+              limits:
+                cpu: "4"
+                memory: "4Gi"
+            javaOpts: >-
+              -Xmx3072m
+              -Xms2048m
+              -XX:+UseG1GC
+              -XX:MaxGCPauseMillis=100
+              -XX:+UseStringDeduplication
+              -Dhudson.slaves.NodeProvisioner.initialDelay=0
+              -Dhudson.slaves.NodeProvisioner.MARGIN=50
+              -Dhudson.slaves.NodeProvisioner.MARGIN0=0.85
+              -Djenkins.model.Jenkins.slaveAgentPort=50000
+              -Djenkins.install.runSetupWizard=false
+            serviceType: LoadBalancer
+            serviceAnnotations:
+              service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+              service.beta.kubernetes.io/aws-load-balancer-internal: "true"
+            adminSecret: true
+            existingSecret: "jenkins-admin-credentials"
+            ingress:
+              enabled: true
+            installPlugins:
+              - kubernetes:4252.v6f6f9050e0e4
+              - workflow-aggregator:600.vb_57cdd26fdd7
+              - git:5.2.2
+              - configuration-as-code:1850.va_a_8c31d3158b_
+              - credentials-binding:670.v857b_6d8d5909
+              - blueocean:1.27.14
+              - prometheus:2.5.0
+              - github-branch-source:1797.v86fdb_4d57d43
+          agent:
+            enabled: true
+            resources:
+              requests:
+                cpu: "512m"
+                memory: "512Mi"
+              limits:
+                cpu: "2"
+                memory: "2Gi"
+            maxRequestsPerHostStr: "20"
+          persistence:
+            enabled: true
+            size: "50Gi"
+            storageClass: "gp3"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: {TENANT_ID}
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m

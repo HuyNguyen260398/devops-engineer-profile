@@ -1,0 +1,152 @@
+# ============================================================================
+# Jenkins - Advanced Tier Tenant Deployment (Staging)
+# ============================================================================
+# Jenkins in staging uses the advanced (hybrid) tier:
+# - Dedicated Jenkins controller with moderate resources
+# - Shared build agents
+# - Automated sync enabled for faster iteration
+#
+# Created from: tier-templates/advanced_tenant_template.yaml
+# Tenant ID: jenkins-staging
+# Tier: advanced (hybrid)
+# ============================================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: jenkins-staging
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/instance: jenkins-staging
+    app.kubernetes.io/version: "2.440"
+    app.kubernetes.io/component: ci-cd
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    tenant: jenkins-staging
+    tier: advanced
+    environment: staging
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins-staging-advanced
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/instance: jenkins-staging
+    app.kubernetes.io/version: "2.440"
+    app.kubernetes.io/component: ci-cd
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    tenant: jenkins-staging
+    tier: advanced
+    environment: staging
+  annotations:
+    argocd.argoproj.io/sync-wave: "15"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: "devops-staging"
+    description: "Jenkins CI/CD - Advanced tier staging deployment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: applications
+
+  source:
+    repoURL: https://github.com/your-org/devops-engineer-profile.git
+    targetRevision: main
+    path: gitops/helm-charts/jenkins
+    helm:
+      releaseName: jenkins-staging-advanced
+      values: |
+        tenantId: "jenkins-staging"
+        tier: "advanced"
+        environment: "staging"
+        jenkins:
+          enabled: true
+          controller:
+            image:
+              registry: "docker.io"
+              repository: "jenkins/jenkins"
+              tag: "2.440-jdk17"
+              pullPolicy: "IfNotPresent"
+            resources:
+              requests:
+                cpu: "500m"
+                memory: "1Gi"
+              limits:
+                cpu: "2"
+                memory: "2Gi"
+            javaOpts: >-
+              -Xmx1536m
+              -Xms512m
+              -XX:+UseG1GC
+              -Djenkins.install.runSetupWizard=false
+              -Djava.awt.headless=true
+            numExecutors: 0
+            serviceType: ClusterIP
+            adminUser: "admin"
+            adminSecret: true
+            existingSecret: "jenkins-admin-credentials"
+            installPlugins:
+              - kubernetes:4252.v6f6f9050e0e4
+              - workflow-aggregator:600.vb_57cdd26fdd7
+              - git:5.2.2
+              - configuration-as-code:1850.va_a_8c31d3158b_
+              - credentials-binding:670.v857b_6d8d5909
+              - prometheus:2.5.0
+              - github-branch-source:1797.v86fdb_4d57d43
+              - pipeline-stage-view:2.34
+              - docker-workflow:580.vc0c340686b_54
+              - role-strategy:727.vd344b_eec783d
+            JCasC:
+              defaultConfig: true
+              configScripts:
+                welcome-message: |
+                  jenkins:
+                    systemMessage: "Jenkins Staging - Managed by GitOps"
+            podSecurityContextOverride:
+              runAsNonRoot: true
+              runAsUser: 1000
+              fsGroup: 1000
+              seccompProfile:
+                type: RuntimeDefault
+            containerSecurityContext:
+              runAsUser: 1000
+              runAsGroup: 1000
+              readOnlyRootFilesystem: true
+              allowPrivilegeEscalation: false
+              capabilities:
+                drop:
+                  - ALL
+          agent:
+            enabled: true
+            resources:
+              requests:
+                cpu: "500m"
+                memory: "512Mi"
+              limits:
+                cpu: "2"
+                memory: "2Gi"
+          persistence:
+            enabled: true
+            size: "20Gi"
+            storageClass: "gp3"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jenkins-staging
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m

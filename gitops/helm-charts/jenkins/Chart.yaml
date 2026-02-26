@@ -1,0 +1,24 @@
+apiVersion: v2
+name: jenkins-tenant-chart
+description: >-
+  Jenkins Helm chart following SaaS GitOps patterns. Supports tier-based
+  deployment (basic/advanced/premium) with configurable resource allocation,
+  security, and high availability settings per tenant.
+type: application
+version: 1.0.0
+appVersion: "2.440"
+keywords:
+  - jenkins
+  - ci-cd
+  - gitops
+  - saas
+  - multi-tenant
+maintainers:
+  - name: DevOps Team
+
+# Dependencies - Official Jenkins Helm Chart
+dependencies:
+  - name: jenkins
+    version: 5.8.139
+    repository: https://charts.jenkins.io
+    condition: jenkins.enabled

@@ -1,0 +1,356 @@
+# ============================================================================
+# Tenant Deployment Workflow Template
+# ============================================================================
+# Argo Workflow that automates staggered deployments across tenants.
+# Based on Lab 4 & 5 of the AWS EKS SaaS GitOps Workshop, adapted for ArgoCD.
+#
+# This workflow:
+#   1. Updates helm chart version in tenant manifests
+#   2. Deploys to staging first (canary wave)
+#   3. Validates staging deployment health
+#   4. Deploys to production basic tier (broad wave)
+#   5. Deploys to production advanced/premium (controlled wave)
+#   6. Each wave has validation gates
+#
+# Usage:
+#   argo submit deployment-workflow.yaml \
+#     -p release-version=1.1.0 \
+#     -p deploy-strategy=staggered
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: tenant-deployment
+  namespace: argo-workflows
+  labels:
+    app.kubernetes.io/name: tenant-deployment
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+  annotations:
+    description: "Staggered deployment workflow across tenants"
+spec:
+  entrypoint: staggered-deploy
+  serviceAccountName: gitops-workflow-sa
+
+  arguments:
+    parameters:
+      - name: release-version
+        description: "New version to deploy"
+      - name: deploy-strategy
+        description: "Deployment strategy"
+        default: "staggered"
+        enum:
+          - staggered
+          - all-at-once
+      - name: git-repo
+        description: "Git repository URL"
+        default: "https://github.com/your-org/devops-engineer-profile.git"
+      - name: git-branch
+        description: "Git branch to commit to"
+        default: "main"
+      - name: skip-staging
+        description: "Skip staging validation (not recommended)"
+        default: "false"
+        enum:
+          - "true"
+          - "false"
+
+  templates:
+    # ---- Main entrypoint: Staggered deployment ----
+    - name: staggered-deploy
+      steps:
+        # Wave 0: Staging (canary)
+        - - name: wave-0-staging
+            template: deploy-wave
+            when: "'{{workflow.parameters.skip-staging}}' != 'true'"
+            arguments:
+              parameters:
+                - name: wave-name
+                  value: "wave-0-staging"
+                - name: environment
+                  value: "staging"
+                - name: tiers
+                  value: "basic,advanced"
+                - name: release-version
+                  value: "{{workflow.parameters.release-version}}"
+
+        - - name: validate-staging
+            template: validate-wave
+            when: "'{{workflow.parameters.skip-staging}}' != 'true'"
+            arguments:
+              parameters:
+                - name: environment
+                  value: "staging"
+                - name: wait-minutes
+                  value: "5"
+
+        # Wave 1: Production basic (pool)
+        - - name: wave-1-prod-basic
+            template: deploy-wave
+            arguments:
+              parameters:
+                - name: wave-name
+                  value: "wave-1-prod-basic"
+                - name: environment
+                  value: "production"
+                - name: tiers
+                  value: "basic"
+                - name: release-version
+                  value: "{{workflow.parameters.release-version}}"
+
+        - - name: validate-prod-basic
+            template: validate-wave
+            arguments:
+              parameters:
+                - name: environment
+                  value: "production"
+                - name: wait-minutes
+                  value: "10"
+
+        # Wave 2: Production advanced
+        - - name: wave-2-prod-advanced
+            template: deploy-wave
+            arguments:
+              parameters:
+                - name: wave-name
+                  value: "wave-2-prod-advanced"
+                - name: environment
+                  value: "production"
+                - name: tiers
+                  value: "advanced"
+                - name: release-version
+                  value: "{{workflow.parameters.release-version}}"
+
+        - - name: validate-prod-advanced
+            template: validate-wave
+            arguments:
+              parameters:
+                - name: environment
+                  value: "production"
+                - name: wait-minutes
+                  value: "10"
+
+        # Wave 3: Production premium (most sensitive, last)
+        - - name: wave-3-prod-premium
+            template: deploy-wave
+            arguments:
+              parameters:
+                - name: wave-name
+                  value: "wave-3-prod-premium"
+                - name: environment
+                  value: "production"
+                - name: tiers
+                  value: "premium"
+                - name: release-version
+                  value: "{{workflow.parameters.release-version}}"
+
+        - - name: final-validation
+            template: validate-wave
+            arguments:
+              parameters:
+                - name: environment
+                  value: "production"
+                - name: wait-minutes
+                  value: "5"
+
+        - - name: deployment-summary
+            template: summarize
+            arguments:
+              parameters:
+                - name: release-version
+                  value: "{{workflow.parameters.release-version}}"
+
+    # ---- Deploy a wave ----
+    - name: deploy-wave
+      inputs:
+        parameters:
+          - name: wave-name
+          - name: environment
+          - name: tiers
+          - name: release-version
+      script:
+        image: alpine/git:2.43.0
+        command: [sh]
+        env:
+          - name: GIT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: git-credentials
+                key: token
+          - name: GIT_USER
+            valueFrom:
+              secretKeyRef:
+                name: git-credentials
+                key: username
+        source: |
+          set -euo pipefail
+
+          WAVE="{{inputs.parameters.wave-name}}"
+          ENV="{{inputs.parameters.environment}}"
+          TIERS="{{inputs.parameters.tiers}}"
+          VERSION="{{inputs.parameters.release-version}}"
+          REPO="{{workflow.parameters.git-repo}}"
+          BRANCH="{{workflow.parameters.git-branch}}"
+
+          echo "=== Deploying ${WAVE} ==="
+          echo "  Environment: ${ENV}"
+          echo "  Tiers:       ${TIERS}"
+          echo "  Version:     ${VERSION}"
+
+          # Clone repository
+          REPO_WITH_AUTH=$(echo "${REPO}" | sed "s|https://|https://${GIT_USER}:${GIT_TOKEN}@|")
+          git clone --depth 1 --branch "${BRANCH}" "${REPO_WITH_AUTH}" /tmp/repo
+          cd /tmp/repo
+
+          git config user.email "gitops-bot@example.com"
+          git config user.name "GitOps Deployment Bot"
+
+          UPDATED_COUNT=0
+
+          # Process each tier
+          for TIER in $(echo "${TIERS}" | tr ',' ' '); do
+            TENANT_DIR="gitops/application-plane/${ENV}/tenants/${TIER}"
+
+            if [ ! -d "${TENANT_DIR}" ]; then
+              echo "  Skipping tier '${TIER}' - directory not found"
+              continue
+            fi
+
+            # Update version in all tenant YAML files
+            for MANIFEST in "${TENANT_DIR}"/*.yaml; do
+              [ -f "${MANIFEST}" ] || continue
+              BASENAME=$(basename "${MANIFEST}")
+
+              # Skip kustomization.yaml
+              if [ "${BASENAME}" = "kustomization.yaml" ]; then
+                continue
+              fi
+
+              echo "  Updating ${MANIFEST}..."
+
+              # Update image tag version in helm values
+              # This handles both tag: "x.y.z" and tag: 'x.y.z' patterns
+              if grep -q "tag:" "${MANIFEST}"; then
+                sed -i "s|tag: \"[^\"]*\"|tag: \"${VERSION}\"|g" "${MANIFEST}"
+                git add "${MANIFEST}"
+                UPDATED_COUNT=$((UPDATED_COUNT + 1))
+              fi
+            done
+
+            # Also update pooled environments if basic tier
+            if [ "${TIER}" = "basic" ]; then
+              POOL_DIR="gitops/application-plane/${ENV}/pooled-envs"
+              if [ -d "${POOL_DIR}" ]; then
+                for POOL_MANIFEST in "${POOL_DIR}"/*.yaml; do
+                  [ -f "${POOL_MANIFEST}" ] || continue
+                  BASENAME=$(basename "${POOL_MANIFEST}")
+                  [ "${BASENAME}" = "kustomization.yaml" ] && continue
+
+                  echo "  Updating pool: ${POOL_MANIFEST}..."
+                  if grep -q "tag:" "${POOL_MANIFEST}"; then
+                    sed -i "s|tag: \"[^\"]*\"|tag: \"${VERSION}\"|g" "${POOL_MANIFEST}"
+                    git add "${POOL_MANIFEST}"
+                    UPDATED_COUNT=$((UPDATED_COUNT + 1))
+                  fi
+                done
+              fi
+            fi
+          done
+
+          if [ "${UPDATED_COUNT}" -gt 0 ]; then
+            git commit -m "deploy(${WAVE}): update to version ${VERSION}
+
+          Wave: ${WAVE}
+          Environment: ${ENV}
+          Tiers: ${TIERS}
+          Version: ${VERSION}
+          Updated: ${UPDATED_COUNT} manifest(s)
+
+          Automated by: tenant-deployment workflow"
+
+            git push origin "${BRANCH}"
+            echo "=== ${WAVE}: ${UPDATED_COUNT} manifests updated ==="
+          else
+            echo "=== ${WAVE}: No manifests required updates ==="
+          fi
+
+    # ---- Validate a wave ----
+    - name: validate-wave
+      inputs:
+        parameters:
+          - name: environment
+          - name: wait-minutes
+      script:
+        image: bitnami/kubectl:1.29
+        command: [sh]
+        source: |
+          set -euo pipefail
+
+          ENV="{{inputs.parameters.environment}}"
+          WAIT_MIN="{{inputs.parameters.wait-minutes}}"
+
+          echo "=== Validating ${ENV} deployment ==="
+          echo "  Waiting ${WAIT_MIN} minutes for sync and stabilization..."
+
+          sleep $((WAIT_MIN * 60))
+
+          echo "Checking ArgoCD application health..."
+
+          # Get all applications for the environment
+          UNHEALTHY=$(kubectl get applications -n argocd \
+            -l "environment=${ENV}" \
+            -o jsonpath='{range .items[?(@.status.health.status!="Healthy")]}{.metadata.name}{"\n"}{end}' 2>/dev/null)
+
+          if [ -n "${UNHEALTHY}" ]; then
+            echo "WARNING: The following applications are not healthy:"
+            echo "${UNHEALTHY}"
+            echo ""
+            echo "Checking if this is a transient issue..."
+
+            # Give more time for transient issues
+            sleep 60
+
+            STILL_UNHEALTHY=$(kubectl get applications -n argocd \
+              -l "environment=${ENV}" \
+              -o jsonpath='{range .items[?(@.status.health.status!="Healthy")]}{.metadata.name}{"\n"}{end}' 2>/dev/null)
+
+            if [ -n "${STILL_UNHEALTHY}" ]; then
+              echo "ERROR: Applications still unhealthy after extended wait:"
+              echo "${STILL_UNHEALTHY}"
+              echo ""
+              echo "Consider rolling back the deployment."
+              exit 1
+            fi
+          fi
+
+          echo "=== All applications in ${ENV} are healthy ==="
+
+    # ---- Summary ----
+    - name: summarize
+      inputs:
+        parameters:
+          - name: release-version
+      script:
+        image: bitnami/kubectl:1.29
+        command: [sh]
+        source: |
+          set -euo pipefail
+
+          VERSION="{{inputs.parameters.release-version}}"
+
+          echo "============================================"
+          echo "  DEPLOYMENT COMPLETE: v${VERSION}"
+          echo "============================================"
+          echo ""
+          echo "=== Staging Applications ==="
+          kubectl get applications -n argocd -l "environment=staging" \
+            -o custom-columns=NAME:.metadata.name,HEALTH:.status.health.status,SYNC:.status.sync.status,TIER:.metadata.labels.tier 2>/dev/null || echo "  No staging apps found"
+          echo ""
+          echo "=== Production Applications ==="
+          kubectl get applications -n argocd -l "environment=production" \
+            -o custom-columns=NAME:.metadata.name,HEALTH:.status.health.status,SYNC:.status.sync.status,TIER:.metadata.labels.tier 2>/dev/null || echo "  No production apps found"
+          echo ""
+          echo "============================================"
+          echo "  All waves complete. Deployment finished."
+          echo "============================================"

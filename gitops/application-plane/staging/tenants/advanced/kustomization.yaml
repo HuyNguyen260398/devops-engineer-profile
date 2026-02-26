@@ -1,0 +1,6 @@
+# Staging advanced tier tenants (hybrid deployment)
+# Jenkins is deployed here as an advanced tier tenant for staging
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - jenkins.yaml

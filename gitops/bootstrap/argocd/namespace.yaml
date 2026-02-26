@@ -1,0 +1,16 @@
+---
+# ArgoCD Namespace
+# Applied before ArgoCD installation to ensure namespace exists
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: argocd
+  labels:
+    app.kubernetes.io/name: argocd
+    app.kubernetes.io/part-of: gitops
+    app.kubernetes.io/managed-by: kubectl
+    environment: shared
+    pod-security.kubernetes.io/enforce: baseline
+    pod-security.kubernetes.io/warn: restricted
+  annotations:
+    description: "ArgoCD GitOps controller namespace"
