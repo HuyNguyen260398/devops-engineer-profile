@@ -1,0 +1,66 @@
+# ============================================================================
+# ArgoCD AppProject – Tenant Environments
+# ============================================================================
+# Manages tenant-specific deployments across tiers (basic, advanced, premium).
+# Each tenant gets its own namespace, scoped by this project.
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: tenants
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: tenants
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "Tenant-scoped application deployments across tiers"
+
+  sourceRepos:
+    - "*"
+
+  destinations:
+    # Tenant namespaces follow pattern: tenant-<id> or pool-<id>
+    - server: https://kubernetes.default.svc
+      namespace: "tenant-*"
+    - server: https://kubernetes.default.svc
+      namespace: "pool-*"
+
+  clusterResourceWhitelist:
+    - group: ""
+      kind: Namespace
+
+  namespaceResourceWhitelist:
+    - group: ""
+      kind: ConfigMap
+    - group: ""
+      kind: Secret
+    - group: ""
+      kind: Service
+    - group: ""
+      kind: ServiceAccount
+    - group: ""
+      kind: PersistentVolumeClaim
+    - group: apps
+      kind: Deployment
+    - group: apps
+      kind: StatefulSet
+    - group: networking.k8s.io
+      kind: Ingress
+    - group: networking.k8s.io
+      kind: NetworkPolicy
+    - group: autoscaling
+      kind: HorizontalPodAutoscaler
+    - group: policy
+      kind: PodDisruptionBudget
+
+  roles:
+    - name: tenant-admin
+      description: "Manage tenant deployments"
+      policies:
+        - p, proj:tenants:tenant-admin, applications, *, tenants/*, allow
+    - name: tenant-viewer
+      description: "Read-only access to tenant deployments"
+      policies:
+        - p, proj:tenants:tenant-viewer, applications, get, tenants/*, allow

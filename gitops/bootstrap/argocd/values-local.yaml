@@ -1,0 +1,61 @@
+# ============================================================================
+# ArgoCD Helm Values - Local Development Overrides
+# ============================================================================
+# Minimal resource usage for Minikube, Kind, or Docker Desktop.
+
+server:
+  replicas: 1
+  autoscaling:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  service:
+    type: NodePort
+    nodePortHttp: 30080   # HTTP NodePort (default: 30080); HTTPS stays at default 30443
+
+controller:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  metrics:
+    enabled: false
+
+repoServer:
+  replicas: 1
+  autoscaling:
+    enabled: false
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+applicationSet:
+  replicas: 1
+
+redis:
+  resources:
+    requests:
+      cpu: 25m
+      memory: 32Mi
+    limits:
+      cpu: 100m
+      memory: 128Mi
+
+notifications:
+  enabled: false
+
+configs:
+  params:
+    server.insecure: true

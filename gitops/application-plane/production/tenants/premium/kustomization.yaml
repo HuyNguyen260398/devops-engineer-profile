@@ -1,0 +1,5 @@
+# Production premium tier tenants
+# Add tenant Application YAML files here as services are onboarded
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources: []

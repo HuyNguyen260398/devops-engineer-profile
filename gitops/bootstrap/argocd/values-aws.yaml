@@ -1,0 +1,23 @@
+# ============================================================================
+# ArgoCD Helm Values - AWS EKS Overrides
+# ============================================================================
+# Uses envsubst for IRSA role ARN injection.
+# Required env vars: ARGOCD_IRSA_ROLE_ARN
+
+server:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "${ARGOCD_IRSA_ROLE_ARN}"
+
+  ingress:
+    enabled: false  # Managed separately via ALB Ingress
+
+repoServer:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "${ARGOCD_IRSA_ROLE_ARN}"
+
+controller:
+  serviceAccount:
+    annotations:
+      eks.amazonaws.com/role-arn: "${ARGOCD_IRSA_ROLE_ARN}"

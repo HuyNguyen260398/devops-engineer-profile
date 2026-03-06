@@ -1,0 +1,65 @@
+# ============================================================================
+# ArgoCD App-of-Apps – Root Bootstrap Application
+# ============================================================================
+# This is the single entry point for the GitOps repository. ArgoCD watches
+# this Application, which discovers and manages all other Applications defined
+# in the application-plane directory for the target environment.
+#
+# Pattern: App-of-Apps (ArgoCD) adapted from EKS SaaS GitOps workshop
+# Reference: https://catalog.workshops.aws/eks-saas-gitops/en-US
+#
+# Required environment variables (substituted via envsubst):
+#   ARGOCD_APPS_REPO_URL        Git repository URL
+#   ARGOCD_APPS_TARGET_REVISION Branch or tag to track (default: HEAD)
+#   ENVIRONMENT                 local | staging | production
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps-${ENVIRONMENT}
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: app-of-apps
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: bootstrap
+    environment: ${ENVIRONMENT}
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+    description: "Root App-of-Apps for ${ENVIRONMENT} environment"
+spec:
+  project: default
+
+  source:
+    repoURL: ${ARGOCD_APPS_REPO_URL}
+    targetRevision: ${ARGOCD_APPS_TARGET_REVISION:-HEAD}
+    path: gitops/application-plane/${ENVIRONMENT}/tenants
+    directory:
+      recurse: true
+      include: "*.yaml"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: true  # Allow empty sync during initial ArgoCD-only bootstrap (before any services are added)
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  revisionHistoryLimit: 10
