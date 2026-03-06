@@ -16,7 +16,7 @@ server:
       memory: 256Mi
   service:
     type: NodePort
-    nodePortHttp: 30443
+    nodePortHttp: 30080   # HTTP NodePort (default: 30080); HTTPS stays at default 30443
 
 controller:
   resources:

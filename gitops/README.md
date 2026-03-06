@@ -79,7 +79,6 @@ gitops/
 ├── bootstrap/                             # ArgoCD installation and bootstrap
 │   ├── argocd/
 │   │   ├── namespace.yaml                 # ArgoCD namespace with pod security
-│   │   ├── install.sh                     # Install/upgrade/uninstall script
 │   │   ├── values-base.yaml               # Production-grade base config
 │   │   ├── values-aws.yaml                # AWS EKS-specific overrides (IRSA)
 │   │   └── values-local.yaml              # Local dev overrides (minikube/kind)
@@ -228,28 +227,54 @@ The `jenkins-appset.yaml` uses ArgoCD's Git File generator to automatically disc
    export EKS_CLUSTER_NAME=my-cluster
    ```
 
-2. **Run the bootstrap script:**
+2. **Create the ArgoCD namespace:**
 
    ```bash
-   cd gitops/bootstrap/argocd
-   chmod +x install.sh
-   ./install.sh install
+   kubectl apply -f gitops/bootstrap/argocd/namespace.yaml
    ```
 
-3. **Apply the App-of-Apps:**
+3. **Add the Argo Helm repository and install ArgoCD:**
+
+   ```bash
+   helm repo add argo https://argoproj.github.io/argo-helm
+   helm repo update argo
+   ```
+
+   **Local:**
+   ```bash
+   helm install argocd argo/argo-cd \
+     --namespace argocd \
+     --version 9.4.7 \
+     --values gitops/bootstrap/argocd/values-base.yaml \
+     --values gitops/bootstrap/argocd/values-local.yaml \
+     --wait --timeout 10m
+   ```
+
+   **Staging / Production** (requires `ARGOCD_IRSA_ROLE_ARN` to be set):
+   ```bash
+   envsubst < gitops/bootstrap/argocd/values-aws.yaml > /tmp/values-aws-resolved.yaml
+   helm install argocd argo/argo-cd \
+     --namespace argocd \
+     --version 9.4.7 \
+     --values gitops/bootstrap/argocd/values-base.yaml \
+     --values /tmp/values-aws-resolved.yaml \
+     --wait --timeout 10m
+   ```
+
+4. **Apply the App-of-Apps:**
 
    ```bash
    # Substitute environment variables and apply
    envsubst < gitops/bootstrap/app-of-apps.yaml | kubectl apply -f -
    ```
 
-4. **Apply ArgoCD projects:**
+5. **Apply ArgoCD projects:**
 
    ```bash
    kubectl apply -f gitops/bootstrap/projects/
    ```
 
-5. **Verify:**
+6. **Verify:**
 
    ```bash
    kubectl get applications -n argocd
@@ -269,13 +294,25 @@ Jenkins is pre-configured as the first tenant across all environments:
 **To deploy locally:**
 
 ```bash
-# 1. Bootstrap ArgoCD on local cluster
-export ENVIRONMENT=local
-cd gitops/bootstrap/argocd
-./install.sh install
+# 1. Create namespace and install ArgoCD
+kubectl apply -f gitops/bootstrap/argocd/namespace.yaml
+
+helm repo add argo https://argoproj.github.io/argo-helm
+helm repo update argo
+
+helm install argocd argo/argo-cd \
+  --namespace argocd \
+  --version 9.4.7 \
+  --values gitops/bootstrap/argocd/values-base.yaml \
+  --values gitops/bootstrap/argocd/values-local.yaml \
+  --wait --timeout 10m
 
 # 2. Apply projects and app-of-apps
 kubectl apply -f gitops/bootstrap/projects/
+
+export ENVIRONMENT=local
+export ARGOCD_APPS_REPO_URL=https://github.com/your-org/devops-engineer-profile.git
+export ARGOCD_APPS_TARGET_REVISION=HEAD
 envsubst < gitops/bootstrap/app-of-apps.yaml | kubectl apply -f -
 
 # 3. Jenkins will auto-sync from pool-1-local
