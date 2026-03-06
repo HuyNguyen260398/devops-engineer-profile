@@ -1,6 +1,6 @@
 # GitOps Platform - Multi-Tenant SaaS Deployment
 
-> A production-grade GitOps structure for deploying and managing multi-tenant applications on AWS EKS using ArgoCD, Helm, Kustomize, and Argo Workflows. Inspired by the [AWS EKS SaaS GitOps Workshop](https://catalog.workshops.aws/eks-saas-gitops/en-US).
+> A production-grade GitOps structure for deploying and managing multi-tenant applications on AWS EKS using ArgoCD, Helm, and Kustomize. Inspired by the [AWS EKS SaaS GitOps Workshop](https://catalog.workshops.aws/eks-saas-gitops/en-US).
 
 ---
 
@@ -11,15 +11,12 @@
 - [Key Concepts](#key-concepts)
   - [Tier Strategy](#tier-strategy)
   - [App-of-Apps Pattern](#app-of-apps-pattern)
-  - [ApplicationSet Auto-Discovery](#applicationset-auto-discovery)
 - [Getting Started](#getting-started)
   - [Prerequisites](#prerequisites)
   - [Bootstrap ArgoCD](#bootstrap-argocd)
-  - [Deploy Jenkins (First Service)](#deploy-jenkins-first-service)
 - [Tenant Management](#tenant-management)
   - [Onboarding a New Tenant](#onboarding-a-new-tenant)
   - [Offboarding a Tenant](#offboarding-a-tenant)
-  - [Staggered Deployment](#staggered-deployment)
 - [Environments](#environments)
 - [Security](#security)
 - [Monitoring and Observability](#monitoring-and-observability)
@@ -33,15 +30,14 @@
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        Git Repository                               │
-│  ┌────────────┐  ┌──────────────────┐  ┌────────────────────────┐  │
-│  │  bootstrap/ │  │ application-plane/│  │    control-plane/      │  │
-│  │  ArgoCD     │  │ Tenant manifests  │  │ Argo Workflows         │  │
-│  │  Projects   │  │ Tier templates    │  │ Onboard/Offboard/Deploy│  │
-│  └──────┬─────┘  └────────┬─────────┘  └──────────┬─────────────┘  │
-│         │                  │                        │                │
-└─────────┼──────────────────┼────────────────────────┼────────────────┘
-          │                  │                        │
-          ▼                  ▼                        ▼
+│  ┌──────────────────────────┐  ┌──────────────────────────────────┐  │
+│  │        bootstrap/         │  │        application-plane/         │  │
+│  │   ArgoCD + AppProjects    │  │  Tenant manifests (env / tier)    │  │
+│  └────────────┬─────────────┘  └──────────────────┬────────────────┘  │
+│               │                                   │                   │
+└───────────────┼───────────────────────────────────┼───────────────────┘
+                │                                   │
+                ▼                                   ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                         AWS EKS Cluster                             │
 │                                                                     │
@@ -57,14 +53,6 @@
 │  │  │ (basic)  │  │(advanced)│  │(advanced)│  │(premium) │ │      │
 │  │  │ shared   │  │ hybrid   │  │ hybrid   │  │ dedicated│ │      │
 │  │  └──────────┘  └──────────┘  └──────────┘  └──────────┘ │      │
-│  └───────────────────────────────────────────────────────────┘      │
-│                                                                     │
-│  ┌───────────────────────────────────────────────────────────┐      │
-│  │                   Control Plane                            │      │
-│  │  ┌────────────────┐  ┌───────────────┐  ┌──────────────┐ │      │
-│  │  │  Onboarding    │  │  Offboarding  │  │  Deployment  │ │      │
-│  │  │  Workflow       │  │  Workflow     │  │  Workflow    │ │      │
-│  │  └────────────────┘  └───────────────┘  └──────────────┘ │      │
 │  └───────────────────────────────────────────────────────────┘      │
 └─────────────────────────────────────────────────────────────────────┘
 ```
@@ -88,67 +76,38 @@ gitops/
 │       ├── applications.yaml              # AppProject for app workloads
 │       └── tenants.yaml                   # AppProject for tenant-scoped deploys
 │
-├── helm-charts/                           # Umbrella Helm charts
-│   └── jenkins/
-│       ├── Chart.yaml                     # Wraps jenkins/jenkins 5.8.139
-│       ├── values.yaml                    # Tier-agnostic default values
-│       └── .helmignore
-│
 ├── application-plane/                     # Tenant deployments by environment
 │   ├── production/
-│   │   ├── tier-templates/                # Templates for each tier
-│   │   │   ├── basic_tenant_template.yaml
-│   │   │   ├── advanced_tenant_template.yaml
-│   │   │   └── premium_tenant_template.yaml
-│   │   ├── pooled-envs/                   # Shared infrastructure
-│   │   │   ├── kustomization.yaml
-│   │   │   └── pool-1.yaml               # Shared Jenkins for basic tier
+│   │   ├── pooled-envs/                   # Shared pool infrastructure (empty)
+│   │   │   └── kustomization.yaml
 │   │   └── tenants/                       # Active tenant manifests
 │   │       ├── kustomization.yaml
 │   │       ├── basic/
-│   │       │   └── kustomization.yaml     # Basic tier tenants (empty)
+│   │       │   └── kustomization.yaml
 │   │       ├── advanced/
-│   │       │   └── kustomization.yaml     # Advanced tier tenants (empty)
+│   │       │   └── kustomization.yaml
 │   │       └── premium/
-│   │           ├── kustomization.yaml
-│   │           └── jenkins.yaml           # Jenkins as first premium tenant
+│   │           └── kustomization.yaml
 │   ├── staging/
-│   │   ├── tier-templates/
-│   │   │   ├── basic_tenant_template.yaml
-│   │   │   └── advanced_tenant_template.yaml
 │   │   ├── pooled-envs/
-│   │   │   ├── kustomization.yaml
-│   │   │   └── pool-1.yaml
+│   │   │   └── kustomization.yaml
 │   │   └── tenants/
 │   │       ├── kustomization.yaml
 │   │       ├── basic/
 │   │       │   └── kustomization.yaml
 │   │       └── advanced/
-│   │           ├── kustomization.yaml
-│   │           └── jenkins.yaml           # Jenkins as advanced tier in staging
+│   │           └── kustomization.yaml
 │   └── local/
-│       ├── tier-templates/
-│       │   └── basic_tenant_template.yaml
 │       ├── pooled-envs/
-│       │   ├── kustomization.yaml
-│       │   └── pool-1.yaml
+│       │   └── kustomization.yaml
 │       └── tenants/
 │           ├── kustomization.yaml
 │           └── basic/
-│               ├── kustomization.yaml
-│               └── jenkins.yaml           # Jenkins as basic tier in local
+│               └── kustomization.yaml
 │
-├── applicationsets/                       # ApplicationSet definitions
-│   └── jenkins-appset.yaml               # Auto-discovers Jenkins tenants
-│
-└── control-plane/                         # Automation workflows
-    ├── rbac/
-    │   ├── workflow-rbac.yaml             # ServiceAccount & RBAC for workflows
-    │   └── git-credentials-template.yaml  # Git token template (never commit real creds)
-    └── workflows/
-        ├── onboarding-workflow.yaml       # Tenant onboarding automation
-        ├── offboarding-workflow.yaml      # Tenant offboarding automation
-        └── deployment-workflow.yaml       # Staggered deployment automation
+└── control-plane/                         # RBAC and credential templates
+    └── rbac/
+        └── git-credentials-template.yaml  # Git token template (never commit real creds)
 ```
 
 ---
@@ -174,8 +133,8 @@ The platform implements three deployment tiers inspired by SaaS isolation patter
 **When to use each tier:**
 
 - **Basic:** Development teams, testing workloads, cost-sensitive tenants that can share infrastructure
-- **Advanced:** Teams needing their own Jenkins controller but can share build agents. Good balance of isolation and cost
-- **Premium:** Mission-critical CI/CD pipelines requiring full isolation, HA, custom plugins, and dedicated monitoring
+- **Advanced:** Teams needing a dedicated controller while sharing build agents. Good balance of isolation and cost
+- **Premium:** Mission-critical workloads requiring full isolation, HA, custom configuration, and dedicated monitoring
 
 ### App-of-Apps Pattern
 
@@ -191,10 +150,6 @@ app-of-apps.yaml (Root Application)
 
 A single root Application bootstraps the entire platform. Adding a new tenant is as simple as committing a YAML file to the appropriate tier directory.
 
-### ApplicationSet Auto-Discovery
-
-The `jenkins-appset.yaml` uses ArgoCD's Git File generator to automatically discover tenant YAML files in the directory structure and create corresponding Applications. This provides a second, parallel mechanism for tenant discovery beyond the App-of-Apps pattern.
-
 ---
 
 ## Getting Started
@@ -207,7 +162,6 @@ The `jenkins-appset.yaml` uses ArgoCD's Git File generator to automatically disc
 | kubectl | >= 1.29 | Kubernetes management |
 | Helm | >= 3.14 | Chart management |
 | ArgoCD CLI | >= 2.10 | (Optional) ArgoCD management |
-| Argo CLI | >= 3.5 | (Optional) Workflow submission |
 
 **Cluster requirements:**
 
@@ -281,89 +235,19 @@ The `jenkins-appset.yaml` uses ArgoCD's Git File generator to automatically disc
    kubectl get pods -n argocd
    ```
 
-### Deploy Jenkins (First Service)
-
-Jenkins is pre-configured as the first tenant across all environments:
-
-| Environment | Tier | Namespace | Access |
-|---|---|---|---|
-| **Production** | Premium (silo) | `jenkins-production` | `https://jenkins.example.com` (Ingress + TLS) |
-| **Staging** | Advanced (hybrid) | `jenkins-staging` | ClusterIP (port-forward) |
-| **Local** | Basic (pool) | `pool-1-local` | NodePort 30080 |
-
-**To deploy locally:**
-
-```bash
-# 1. Create namespace and install ArgoCD
-kubectl apply -f gitops/bootstrap/argocd/namespace.yaml
-
-helm repo add argo https://argoproj.github.io/argo-helm
-helm repo update argo
-
-helm install argocd argo/argo-cd \
-  --namespace argocd \
-  --version 9.4.7 \
-  --values gitops/bootstrap/argocd/values-base.yaml \
-  --values gitops/bootstrap/argocd/values-local.yaml \
-  --wait --timeout 10m
-
-# 2. Apply projects and app-of-apps
-kubectl apply -f gitops/bootstrap/projects/
-
-export ENVIRONMENT=local
-export ARGOCD_APPS_REPO_URL=https://github.com/your-org/devops-engineer-profile.git
-export ARGOCD_APPS_TARGET_REVISION=HEAD
-envsubst < gitops/bootstrap/app-of-apps.yaml | kubectl apply -f -
-
-# 3. Jenkins will auto-sync from pool-1-local
-# Access via NodePort:
-kubectl get svc -n pool-1-local
-```
-
 ---
 
 ## Tenant Management
 
 ### Onboarding a New Tenant
 
-**Method 1: Automated (Argo Workflows)**
+**Manual (Git commit)**
 
-```bash
-# Ensure workflow prerequisites are deployed
-kubectl apply -f gitops/control-plane/rbac/workflow-rbac.yaml
-# Create git-credentials secret (do NOT use the template file directly)
-kubectl create secret generic git-credentials \
-  -n argo-workflows \
-  --from-literal=username=git-bot \
-  --from-literal=token=ghp_xxxxxxxxxxxx
+1. Create a tenant Application manifest in the appropriate tier directory:
 
-# Submit onboarding workflow
-argo submit gitops/control-plane/workflows/onboarding-workflow.yaml \
-  -p tenant-id=acme-corp \
-  -p tier=advanced \
-  -p environment=production \
-  -p release-version=1.0.0
-```
+   Create `gitops/application-plane/production/tenants/advanced/acme-corp.yaml` with the ArgoCD Application manifest for the tenant.
 
-**Method 2: Manual (Git commit)**
-
-1. Copy the appropriate tier template:
-
-   ```bash
-   cp gitops/application-plane/production/tier-templates/advanced_tenant_template.yaml \
-      gitops/application-plane/production/tenants/advanced/acme-corp.yaml
-   ```
-
-2. Replace placeholders:
-
-   ```bash
-   sed -i 's/{TENANT_ID}/acme-corp/g' \
-     gitops/application-plane/production/tenants/advanced/acme-corp.yaml
-   sed -i 's/{RELEASE_VERSION}/1.0.0/g' \
-     gitops/application-plane/production/tenants/advanced/acme-corp.yaml
-   ```
-
-3. Add to kustomization:
+2. Add to kustomization:
 
    ```yaml
    # gitops/application-plane/production/tenants/advanced/kustomization.yaml
@@ -375,40 +259,11 @@ argo submit gitops/control-plane/workflows/onboarding-workflow.yaml \
 
 ### Offboarding a Tenant
 
-**Method 1: Automated**
-
-```bash
-argo submit gitops/control-plane/workflows/offboarding-workflow.yaml \
-  -p tenant-id=acme-corp \
-  -p tier=advanced \
-  -p environment=production \
-  -p create-backup=true
-```
-
-**Method 2: Manual**
+**Manual**
 
 1. Remove the tenant YAML file from the tenants directory
 2. Remove the reference from `kustomization.yaml`
 3. Commit and push — ArgoCD prunes the resources
-
-### Staggered Deployment
-
-Deploy new versions safely across all tenants using the wave-based strategy:
-
-```bash
-argo submit gitops/control-plane/workflows/deployment-workflow.yaml \
-  -p release-version=1.1.0 \
-  -p deploy-strategy=staggered
-```
-
-**Wave order:**
-
-1. **Wave 0:** Staging (all tiers) — canary validation
-2. **Wave 1:** Production basic (pool) — broad impact, low risk
-3. **Wave 2:** Production advanced — medium impact
-4. **Wave 3:** Production premium — highest value, deployed last
-
-Each wave includes a health validation gate before proceeding.
 
 ---
 
@@ -429,7 +284,7 @@ Each wave includes a health validation gate before proceeding.
 ### Implemented Security Controls
 
 - **Pod Security Standards:** `baseline` enforced, `restricted` warned on all tenant namespaces
-- **Non-root containers:** All Jenkins pods run as UID 1000 with `runAsNonRoot: true`
+- **Non-root containers:** All pods run as UID 1000 with `runAsNonRoot: true`
 - **Read-only root filesystem:** Enabled on all controller containers
 - **Privilege escalation:** Blocked via `allowPrivilegeEscalation: false`
 - **Linux capabilities:** All dropped (`drop: [ALL]`)
@@ -455,7 +310,6 @@ Each wave includes a health validation gate before proceeding.
 ### Built-in Metrics
 
 - **ArgoCD metrics:** Exposed on `:8083/metrics` (Prometheus format)
-- **Jenkins Prometheus plugin:** Installed on all tiers; exposes build metrics
 - **Application health:** ArgoCD tracks sync status and health for every Application
 
 ### Recommended Stack
@@ -472,7 +326,6 @@ Each wave includes a health validation gate before proceeding.
 
 - ArgoCD application out-of-sync > 5 minutes
 - Pod restart count > 3 in 15 minutes
-- Jenkins build queue > 10 items
 - PVC usage > 80%
 - Node CPU/memory > 85%
 
@@ -484,23 +337,16 @@ This `gitops/` directory is the **recommended successor** to the existing `ops/`
 
 | Existing (`ops/`) | New (`gitops/`) | Notes |
 |---|---|---|
-| `ops/argocd/` | `gitops/bootstrap/argocd/` | Enhanced with multi-env values, RBAC, script |
+| `ops/argocd/` | `gitops/bootstrap/argocd/` | Enhanced with multi-env values and RBAC |
 | `ops/argocd/manifests/app-of-apps.yaml` | `gitops/bootstrap/app-of-apps.yaml` | Parameterized with envsubst |
 | `ops/argocd/manifests/projects/` | `gitops/bootstrap/projects/` | Added `tenants` project |
-| `ops/jenkins/helm/` | `gitops/helm-charts/jenkins/` | Same upstream chart, cleaner values |
-| `ops/jenkins/argocd/` | `gitops/application-plane/*/tenants/` | Per-env, per-tier tenant manifests |
-| `ops/jenkins/k8s/` | Embedded in tenant YAML | Namespace created alongside Application |
-| `ops/k8s/argocd-apps/` | `gitops/applicationsets/` | ApplicationSet replaces manual template |
-| *(not present)* | `gitops/control-plane/workflows/` | New: automated tenant lifecycle |
-| *(not present)* | `gitops/application-plane/*/tier-templates/` | New: tier strategy templates |
 
 ### Migration Path
 
 1. Deploy the new `gitops/` structure alongside existing `ops/`
 2. Bootstrap ArgoCD using `gitops/bootstrap/`
-3. Verify Jenkins deploys correctly from the new structure
-4. Gradually transition existing ArgoCD Applications to point to `gitops/`
-5. Decommission `ops/` ArgoCD and Jenkins manifests once fully migrated
+3. Gradually transition existing ArgoCD Applications to point to `gitops/`
+4. Decommission `ops/` ArgoCD manifests once fully migrated
 
 ---
 
@@ -510,8 +356,6 @@ This `gitops/` directory is the **recommended successor** to the existing `ops/`
 - [ArgoCD Documentation](https://argo-cd.readthedocs.io/)
 - [ArgoCD App-of-Apps](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/)
 - [ArgoCD ApplicationSet](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/)
-- [Argo Workflows](https://argo-workflows.readthedocs.io/)
-- [Jenkins Helm Chart](https://github.com/jenkinsci/helm-charts)
 - [Kubernetes Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/)
 - [DORA Metrics](https://dora.dev/guides/dora-metrics-four-keys/)
 
