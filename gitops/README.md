@@ -276,7 +276,7 @@ A single root Application bootstraps the entire platform. Adding a new tenant is
    kubectl apply -f gitops/applicationsets/jenkins-appset.yaml
    ```
 
-9. **(Optional) Deploy Argo Workflows RBAC and WorkflowTemplates** for automated tenant lifecycle management:
+9. **(Optional) Deploy Argo Workflows RBAC and WorkflowTemplates** Deploy Argo Workflows RBAC and WorkflowTemplates:
 
    ```bash
    kubectl apply -f gitops/control-plane/rbac/workflow-rbac.yaml

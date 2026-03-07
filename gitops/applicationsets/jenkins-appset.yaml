@@ -86,17 +86,17 @@ spec:
       labels:
         app.kubernetes.io/part-of: gitops-platform
         app.kubernetes.io/managed-by: argocd
-        tier: "{{ index .metadata.labels "tier" }}"
-        environment: "{{ index .metadata.labels "environment" }}"
+        tier: '{{ index .metadata.labels "tier" }}'
+        environment: '{{ index .metadata.labels "environment" }}'
       annotations:
-        argocd.argoproj.io/sync-wave: "{{ index .metadata.annotations "argocd.argoproj.io/sync-wave" | default "2" }}"
+        argocd.argoproj.io/sync-wave: '{{ index .metadata.annotations "argocd.argoproj.io/sync-wave" | default "2" }}'
       finalizers:
         - resources-finalizer.argocd.argoproj.io
     spec:
       project: "{{ .spec.project }}"
       source:
         repoURL: "{{ .spec.source.repoURL }}"
-        targetRevision: "{{ .spec.source.targetRevision | default "HEAD" }}"
+        targetRevision: '{{ .spec.source.targetRevision | default "HEAD" }}'
         path: "{{ .spec.source.path }}"
         helm:
           releaseName: "{{ .spec.source.helm.releaseName }}"
