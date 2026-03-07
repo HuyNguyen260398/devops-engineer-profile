@@ -36,9 +36,8 @@ spec:
     repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git
     targetRevision: feature/deploy-and-manage-jenkins-in-argocd
     path: gitops/application-plane/local/tenants
-    directory:
-      recurse: true
-      include: "*.yaml"
+    # No directory block: ArgoCD auto-detects kustomization.yaml and uses Kustomize mode,
+    # which correctly processes kustomization.yaml as a build config rather than a k8s resource.
 
   destination:
     server: https://kubernetes.default.svc

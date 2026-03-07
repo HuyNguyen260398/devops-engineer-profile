@@ -37,7 +37,7 @@ spec:
   project: applications
   source:
     repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
-    targetRevision: HEAD
+    targetRevision: feature/deploy-and-manage-jenkins-in-argocd
     path: gitops/helm-charts/jenkins
     helm:
       releaseName: TENANT_NAME-advanced-production

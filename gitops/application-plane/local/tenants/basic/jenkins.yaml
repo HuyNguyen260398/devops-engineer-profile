@@ -30,8 +30,8 @@ metadata:
 spec:
   project: applications
   source:
-    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
-    targetRevision: HEAD
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git
+    targetRevision: feature/deploy-and-manage-jenkins-in-argocd
     path: gitops/helm-charts/jenkins
     helm:
       releaseName: jenkins-basic-local
