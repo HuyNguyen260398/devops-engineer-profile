@@ -8,7 +8,7 @@ destination:
 # GitOps source repository
 source:
   repoURL: https://github.com/devops-engineer-profile/devops-engineer-profile.git
-  targetRevision: feature/deploy-and-manage-jenkins-in-argocd
+  targetRevision: main
 
 # Application toggles
 apps:

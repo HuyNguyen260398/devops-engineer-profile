@@ -32,7 +32,7 @@ spec:
   project: applications
   source:
     repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
-    targetRevision: feature/deploy-and-manage-jenkins-in-argocd
+    targetRevision: main
     path: gitops/helm-charts/jenkins
     helm:
       releaseName: jenkins-pool-1
