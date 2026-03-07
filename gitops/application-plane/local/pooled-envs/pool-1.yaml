@@ -1,0 +1,82 @@
+# ============================================================================
+# Pool-1 – Shared Jenkins Pool (Local Environment, Basic Tier)
+# ============================================================================
+# Deploys a single shared Jenkins controller + agents for all basic-tier
+# tenants in the local development environment.
+#
+# Namespace:  pool-1-local
+# Tier:       basic (shared pool)
+# Sync:       Automated
+#
+# Apply during bootstrap (before ArgoCD picks up pooled-envs automatically):
+#   kubectl apply -f gitops/application-plane/local/pooled-envs/pool-1.yaml
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins-pool-1-local
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: jenkins-pool-1
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: pooled-env
+    tier: basic
+    pool: pool-1
+    environment: local
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: applications
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: HEAD
+    path: gitops/helm-charts/jenkins
+    helm:
+      releaseName: jenkins-pool-1
+      values: |
+        jenkins:
+          controller:
+            serviceType: NodePort
+            nodePort: 32000
+            resources:
+              requests:
+                cpu: "250m"
+                memory: "512Mi"
+              limits:
+                cpu: "1"
+                memory: "1Gi"
+            JCasC:
+              configScripts:
+                welcome-message: |
+                  jenkins:
+                    systemMessage: "Jenkins Local Pool-1 \u2013 Shared Basic Tier"
+            persistence:
+              storageClass: "standard"
+              size: "8Gi"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: pool-1-local
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates

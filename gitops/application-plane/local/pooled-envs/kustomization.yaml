@@ -1,0 +1,5 @@
+# Local pooled environments – shared Jenkins pool for basic tier
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - pool-1.yaml
