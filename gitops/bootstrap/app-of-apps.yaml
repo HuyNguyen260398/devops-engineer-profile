@@ -16,26 +16,26 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: app-of-apps-${ENVIRONMENT}
+  name: app-of-apps-local
   namespace: argocd
   labels:
     app.kubernetes.io/name: app-of-apps
     app.kubernetes.io/part-of: gitops-platform
     app.kubernetes.io/managed-by: argocd
     app.kubernetes.io/component: bootstrap
-    environment: ${ENVIRONMENT}
+    environment: local
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   annotations:
     argocd.argoproj.io/manifest-generate-paths: .
-    description: "Root App-of-Apps for ${ENVIRONMENT} environment"
+    description: "Root App-of-Apps for local environment"
 spec:
   project: default
 
   source:
-    repoURL: ${ARGOCD_APPS_REPO_URL}
-    targetRevision: ${ARGOCD_APPS_TARGET_REVISION:-HEAD}
-    path: gitops/application-plane/${ENVIRONMENT}/tenants
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git
+    targetRevision: feature/deploy-and-manage-jenkins-in-argocd
+    path: gitops/application-plane/local/tenants
     directory:
       recurse: true
       include: "*.yaml"
