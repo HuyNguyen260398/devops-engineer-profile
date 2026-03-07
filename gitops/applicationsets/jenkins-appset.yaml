@@ -1,0 +1,124 @@
+# ============================================================================
+# Jenkins ApplicationSet – Auto-Discovery of Tenant Applications
+# ============================================================================
+# Provides automatic Application generation from Git file generators.
+# When a new tenant YAML is committed to any discovered tier directory,
+# ArgoCD automatically generates the corresponding Application.
+#
+# This is an ALTERNATIVE/COMPLEMENTARY discovery mechanism to the app-of-apps
+# directory-mode watcher. The two approaches can coexist:
+#   • app-of-apps (directory mode): applies jenkins.yaml Application CRDs directly
+#   • ApplicationSet (git file generator): generates Applications from param files
+#
+# Generator directories watched:
+#   production:  tenants/premium, tenants/advanced, tenants/basic
+#   staging:     tenants/advanced, tenants/basic
+#   local:       tenants/basic
+#
+# NOTE: Update all repoURL values before applying.
+# Apply during bootstrap: kubectl apply -f gitops/applicationsets/jenkins-appset.yaml
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: jenkins-appset
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: jenkins-appset
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: applicationset
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+
+  generators:
+    # Production – Premium tier (full silo, manual sync)
+    - git:
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git # UPDATE THIS
+        revision: main
+        files:
+          - path: gitops/application-plane/production/tenants/premium/*.yaml
+
+    # Production – Advanced tier (dedicated controller)
+    - git:
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+        revision: main
+        files:
+          - path: gitops/application-plane/production/tenants/advanced/*.yaml
+
+    # Production – Basic tier (shared pool)
+    - git:
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+        revision: main
+        files:
+          - path: gitops/application-plane/production/tenants/basic/*.yaml
+
+    # Staging – Advanced tier
+    - git:
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+        revision: main
+        files:
+          - path: gitops/application-plane/staging/tenants/advanced/*.yaml
+
+    # Staging – Basic tier
+    - git:
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+        revision: main
+        files:
+          - path: gitops/application-plane/staging/tenants/basic/*.yaml
+
+    # Local – Basic tier only
+    - git:
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+        revision: main
+        files:
+          - path: gitops/application-plane/local/tenants/basic/*.yaml
+
+  # ApplicationSet template – generates Applications from the discovered YAML files
+  template:
+    metadata:
+      name: "{{ .metadata.name }}"
+      namespace: argocd
+      labels:
+        app.kubernetes.io/part-of: gitops-platform
+        app.kubernetes.io/managed-by: argocd
+        tier: '{{ index .metadata.labels "tier" }}'
+        environment: '{{ index .metadata.labels "environment" }}'
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{ index .metadata.annotations "argocd.argoproj.io/sync-wave" | default "2" }}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: "{{ .spec.project }}"
+      source:
+        repoURL: "{{ .spec.source.repoURL }}"
+        targetRevision: '{{ .spec.source.targetRevision | default "HEAD" }}'
+        path: "{{ .spec.source.path }}"
+        helm:
+          releaseName: "{{ .spec.source.helm.releaseName }}"
+          values: "{{ .spec.source.helm.values }}"
+      destination:
+        server: https://kubernetes.default.svc
+        namespace: "{{ .spec.destination.namespace }}"
+      syncPolicy:
+        syncOptions:
+          - CreateNamespace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+          - ServerSideApply=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 5s
+            factor: 2
+            maxDuration: 3m
+
+  # Prevent the ApplicationSet from deleting Applications when source files are removed
+  # before the Applications themselves complete deletion
+  syncPolicy:
+    preserveResourcesOnDeletion: false

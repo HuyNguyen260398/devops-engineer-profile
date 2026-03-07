@@ -1,0 +1,120 @@
+# ============================================================================
+# Premium Tier Tenant Template – Production Environment
+# ============================================================================
+# Blueprint for onboarding a new premium-tier Jenkins tenant (production).
+# Premium tier: full silo – dedicated namespace, dedicated HA controller,
+# dedicated agents, 100Gi storage, NLB + TLS Ingress.
+#
+# USAGE:
+#   1. Copy to: gitops/application-plane/production/tenants/premium/<TENANT_NAME>.yaml
+#   2. Replace all TENANT_* placeholders
+#   3. Add the filename to: gitops/application-plane/production/tenants/premium/kustomization.yaml
+#   4. Commit and push – manual ArgoCD sync required for production safety
+#
+# Tier:        premium (full silo: jenkins-TENANT_NAME namespace)
+# Environment: production
+# Resources:   2–8 CPU | 4–8Gi mem | 100Gi gp3
+# Sync:        MANUAL only
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: TENANT_NAME-premium-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: TENANT_NAME
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: tenant
+    tier: premium
+    tenant: TENANT_NAME
+    environment: production
+    critical: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    notifications.argoproj.io/subscribe.on-deployed.slack: devops-production
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-critical-alerts
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: applications
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/jenkins
+    helm:
+      releaseName: TENANT_NAME-premium-production
+      values: |
+        jenkins:
+          controller:
+            serviceType: ClusterIP
+            resources:
+              requests:
+                cpu: "2"
+                memory: "4Gi"
+              limits:
+                cpu: "8"
+                memory: "8Gi"
+            JCasC:
+              configScripts:
+                welcome-message: |
+                  jenkins:
+                    systemMessage: "Jenkins Production \u2013 Premium Tier \u2013 TENANT_NAME"
+            persistence:
+              storageClass: "gp3"
+              size: "100Gi"
+          agent:
+            resources:
+              requests:
+                cpu: "500m"
+                memory: "1Gi"
+              limits:
+                cpu: "2"
+                memory: "2Gi"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jenkins-TENANT_NAME          # Dedicated namespace per premium tenant
+  # Manual sync for production safety – no automated sync
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 10m
+  syncWindows:
+    - kind: deny
+      schedule: "0 0-7,19-23 * * *"  # Deny outside business hours
+      duration: 12h
+      applications:
+        - TENANT_NAME-premium-production
+    - kind: allow
+      schedule: "0 20-22 * * 6"      # Saturday 20:00–22:00 maintenance window
+      duration: 2h
+      applications:
+        - TENANT_NAME-premium-production
+      manualSync: true
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+        - /spec/replicas
+    - group: ""
+      kind: Secret
+      name: jenkins-admin-credentials
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: PersistentVolumeClaim
+      jsonPointers:
+        - /spec/resources/requests/storage
+  revisionHistoryLimit: 10

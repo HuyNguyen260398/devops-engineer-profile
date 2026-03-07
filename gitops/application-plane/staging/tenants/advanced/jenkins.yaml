@@ -1,0 +1,95 @@
+# ============================================================================
+# Jenkins – Advanced Tier (Staging Environment)
+# ============================================================================
+# Deploys a dedicated Jenkins controller with shared agents for the advanced
+# tier in staging. Each advanced tenant gets a dedicated namespace and
+# controller for improved isolation.
+#
+# Namespace:  jenkins-staging (dedicated)
+# Tier:       advanced (dedicated controller, shared agents)
+# Sync:       Automated (Mon–Fri 08:00–18:00)
+# Resources:  500m–2 CPU | 1–2Gi mem
+# Storage:    20Gi gp3
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins-advanced-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: tenant
+    tier: advanced
+    tenant: jenkins
+    environment: staging
+  annotations:
+    argocd.argoproj.io/sync-wave: "3"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-alerts
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: applications
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/jenkins
+    helm:
+      releaseName: jenkins-advanced-staging
+      values: |
+        jenkins:
+          controller:
+            serviceType: ClusterIP
+            resources:
+              requests:
+                cpu: "500m"
+                memory: "1Gi"
+              limits:
+                cpu: "2"
+                memory: "2Gi"
+            JCasC:
+              configScripts:
+                welcome-message: |
+                  jenkins:
+                    systemMessage: "Jenkins Staging \u2013 Advanced Tier (Dedicated Controller)"
+            persistence:
+              storageClass: "gp3"
+              size: "20Gi"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jenkins-staging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 5m
+  syncWindows:
+    - kind: allow
+      schedule: "0 8-18 * * 1-5"  # Mon–Fri 08:00–18:00 UTC
+      duration: 10h
+      applications:
+        - jenkins-advanced-staging
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+    - group: ""
+      kind: Secret
+      name: jenkins-admin-credentials
+      jsonPointers:
+        - /data

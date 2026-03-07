@@ -1,0 +1,227 @@
+# ============================================================================
+# Tenant Offboarding WorkflowTemplate
+# ============================================================================
+# Automates the safe removal of a Jenkins tenant:
+#   Wave 1: Validate tenant exists and is safe to remove
+#   Wave 2: Optionally backup tenant data (PVC snapshot)
+#   Wave 3: Remove tenant manifest from Git (triggers ArgoCD pruning)
+#   Wave 4: Verify ArgoCD has deleted the Application and namespace
+#
+# Prerequisites:
+#   • Argo Workflows installed in argo-workflows namespace
+#   • git-credentials Secret present
+#   • gitops-workflow-sa ServiceAccount with ClusterRole
+#
+# Trigger example:
+#   argo submit -n argo-workflows --from workflowtemplate/tenant-offboarding \
+#     -p tenant-name=acme-corp \
+#     -p tier=advanced \
+#     -p environment=staging \
+#     --serviceaccount gitops-workflow-sa
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: tenant-offboarding
+  namespace: argo-workflows
+  labels:
+    app.kubernetes.io/name: tenant-offboarding
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/managed-by: argocd
+spec:
+  serviceAccountName: gitops-workflow-sa
+  entrypoint: offboard-tenant
+  arguments:
+    parameters:
+      - name: tenant-name
+        description: "Tenant identifier to offboard"
+      - name: tier
+        description: "Deployment tier: basic | advanced | premium"
+        enum:
+          - basic
+          - advanced
+          - premium
+      - name: environment
+        description: "Target environment: local | staging | production"
+        enum:
+          - local
+          - staging
+          - production
+      - name: skip-backup
+        description: "Skip PVC backup step (true/false)"
+        value: "false"
+      - name: git-branch
+        description: "Git branch to commit removal to"
+        value: "main"
+      - name: git-repo-url
+        description: "Git repository URL"
+        value: "https://github.com/HuyNguyen260398/devops-engineer-profile.git"  # UPDATE THIS
+
+  templates:
+    # ── Entry point ───────────────────────────────────────────────────────────────
+    - name: offboard-tenant
+      steps:
+        - - name: validate-tenant-exists
+            template: validate-tenant-exists
+        - - name: backup-tenant-data
+            template: backup-tenant-data
+            when: "'{{workflow.parameters.skip-backup}}' == 'false'"
+        - - name: remove-from-git
+            template: remove-from-git
+        - - name: verify-deletion
+            template: verify-deletion
+
+    # ── Step 1: Verify the tenant Application exists in ArgoCD ─────────────────
+    - name: validate-tenant-exists
+      script:
+        image: quay.io/argoproj/argocd:v2.10.0
+        command: [sh]
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        source: |
+          set -e
+          TENANT="{{workflow.parameters.tenant-name}}"
+          TIER="{{workflow.parameters.tier}}"
+          ENV="{{workflow.parameters.environment}}"
+          APP_NAME="${TENANT}-${TIER}-${ENV}"
+
+          argocd app get "$APP_NAME" \
+            --server argocd-server.argocd.svc.cluster.local \
+            --plaintext > /dev/null 2>&1 || {
+            echo "ERROR: ArgoCD Application '$APP_NAME' not found. Nothing to offboard."
+            exit 1
+          }
+          echo "Application $APP_NAME confirmed. Proceeding with offboarding."
+
+    # ── Step 2: Backup PVC data before removal ─────────────────────────────
+    - name: backup-tenant-data
+      script:
+        image: bitnami/kubectl:1.29
+        command: [sh]
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        source: |
+          set -e
+          TENANT="{{workflow.parameters.tenant-name}}"
+          TIER="{{workflow.parameters.tier}}"
+          ENV="{{workflow.parameters.environment}}"
+          TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+          case "$TIER" in
+            advanced) NS="jenkins-${TENANT}-${ENV}" ;;
+            premium)  NS="jenkins-${TENANT}" ;;
+            basic)    NS="pool-1-${ENV}" ;;
+          esac
+
+          echo "Creating VolumeSnapshot for tenant $TENANT in namespace $NS"
+
+          kubectl apply -f - <<EOF
+          apiVersion: snapshot.storage.k8s.io/v1
+          kind: VolumeSnapshot
+          metadata:
+            name: jenkins-${TENANT}-backup-${TIMESTAMP}
+            namespace: ${NS}
+            labels:
+              app.kubernetes.io/part-of: gitops-platform
+              tenant: ${TENANT}
+              offboarding: "true"
+          spec:
+            volumeSnapshotClassName: csi-aws-vsc
+            source:
+              persistentVolumeClaimName: jenkins-home-jenkins-0
+          EOF
+
+          echo "Backup snapshot requested: jenkins-${TENANT}-backup-${TIMESTAMP}"
+
+    # ── Step 3: Remove manifest from Git ──────────────────────────────────
+    - name: remove-from-git
+      script:
+        image: alpine/git:2.45.2
+        command: [sh]
+        env:
+          - name: GIT_TOKEN
+            valueFrom:
+              secretKeyRef:
+                name: git-credentials
+                key: token
+          - name: GIT_USERNAME
+            valueFrom:
+              secretKeyRef:
+                name: git-credentials
+                key: username
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 65534
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        source: |
+          set -e
+          TENANT="{{workflow.parameters.tenant-name}}"
+          TIER="{{workflow.parameters.tier}}"
+          ENV="{{workflow.parameters.environment}}"
+          REPO="{{workflow.parameters.git-repo-url}}"
+          BRANCH="{{workflow.parameters.git-branch}}"
+
+          git clone "https://x-access-token:${GIT_TOKEN}@${REPO#https://}" /tmp/repo
+          cd /tmp/repo
+          git config user.email "gitops-workflow@gitops-platform"
+          git config user.name "${GIT_USERNAME}"
+          git checkout "$BRANCH"
+
+          MANIFEST="gitops/application-plane/${ENV}/tenants/${TIER}/${TENANT}.yaml"
+          KUST="gitops/application-plane/${ENV}/tenants/${TIER}/kustomization.yaml"
+
+          [ -f "$MANIFEST" ] || { echo "ERROR: Manifest not found: $MANIFEST"; exit 1; }
+
+          git rm "$MANIFEST"
+          sed -i "/  - ${TENANT}.yaml/d" "$KUST"
+          git add "$KUST"
+
+          git commit -m "feat(gitops): offboard tenant ${TENANT} (${TIER}/${ENV})"
+          git push
+          echo "Removed and pushed: $MANIFEST"
+
+    # ── Step 4: Poll until ArgoCD confirms the Application is deleted ────────
+    - name: verify-deletion
+      script:
+        image: quay.io/argoproj/argocd:v2.10.0
+        command: [sh]
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        source: |
+          set -e
+          TENANT="{{workflow.parameters.tenant-name}}"
+          TIER="{{workflow.parameters.tier}}"
+          ENV="{{workflow.parameters.environment}}"
+          APP_NAME="${TENANT}-${TIER}-${ENV}"
+
+          TIMEOUT=300
+          ELAPSED=0
+          while [ $ELAPSED -lt $TIMEOUT ]; do
+            argocd app get "$APP_NAME" \
+              --server argocd-server.argocd.svc.cluster.local \
+              --plaintext > /dev/null 2>&1 || {
+              echo "Application $APP_NAME has been deleted. Offboarding complete."
+              exit 0
+            }
+            echo "[$ELAPSED s] Application still exists, waiting for pruning..."
+            sleep 15
+            ELAPSED=$((ELAPSED + 15))
+          done
+
+          echo "ERROR: Timeout waiting for $APP_NAME to be deleted."
+          exit 1

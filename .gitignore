@@ -92,7 +92,7 @@ temp/
 *.tmp
 
 # Local development overrides
-local/
+
 .local/
 
 # Helm charts

@@ -16,29 +16,28 @@
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: app-of-apps-${ENVIRONMENT}
+  name: app-of-apps-local
   namespace: argocd
   labels:
     app.kubernetes.io/name: app-of-apps
     app.kubernetes.io/part-of: gitops-platform
     app.kubernetes.io/managed-by: argocd
     app.kubernetes.io/component: bootstrap
-    environment: ${ENVIRONMENT}
+    environment: local
   finalizers:
     - resources-finalizer.argocd.argoproj.io
   annotations:
     argocd.argoproj.io/manifest-generate-paths: .
-    description: "Root App-of-Apps for ${ENVIRONMENT} environment"
+    description: "Root App-of-Apps for local environment"
 spec:
   project: default
 
   source:
-    repoURL: ${ARGOCD_APPS_REPO_URL}
-    targetRevision: ${ARGOCD_APPS_TARGET_REVISION:-HEAD}
-    path: gitops/application-plane/${ENVIRONMENT}/tenants
-    directory:
-      recurse: true
-      include: "*.yaml"
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git
+    targetRevision: main
+    path: gitops/application-plane/local/tenants
+    # No directory block: ArgoCD auto-detects kustomization.yaml and uses Kustomize mode,
+    # which correctly processes kustomization.yaml as a build config rather than a k8s resource.
 
   destination:
     server: https://kubernetes.default.svc
@@ -48,7 +47,7 @@ spec:
     automated:
       prune: true
       selfHeal: true
-      allowEmpty: true  # Allow empty sync during initial ArgoCD-only bootstrap (before any services are added)
+      allowEmpty: false  # Applications are now present; reject empty sync to surface errors
     syncOptions:
       - CreateNamespace=true
       - PrunePropagationPolicy=foreground

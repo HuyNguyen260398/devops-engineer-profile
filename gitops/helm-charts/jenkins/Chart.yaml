@@ -1,0 +1,30 @@
+# ============================================================================
+# Jenkins Multi-Tenant Helm Chart
+# ============================================================================
+# Thin wrapper around the upstream jenkins/jenkins chart providing opinionated
+# security defaults and tier-based value overrides for the GitOps platform.
+#
+# Chart version:  1.0.0
+# Upstream chart: jenkins/jenkins:5.8.139 (https://charts.jenkins.io)
+# Tiers:          basic (pool) | advanced (dedicated) | premium (silo)
+# ============================================================================
+apiVersion: v2
+name: jenkins
+description: >-
+  Multi-tenant Jenkins Helm chart for the GitOps platform.
+  Wraps upstream jenkins/jenkins:5.8.139 with secure defaults for
+  basic (pool), advanced (dedicated), and premium (silo) tiers.
+type: application
+version: 1.0.0
+appVersion: "2.504"
+keywords:
+  - jenkins
+  - ci-cd
+  - gitops
+  - multi-tenant
+maintainers:
+  - name: devops-platform-team
+dependencies:
+  - name: jenkins
+    version: "5.8.139"
+    repository: https://charts.jenkins.io
