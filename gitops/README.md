@@ -302,6 +302,44 @@ Jenkins is the first application deployed on this platform, using the multi-tena
 
 > **Note:** Pool Applications (`pool-1-*.yaml`) must be bootstrapped with `kubectl apply` once (step 7 above). Tenant Applications (`jenkins.yaml`) are picked up automatically by the app-of-apps watcher.
 
+### Why Two ArgoCD Applications per Environment?
+
+Each environment runs two distinct ArgoCD Applications for Jenkins, and they serve separate roles in the architecture:
+
+**`jenkins-pool-1-<env>` — The Pool (Infrastructure Layer)**
+
+This is the shared pool bootstrap. It provisions the underlying namespace and base resources that all basic-tier tenants share. It is defined in `pooled-envs/` — deliberately outside the app-of-apps watch path (`tenants/`) — so it persists independently and must be applied once manually during bootstrap:
+
+```bash
+kubectl apply -f gitops/application-plane/${ENVIRONMENT}/pooled-envs/pool-1.yaml
+```
+
+Think of it as the "landlord": it sets up the shared infrastructure that tenants move into.
+
+**`jenkins-<tier>-<env>` — The Tenant (Application Layer)**
+
+This represents a specific team's Jenkins instance, managed by the app-of-apps. Each onboarded tenant gets its own ArgoCD Application, providing:
+
+- **Independent lifecycle management** — sync, rollback, and health status tracked per tenant
+- **Clean offboarding** — deleting the tenant YAML causes ArgoCD to prune only that tenant's resources
+- **Per-tenant configuration** — each Application can carry its own JCasC, plugin list, or resource overrides via `helm.values`
+
+**How this scales with multiple teams**
+
+In production with several basic-tier tenants all sharing `pool-1-local`, the layout looks like this:
+
+```
+pool-1-local namespace
+├── jenkins-pool-1        ← pool infrastructure  (managed by jenkins-pool-1-local)
+├── jenkins-basic-local   ← tenant: jenkins team (managed by jenkins-basic-local)
+├── acme-corp             ← tenant: acme-corp    (managed by jenkins-basic-acme-corp)
+└── foo-team              ← tenant: foo-team     (managed by jenkins-basic-foo-team)
+```
+
+Each tenant has its own ArgoCD Application for visibility and lifecycle control, while all sharing the same namespace and pool infrastructure — keeping costs low without losing per-tenant management.
+
+In local development with only one tenant the separation may feel redundant, but the design intentionally mirrors production so the same GitOps workflows (onboarding, offboarding, staggered deployment) operate identically across all environments.
+
 ### Namespace Layout
 
 ```
