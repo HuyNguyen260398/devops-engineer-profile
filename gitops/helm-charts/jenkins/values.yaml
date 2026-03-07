@@ -1,0 +1,122 @@
+# ============================================================================
+# Jenkins Helm Values – Secure Base Defaults
+# ============================================================================
+# Shared defaults applied across ALL tiers. Tier-specific overrides are
+# injected via the ArgoCD Application's helm.values block.
+#
+# Security posture follows Kubernetes Pod Security Standards (restricted):
+#   runAsNonRoot: true            – never run as root
+#   runAsUser: 1000               – unprivileged UID
+#   allowPrivilegeEscalation: false
+#   capabilities.drop: [ALL]      – no Linux capabilities granted
+#   seccompProfile: RuntimeDefault
+#
+# Ref: https://kubernetes.io/docs/concepts/security/pod-security-standards/
+# ============================================================================
+jenkins:
+  controller:
+    componentName: "jenkins-controller"
+
+    image:
+      registry: "docker.io"
+      repository: "jenkins/jenkins"
+      tag: "2.504-jdk21"
+      pullPolicy: "IfNotPresent"
+
+    # No executors on the controller – all builds run on Kubernetes agents
+    numExecutors: 0
+
+    # ── Pod Security Context ────────────────────────────────────────────
+    podSecurityContextOverride:
+      runAsNonRoot: true
+      runAsUser: 1000
+      fsGroup: 1000
+      seccompProfile:
+        type: RuntimeDefault
+
+    containerSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 1000
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false  # Jenkins requires writable workspace dirs
+      capabilities:
+        drop:
+          - ALL
+
+    # ── Core Plugins ────────────────────────────────────────────────────
+    installPlugins:
+      - kubernetes:latest
+      - workflow-aggregator:latest
+      - git:latest
+      - configuration-as-code:latest
+      - credentials-binding:latest
+      - prometheus:latest
+
+    # ── Jenkins Configuration as Code (JCasC) ──────────────────────────
+    JCasC:
+      enabled: true
+      defaultConfig: true
+      configScripts: {}
+
+    # ── Service ─────────────────────────────────────────────────────────
+    serviceType: ClusterIP
+    servicePort: 8080
+    targetPort: 8080
+
+    # ── Health Probes ────────────────────────────────────────────────────
+    healthProbes: true
+    probes:
+      startupProbe:
+        httpGet:
+          path: /login
+          port: 8080
+        initialDelaySeconds: 60
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 12
+      livenessProbe:
+        httpGet:
+          path: /login
+          port: 8080
+        initialDelaySeconds: 0
+        periodSeconds: 20
+        timeoutSeconds: 5
+        failureThreshold: 5
+      readinessProbe:
+        httpGet:
+          path: /login
+          port: 8080
+        initialDelaySeconds: 0
+        periodSeconds: 10
+        timeoutSeconds: 5
+        failureThreshold: 3
+
+    # ── Resources – overridden per tier ─────────────────────────────────
+    # Basic tier defaults (250m–1 CPU, 512Mi–1Gi mem)
+    # Advanced tier: 500m–2 CPU, 1–2Gi mem (set per Application)
+    # Premium tier:  2–8 CPU, 4–8Gi mem (set per Application)
+    resources:
+      requests:
+        cpu: "250m"
+        memory: "512Mi"
+      limits:
+        cpu: "1"
+        memory: "1Gi"
+
+    # ── Persistence ─────────────────────────────────────────────────────
+    persistence:
+      enabled: true
+      storageClass: ""    # Overridden per environment: gp3 (AWS), standard (local)
+      size: "8Gi"
+      accessMode: "ReadWriteOnce"
+
+  # ── Agent Defaults ───────────────────────────────────────────────────
+  agent:
+    enabled: true
+    resources:
+      requests:
+        cpu: "200m"
+        memory: "256Mi"
+      limits:
+        cpu: "500m"
+        memory: "512Mi"

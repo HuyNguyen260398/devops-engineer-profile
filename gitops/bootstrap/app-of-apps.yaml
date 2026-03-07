@@ -48,7 +48,7 @@ spec:
     automated:
       prune: true
       selfHeal: true
-      allowEmpty: true  # Allow empty sync during initial ArgoCD-only bootstrap (before any services are added)
+      allowEmpty: false  # Applications are now present; reject empty sync to surface errors
     syncOptions:
       - CreateNamespace=true
       - PrunePropagationPolicy=foreground

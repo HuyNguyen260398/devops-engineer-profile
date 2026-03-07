@@ -1,0 +1,199 @@
+# ============================================================================
+# Staggered Deployment WorkflowTemplate
+# ============================================================================
+# Orchestrates a wave-based deployment across all environments and tiers:
+#
+#   Wave 0: Staging (all tiers)          → 5-minute validation gate
+#   Wave 1: Production basic (pool)      → 10-minute health gate
+#   Wave 2: Production advanced          → 10-minute health gate
+#   Wave 3: Production premium           → 5-minute final gate
+#
+# This pattern ensures changes are progressively validated across tiers before
+# reaching the most critical premium tier. Aligns with DORA Change Failure Rate
+# reduction by catching issues early in the promotion chain.
+#
+# Prerequisites:
+#   • Argo Workflows + argocd CLI in cluster
+#   • gitops-workflow-sa with appropriate RBAC
+#
+# Trigger example:
+#   argo submit -n argo-workflows --from workflowtemplate/staggered-deployment \
+#     -p image-tag=1.2.3 \
+#     --serviceaccount gitops-workflow-sa
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: WorkflowTemplate
+metadata:
+  name: staggered-deployment
+  namespace: argo-workflows
+  labels:
+    app.kubernetes.io/name: staggered-deployment
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/managed-by: argocd
+spec:
+  serviceAccountName: gitops-workflow-sa
+  entrypoint: deploy-all-waves
+  arguments:
+    parameters:
+      - name: image-tag
+        description: "Container image tag to deploy (e.g. 1.2.3 or git SHA)"
+      - name: app-selector
+        description: "Label selector for ArgoCD Applications to sync"
+        value: "app.kubernetes.io/part-of=gitops-platform"
+
+  templates:
+    # ── Entry point: sequential wave orchestration ───────────────────────
+    - name: deploy-all-waves
+      steps:
+        # Wave 0: Staging (all tiers) – lowest risk, validate first
+        - - name: wave-0-staging
+            template: sync-apps
+            arguments:
+              parameters:
+                - name: label-selector
+                  value: "environment=staging,app.kubernetes.io/part-of=gitops-platform"
+                - name: wave-name
+                  value: "staging"
+        - - name: gate-0
+            template: health-gate
+            arguments:
+              parameters:
+                - name: wait-seconds
+                  value: "300"  # 5-minute staging validation gate
+                - name: label-selector
+                  value: "environment=staging,app.kubernetes.io/part-of=gitops-platform"
+
+        # Wave 1: Production basic – shared pools are lower risk than dedicated
+        - - name: wave-1-prod-basic
+            template: sync-apps
+            arguments:
+              parameters:
+                - name: label-selector
+                  value: "environment=production,tier=basic,app.kubernetes.io/part-of=gitops-platform"
+                - name: wave-name
+                  value: "production-basic"
+        - - name: gate-1
+            template: health-gate
+            arguments:
+              parameters:
+                - name: wait-seconds
+                  value: "600"  # 10-minute gate
+                - name: label-selector
+                  value: "environment=production,tier=basic,app.kubernetes.io/part-of=gitops-platform"
+
+        # Wave 2: Production advanced
+        - - name: wave-2-prod-advanced
+            template: sync-apps
+            arguments:
+              parameters:
+                - name: label-selector
+                  value: "environment=production,tier=advanced,app.kubernetes.io/part-of=gitops-platform"
+                - name: wave-name
+                  value: "production-advanced"
+        - - name: gate-2
+            template: health-gate
+            arguments:
+              parameters:
+                - name: wait-seconds
+                  value: "600"  # 10-minute gate
+                - name: label-selector
+                  value: "environment=production,tier=advanced,app.kubernetes.io/part-of=gitops-platform"
+
+        # Wave 3: Production premium – highest isolation, last to receive changes
+        - - name: wave-3-prod-premium
+            template: sync-apps
+            arguments:
+              parameters:
+                - name: label-selector
+                  value: "environment=production,tier=premium,app.kubernetes.io/part-of=gitops-platform"
+                - name: wave-name
+                  value: "production-premium"
+        - - name: gate-3
+            template: health-gate
+            arguments:
+              parameters:
+                - name: wait-seconds
+                  value: "300"  # 5-minute final gate
+                - name: label-selector
+                  value: "environment=production,tier=premium,app.kubernetes.io/part-of=gitops-platform"
+
+    # ── Trigger ArgoCD sync for a set of Applications ────────────────────
+    - name: sync-apps
+      inputs:
+        parameters:
+          - name: label-selector
+          - name: wave-name
+      script:
+        image: quay.io/argoproj/argocd:v2.10.0
+        command: [sh]
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        source: |
+          set -e
+          SELECTOR="{{inputs.parameters.label-selector}}"
+          WAVE="{{inputs.parameters.wave-name}}"
+
+          echo "=== Wave: $WAVE ==="
+          echo "Syncing ArgoCD Applications matching: $SELECTOR"
+
+          argocd app list \
+            --server argocd-server.argocd.svc.cluster.local \
+            --plaintext \
+            --selector "$SELECTOR" \
+            --output name | while read APP; do
+            echo "Syncing: $APP"
+            argocd app sync "$APP" \
+              --server argocd-server.argocd.svc.cluster.local \
+              --plaintext \
+              --async || echo "WARNING: Sync trigger failed for $APP"
+          done
+
+          echo "Sync triggered for wave: $WAVE"
+
+    # ── Health gate: wait N seconds while verifying all apps stay Healthy ───
+    - name: health-gate
+      inputs:
+        parameters:
+          - name: wait-seconds
+          - name: label-selector
+      script:
+        image: quay.io/argoproj/argocd:v2.10.0
+        command: [sh]
+        securityContext:
+          runAsNonRoot: true
+          runAsUser: 999
+          allowPrivilegeEscalation: false
+          capabilities:
+            drop: [ALL]
+        source: |
+          set -e
+          SELECTOR="{{inputs.parameters.label-selector}}"
+          WAIT="{{inputs.parameters.wait-seconds}}"
+          ELAPSED=0
+
+          echo "Health gate: waiting ${WAIT}s while monitoring selector: $SELECTOR"
+
+          while [ $ELAPSED -lt $WAIT ]; do
+            UNHEALTHY=$(argocd app list \
+              --server argocd-server.argocd.svc.cluster.local \
+              --plaintext \
+              --selector "$SELECTOR" \
+              --output json 2>/dev/null \
+              | grep -c '"health":"Degraded"\|"health":"Missing"\|"health":"Unknown"' || echo 0)
+
+            if [ "$UNHEALTHY" -gt 0 ]; then
+              echo "ERROR: $UNHEALTHY unhealthy applications detected. Aborting deployment pipeline."
+              exit 1
+            fi
+
+            echo "[$ELAPSED/${WAIT}s] All applications healthy."
+            sleep 30
+            ELAPSED=$((ELAPSED + 30))
+          done
+
+          echo "Health gate passed after ${WAIT}s. Proceeding to next wave."

@@ -1,5 +1,5 @@
-# Staging advanced tier tenants (hybrid deployment)
-# Add tenant Application YAML files here as services are onboarded
+# Staging advanced tier tenants (dedicated controller)
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
-resources: []
+resources:
+  - jenkins.yaml

@@ -1,0 +1,114 @@
+# ============================================================================
+# Jenkins – Premium Tier (Production Environment)
+# ============================================================================
+# Full silo deployment: dedicated namespace, dedicated HA controller,
+# dedicated agents, 100Gi gp3 persistence, manual sync for safety.
+#
+# Namespace:  jenkins-production (dedicated)
+# Tier:       premium (full silo)
+# Sync:       MANUAL – requires explicit operator approval
+# Resources:  2–8 CPU | 4–8Gi mem
+# Storage:    100Gi gp3
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: jenkins-premium-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: jenkins
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: tenant
+    tier: premium
+    tenant: jenkins
+    environment: production
+    critical: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "5"
+    notifications.argoproj.io/subscribe.on-deployed.slack: devops-production
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-critical-alerts
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: applications
+  source:
+    repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: HEAD
+    path: gitops/helm-charts/jenkins
+    helm:
+      releaseName: jenkins-premium-production
+      values: |
+        jenkins:
+          controller:
+            serviceType: ClusterIP
+            resources:
+              requests:
+                cpu: "2"
+                memory: "4Gi"
+              limits:
+                cpu: "8"
+                memory: "8Gi"
+            JCasC:
+              configScripts:
+                welcome-message: |
+                  jenkins:
+                    systemMessage: "Jenkins Production \u2013 Premium Tier (Full Silo, HA)"
+            persistence:
+              storageClass: "gp3"
+              size: "100Gi"
+          agent:
+            resources:
+              requests:
+                cpu: "500m"
+                memory: "1Gi"
+              limits:
+                cpu: "2"
+                memory: "2Gi"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: jenkins-production
+  # Manual sync for production safety – no automated sync
+  syncPolicy:
+    automated: null
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 3
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 10m
+  syncWindows:
+    - kind: deny
+      schedule: "0 0-7,19-23 * * *"  # Deny outside business hours
+      duration: 12h
+      applications:
+        - jenkins-premium-production
+    - kind: allow
+      schedule: "0 20-22 * * 6"      # Saturday 20:00–22:00 maintenance window
+      duration: 2h
+      applications:
+        - jenkins-premium-production
+      manualSync: true
+  ignoreDifferences:
+    - group: apps
+      kind: StatefulSet
+      jsonPointers:
+        - /spec/volumeClaimTemplates
+        - /spec/replicas
+    - group: ""
+      kind: Secret
+      name: jenkins-admin-credentials
+      jsonPointers:
+        - /data
+    - group: ""
+      kind: PersistentVolumeClaim
+      jsonPointers:
+        - /spec/resources/requests/storage
+  revisionHistoryLimit: 10
