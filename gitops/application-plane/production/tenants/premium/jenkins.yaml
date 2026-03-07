@@ -34,7 +34,7 @@ metadata:
 spec:
   project: applications
   source:
-    repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
     targetRevision: HEAD
     path: gitops/helm-charts/jenkins
     helm:

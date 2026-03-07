@@ -53,7 +53,7 @@ spec:
         value: "main"
       - name: git-repo-url
         description: "Git repository URL"
-        value: "https://github.com/your-org/devops-engineer-profile.git"  # UPDATE THIS
+        value: "https://github.com/HuyNguyen260398/devops-engineer-profile.git"  # UPDATE THIS
 
   templates:
     # ─────────────────────────────────────────────────────────────────────

@@ -38,42 +38,42 @@ spec:
   generators:
     # Production – Premium tier (full silo, manual sync)
     - git:
-        repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git # UPDATE THIS
         revision: HEAD
         files:
           - path: gitops/application-plane/production/tenants/premium/*.yaml
 
     # Production – Advanced tier (dedicated controller)
     - git:
-        repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
         revision: HEAD
         files:
           - path: gitops/application-plane/production/tenants/advanced/*.yaml
 
     # Production – Basic tier (shared pool)
     - git:
-        repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
         revision: HEAD
         files:
           - path: gitops/application-plane/production/tenants/basic/*.yaml
 
     # Staging – Advanced tier
     - git:
-        repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
         revision: HEAD
         files:
           - path: gitops/application-plane/staging/tenants/advanced/*.yaml
 
     # Staging – Basic tier
     - git:
-        repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
         revision: HEAD
         files:
           - path: gitops/application-plane/staging/tenants/basic/*.yaml
 
     # Local – Basic tier only
     - git:
-        repoURL: https://github.com/your-org/devops-engineer-profile.git  # UPDATE THIS
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
         revision: HEAD
         files:
           - path: gitops/application-plane/local/tenants/basic/*.yaml
