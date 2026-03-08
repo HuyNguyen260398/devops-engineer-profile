@@ -13,6 +13,10 @@ terraform {
 
 # S3 Bucket for static website
 resource "aws_s3_bucket" "website" {
+  #checkov:skip=CKV2_AWS_6: Public access block is intentionally disabled — this bucket serves a public static website; all four block_public_* flags are set explicitly in aws_s3_bucket_public_access_block.
+  #checkov:skip=CKV_AWS_145: KMS encryption is not required for public static website assets; SSE-S3 (AES256) is the intentional default.
+  #checkov:skip=CKV_AWS_144: Cross-region replication is not required for a personal-portfolio static website with no availability SLA.
+  #checkov:skip=CKV2_AWS_62: S3 event notifications are not required for a static read-only website asset bucket.
   bucket = var.bucket_name
 
   tags = merge(
@@ -64,7 +68,13 @@ resource "aws_s3_bucket_website_configuration" "website" {
 }
 
 # S3 Bucket Public Access Block Configuration
+# All four flags are intentionally false: S3 static website hosting requires a public
+# bucket policy (s3:GetObject for Principal "*") which cannot coexist with these blocks.
 resource "aws_s3_bucket_public_access_block" "website" {
+  #checkov:skip=CKV_AWS_53: Public ACLs must be unblocked to support S3 static website hosting with a public bucket policy.
+  #checkov:skip=CKV_AWS_54: Public bucket policy must be unblocked to allow the s3:GetObject grant required for static website serving.
+  #checkov:skip=CKV_AWS_55: Public ACLs must not be ignored to support S3 static website hosting.
+  #checkov:skip=CKV_AWS_56: Restricting public buckets would block the public bucket policy required for static website serving.
   bucket = aws_s3_bucket.website.id
 
   block_public_acls       = false
@@ -75,6 +85,7 @@ resource "aws_s3_bucket_public_access_block" "website" {
 
 # S3 Bucket Policy for Public Read Access
 resource "aws_s3_bucket_policy" "website" {
+  #checkov:skip=CKV_AWS_70: Principal "*" with s3:GetObject is intentional — this bucket is a public static website that must be readable by anonymous internet users.
   bucket = aws_s3_bucket.website.id
 
   policy = jsonencode({
