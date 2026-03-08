@@ -3,6 +3,10 @@
 # ============================================================================
 
 resource "aws_s3_bucket" "resume_bucket" {
+  #checkov:skip=CKV_AWS_145: KMS encryption is parameterised via use_kms_encryption; AES256 (SSE-S3) is the intentional default for this personal-portfolio asset bucket.
+  #checkov:skip=CKV_AWS_144: Cross-region replication is not required for a personal-portfolio resume bucket with no availability SLA.
+  #checkov:skip=CKV2_AWS_61: Lifecycle policy is not required; versioned objects are managed manually for this low-churn, single-file bucket.
+  #checkov:skip=CKV2_AWS_62: S3 event notifications are not required for this static read-only asset bucket.
   bucket = var.resume_bucket_name
 
   tags = {
@@ -71,6 +75,12 @@ resource "aws_cloudfront_origin_access_control" "resume_oac" {
 # ============================================================================
 
 resource "aws_cloudfront_distribution" "resume_cdn" {
+  #checkov:skip=CKV_AWS_68: WAF is parameterised via enable_waf; not required for a personal-portfolio CDN serving static PDF downloads.
+  #checkov:skip=CKV2_AWS_47: WAFv2 AMR Log4j rule group is only applicable when WAF is enabled; WAF is opt-in via enable_waf.
+  #checkov:skip=CKV_AWS_305: No HTML root object exists; this distribution serves downloads at explicit signed paths, not a web-app root.
+  #checkov:skip=CKV_AWS_310: Origin failover requires a secondary origin; not warranted for a single-origin personal-portfolio CDN.
+  #checkov:skip=CKV2_AWS_32: Response-headers policy is not required for this non-interactive, download-only CDN with no browser-rendered content.
+  #checkov:skip=CKV2_AWS_42: Custom SSL certificate is parameterised via use_custom_domain/acm_certificate_arn; CloudFront default certificate is intentional when use_custom_domain=false.
   enabled             = true
   comment             = "CDN for Resume PDF Downloads"
   price_class         = var.cloudfront_price_class

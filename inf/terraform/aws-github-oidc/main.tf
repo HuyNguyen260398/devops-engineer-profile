@@ -130,6 +130,7 @@ resource "aws_iam_role" "github_actions_oidc" {
 
 # IAM policy allowing S3 sync operations (read/write to specific bucket)
 resource "aws_iam_policy" "github_actions_s3_sync" {
+  #checkov:skip=CKV_AWS_355: s3:ListAllMyBuckets is a non-restrictable account-level action that AWS requires to be scoped to "*"; all other actions are scoped to specific bucket ARNs.
   name        = "${var.aws_role_name}-s3-sync-policy"
   description = "Policy for GitHub Actions to sync files to S3 bucket"
 
@@ -143,6 +144,7 @@ resource "aws_iam_policy" "github_actions_s3_sync" {
           "s3:PutObject",
           "s3:PutObjectAcl",
           "s3:GetObject",
+          "s3:GetBucketLocation",
           "s3:ListBucket",
           "s3:DeleteObject"
         ]
@@ -154,12 +156,10 @@ resource "aws_iam_policy" "github_actions_s3_sync" {
         ]
       },
       {
-        Sid    = "S3ListAllMyBuckets"
-        Effect = "Allow"
-        Action = [
-          "s3:ListAllMyBuckets",
-          "s3:GetBucketLocation"
-        ]
+        # s3:ListAllMyBuckets is an account-level action; AWS does not allow scoping it to a bucket ARN.
+        Sid      = "S3ListAllMyBuckets"
+        Effect   = "Allow"
+        Action   = ["s3:ListAllMyBuckets"]
         Resource = "*"
       }
     ]
