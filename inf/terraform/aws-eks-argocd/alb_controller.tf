@@ -35,9 +35,8 @@ resource "aws_iam_policy" "lb_controller" {
 # ============================================================================
 
 module "aws_lb_controller_irsa" {
-  count   = var.enable_aws_lb_controller ? 1 : 0
-  source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts-eks"
-  version = "~> 5.0"
+  count  = var.enable_aws_lb_controller ? 1 : 0
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-iam.git//modules/iam-role-for-service-accounts-eks?ref=e803e25ce20a6ebd5579e0896f657fa739f6f03e"
 
   role_name_prefix = "${var.cluster_name}-aws-lb-ctrl-"
 
