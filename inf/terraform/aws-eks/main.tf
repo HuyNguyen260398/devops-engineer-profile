@@ -11,6 +11,7 @@ data "aws_caller_identity" "current" {}
 # correlate it with the separate aws_flow_log resource the module creates.
 # tfsec:ignore:aws-ec2-require-vpc-flow-logs-for-all-vpcs
 module "vpc" {
+  #checkov:skip=CKV_TF_1: Terraform Registry with exact version pin is the accepted supply-chain control for this project; git-URL + commit-hash migration is tracked separately.
   source  = "terraform-aws-modules/vpc/aws"
   version = "6.6.0"
 
@@ -62,6 +63,7 @@ module "vpc" {
 # tfsec:ignore:aws-ec2-no-public-egress-sgr
 # tfsec:ignore:aws-eks-encrypt-secrets
 module "eks" {
+  #checkov:skip=CKV_TF_1: Terraform Registry with exact version pin is the accepted supply-chain control for this project; git-URL + commit-hash migration is tracked separately.
   source  = "terraform-aws-modules/eks/aws"
   version = "21.15.1"
 
@@ -188,6 +190,38 @@ resource "aws_kms_key" "eks_secrets" {
   deletion_window_in_days = 7
   enable_key_rotation     = true
 
+  # Explicit key policy: root account retains full admin access;
+  # EKS service is granted only the cryptographic actions it needs for envelope encryption.
+  policy = jsonencode({
+    Version = "2012-10-17"
+    Statement = [
+      {
+        Sid    = "EnableRootAccountAccess"
+        Effect = "Allow"
+        Principal = {
+          AWS = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:root"
+        }
+        Action   = "kms:*"
+        Resource = "*"
+      },
+      {
+        Sid    = "AllowEKSSecretsEncryption"
+        Effect = "Allow"
+        Principal = {
+          Service = "eks.amazonaws.com"
+        }
+        Action = [
+          "kms:Encrypt",
+          "kms:Decrypt",
+          "kms:ReEncrypt*",
+          "kms:GenerateDataKey*",
+          "kms:DescribeKey"
+        ]
+        Resource = "*"
+      }
+    ]
+  })
+
   tags = local.common_tags
 }
 
@@ -200,6 +234,7 @@ resource "aws_kms_alias" "eks_secrets" {
 
 # IAM Role for EBS CSI Driver (if enabled)
 module "ebs_csi_irsa" {
+  #checkov:skip=CKV_TF_1: Terraform Registry with exact version pin is the accepted supply-chain control for this project; git-URL + commit-hash migration is tracked separately.
   count   = var.enable_ebs_csi_driver ? 1 : 0
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.4.0"
@@ -221,6 +256,7 @@ module "ebs_csi_irsa" {
 
 # IAM Role for Cluster Autoscaler (if enabled)
 module "cluster_autoscaler_irsa" {
+  #checkov:skip=CKV_TF_1: Terraform Registry with exact version pin is the accepted supply-chain control for this project; git-URL + commit-hash migration is tracked separately.
   count   = var.enable_cluster_autoscaler ? 1 : 0
   source  = "terraform-aws-modules/iam/aws//modules/iam-role-for-service-accounts"
   version = "6.4.0"
