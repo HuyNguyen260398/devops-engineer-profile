@@ -50,6 +50,37 @@ spec:
       kind: IngressClass
     - group: storage.k8s.io
       kind: StorageClass
+    # ── kube-prometheus-stack CRDs ────────────────────────────────────────────
+    # Prometheus Operator custom resources (cluster-scoped)
+    - group: monitoring.coreos.com
+      kind: Prometheus
+    - group: monitoring.coreos.com
+      kind: PrometheusAgent
+    - group: monitoring.coreos.com
+      kind: Alertmanager
+    - group: monitoring.coreos.com
+      kind: ThanosRuler
+    # Prometheus Operator in-namespace custom resources registered as cluster-wide
+    - group: monitoring.coreos.com
+      kind: ServiceMonitor
+    - group: monitoring.coreos.com
+      kind: PodMonitor
+    - group: monitoring.coreos.com
+      kind: PrometheusRule
+    - group: monitoring.coreos.com
+      kind: Probe
+    - group: monitoring.coreos.com
+      kind: AlertmanagerConfig
+    - group: monitoring.coreos.com
+      kind: ScrapeConfig
+    # Admission webhooks installed by the Prometheus Operator
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
+    - group: admissionregistration.k8s.io
+      kind: MutatingWebhookConfiguration
+    # Priority classes used by Prometheus / Alertmanager pods
+    - group: scheduling.k8s.io
+      kind: PriorityClass
 
   namespaceResourceWhitelist:
     - group: "*"

@@ -1,0 +1,177 @@
+# ============================================================================
+# ArgoCD App-of-Apps – Infrastructure Root Bootstrap Applications
+# ============================================================================
+# Entry points for cluster infrastructure components (monitoring, ingress,
+# cert-manager, etc.) across all environments. Each Application watches its
+# environment's infrastructure/ directory and auto-discovers + deploys any
+# ArgoCD Application manifests committed there.
+#
+# Pattern: App-of-Apps (ArgoCD) – Infrastructure tier
+# Complements: bootstrap/app-of-apps.yaml (which watches tenants/ directories)
+#
+# Apply order during cluster bootstrap:
+#   kubectl apply -f gitops/bootstrap/projects/
+#   kubectl apply -f gitops/bootstrap/app-of-apps.yaml
+#   kubectl apply -f gitops/bootstrap/app-of-apps-infrastructure.yaml
+#
+# Adding a new infrastructure component:
+#   1. Add helm chart to gitops/helm-charts/<component>/
+#   2. Add Application manifest to gitops/application-plane/<env>/infrastructure/
+#   3. Register it in gitops/application-plane/<env>/infrastructure/kustomization.yaml
+#   4. Commit and push – ArgoCD reconciles automatically
+# ============================================================================
+
+# ── Local Environment ───────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps-infrastructure-local
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: app-of-apps-infrastructure
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: bootstrap
+    environment: local
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+    description: "Root App-of-Apps for local infrastructure components"
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: gitops/application-plane/local/infrastructure
+    # No directory block: ArgoCD auto-detects kustomization.yaml and uses
+    # Kustomize mode, correctly processing kustomization.yaml as a build config.
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  revisionHistoryLimit: 10
+
+---
+# ── Staging Environment ─────────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps-infrastructure-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: app-of-apps-infrastructure
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: bootstrap
+    environment: staging
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-alerts
+    description: "Root App-of-Apps for staging infrastructure components"
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: gitops/application-plane/staging/infrastructure
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+
+  revisionHistoryLimit: 10
+
+---
+# ── Production Environment ──────────────────────────────────────────────────
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps-infrastructure-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: app-of-apps-infrastructure
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: bootstrap
+    environment: production
+    critical: "true"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-critical-alerts
+    description: "Root App-of-Apps for production infrastructure components"
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: gitops/application-plane/production/infrastructure
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: false     # Never auto-prune infrastructure in production
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+
+  revisionHistoryLimit: 10

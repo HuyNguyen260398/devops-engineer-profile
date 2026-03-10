@@ -1,0 +1,127 @@
+# ============================================================================
+# kube-prometheus-stack ApplicationSet – Infrastructure Auto-Discovery
+# ============================================================================
+# Provides automatic Application generation from Git file generators.
+# When a new infrastructure Application YAML is committed to any watched
+# infrastructure/ directory, ArgoCD generates the corresponding Application.
+#
+# This is an ALTERNATIVE/COMPLEMENTARY discovery mechanism to the
+# app-of-apps-infrastructure.yaml bootstrap Applications. The two approaches
+# serve the same purpose and MUST NOT be deployed simultaneously for the
+# same set of Application names – doing so will cause ArgoCD to conflict
+# on duplicate Application names in the argocd namespace.
+#
+# Choose one of:
+#   A) app-of-apps-infrastructure.yaml   – Kustomize-mode discovery (simpler,
+#                                          no template logic, single file)
+#   B) kube-prometheus-stack-appset.yaml – ApplicationSet discovery (more
+#                                          flexible, supports matrix generators
+#                                          and parameterised templates)
+#
+# Difference from jenkins-appset.yaml:
+#   • Jenkins AppSet watches tenants/{tier}/*.yaml (N files per env per tier)
+#   • This AppSet watches infrastructure/*.yaml    (1 file per env, singleton)
+#   • No tier matrix – infrastructure is cluster-wide, not multi-tenant
+#
+# Generator directories watched:
+#   production:  application-plane/production/infrastructure/*.yaml
+#   staging:     application-plane/staging/infrastructure/*.yaml
+#   local:       application-plane/local/infrastructure/*.yaml
+#
+# NOTE: Update all repoURL values before applying.
+# Apply: kubectl apply -f gitops/applicationsets/kube-prometheus-stack-appset.yaml
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: kube-prometheus-stack-appset
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack-appset
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: applicationset
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  goTemplate: true
+  goTemplateOptions:
+    - missingkey=error
+
+  generators:
+    # Production infrastructure Applications
+    - git:
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+        revision: main
+        files:
+          - path: gitops/application-plane/production/infrastructure/*.yaml
+
+    # Staging infrastructure Applications
+    - git:
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+        revision: main
+        files:
+          - path: gitops/application-plane/staging/infrastructure/*.yaml
+
+    # Local infrastructure Applications
+    - git:
+        repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+        revision: main
+        files:
+          - path: gitops/application-plane/local/infrastructure/*.yaml
+
+  # ApplicationSet template – generates Applications from discovered YAML files.
+  # The generator reads each Application YAML (e.g. kube-prometheus-stack-local.yaml)
+  # as parameter source and reconstructs the Application via the template fields.
+  template:
+    metadata:
+      name: "{{ .metadata.name }}"
+      namespace: argocd
+      labels:
+        app.kubernetes.io/part-of: gitops-platform
+        app.kubernetes.io/managed-by: argocd
+        app.kubernetes.io/component: infrastructure
+        environment: '{{ index .metadata.labels "environment" }}'
+      annotations:
+        argocd.argoproj.io/sync-wave: '{{ index .metadata.annotations "argocd.argoproj.io/sync-wave" | default "0" }}'
+      finalizers:
+        - resources-finalizer.argocd.argoproj.io
+    spec:
+      project: "{{ .spec.project }}"
+      source:
+        repoURL: "{{ .spec.source.repoURL }}"
+        targetRevision: '{{ .spec.source.targetRevision | default "HEAD" }}'
+        path: "{{ .spec.source.path }}"
+        helm:
+          releaseName: "{{ .spec.source.helm.releaseName }}"
+          values: "{{ .spec.source.helm.values }}"
+      destination:
+        server: "{{ .spec.destination.server }}"
+        namespace: "{{ .spec.destination.namespace }}"
+      syncPolicy:
+        automated:
+          prune: '{{ .spec.syncPolicy.automated.prune | default false }}'
+          selfHeal: '{{ .spec.syncPolicy.automated.selfHeal | default true }}'
+          allowEmpty: false
+        syncOptions:
+          - CreateNamespace=true
+          - ServerSideApply=true
+          - Replace=true
+          - PrunePropagationPolicy=foreground
+          - PruneLast=true
+          - ApplyOutOfSyncOnly=true
+        retry:
+          limit: 5
+          backoff:
+            duration: 10s
+            factor: 2
+            maxDuration: 5m
+      ignoreDifferences:
+        - group: monitoring.coreos.com
+          kind: Prometheus
+          jsonPointers:
+            - /spec/replicas
+        - group: monitoring.coreos.com
+          kind: Alertmanager
+          jsonPointers:
+            - /spec/replicas

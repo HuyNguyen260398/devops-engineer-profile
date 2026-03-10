@@ -1,0 +1,131 @@
+# ============================================================================
+# kube-prometheus-stack – Local Environment
+# ============================================================================
+# Deploys the full cluster observability stack into the monitoring namespace
+# for local development (minikube / kind / k3s).
+#
+# Namespace:  monitoring
+# Project:    infrastructure
+# Sync:       Automated
+# Sync Wave:  0  (deploys before all tenant applications)
+#
+# Local overrides (relative to base values.yaml):
+#   • storageClass:   standard  (minikube/kind default)
+#   • Prometheus:     retention 3d, reduced resources, 5Gi storage
+#   • Grafana:        NodePort 32300 for direct browser access
+#   • Alertmanager:   disabled (no alert routing needed locally)
+#   • adminPassword:  set inline (non-sensitive for local dev only)
+#
+# IMPORTANT – CRD size limit:
+#   Replace=true + ServerSideApply=true are mandatory in syncOptions.
+#   Without Replace=true, ArgoCD will fail with:
+#   "metadata.annotations: Too long: must have at most 262144 bytes"
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack-local
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: infrastructure
+    environment: local
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    description: "Cluster observability stack – local environment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/kube-prometheus-stack
+    helm:
+      releaseName: kube-prometheus-stack
+      values: |
+        kube-prometheus-stack:
+          # ── Prometheus ───────────────────────────────────────────────────
+          prometheus:
+            prometheusSpec:
+              retention: "3d"
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "512Mi"
+              storageSpec:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: "standard"
+                    resources:
+                      requests:
+                        storage: "5Gi"
+
+          # ── Grafana ──────────────────────────────────────────────────────
+          grafana:
+            adminPassword: "admin"  # Non-sensitive local dev credential only
+            service:
+              type: NodePort
+              nodePort: 32300
+            resources:
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+              limits:
+                cpu: "100m"
+                memory: "128Mi"
+            persistence:
+              storageClassName: "standard"
+              size: "2Gi"
+
+          # ── Alertmanager ─────────────────────────────────────────────────
+          # Disabled for local – no alert routing required in development
+          alertmanager:
+            enabled: false
+
+          # ── Prometheus Operator ──────────────────────────────────────────
+          prometheusOperator:
+            resources:
+              requests:
+                cpu: "50m"
+                memory: "64Mi"
+              limits:
+                cpu: "100m"
+                memory: "128Mi"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - Replace=true              # Required: CRDs exceed 262 KiB annotation limit
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  ignoreDifferences:
+    # Prometheus Operator manages these fields dynamically
+    - group: monitoring.coreos.com
+      kind: Prometheus
+      jsonPointers:
+        - /spec/replicas
+    - group: monitoring.coreos.com
+      kind: Alertmanager
+      jsonPointers:
+        - /spec/replicas

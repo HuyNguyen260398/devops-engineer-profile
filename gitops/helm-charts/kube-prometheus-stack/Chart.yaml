@@ -1,0 +1,50 @@
+# ============================================================================
+# kube-prometheus-stack Multi-Environment Wrapper Chart
+# ============================================================================
+# Thin wrapper around the upstream prometheus-community/kube-prometheus-stack
+# chart providing opinionated security defaults aligned with the Kubernetes
+# Pod Security Standards (restricted) and per-environment value overrides
+# injected via the ArgoCD Application's helm.values block.
+#
+# Chart version:          1.0.0 (wrapper)
+# Upstream chart version: 67.9.0 (pinned – update deliberately via PR)
+# Upstream repo:          https://prometheus-community.github.io/helm-charts
+# ArtifactHub:            https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+#
+# Components deployed:
+#   • Prometheus Operator (manages CRDs + lifecycle)
+#   • Prometheus          (metrics collection + evaluation)
+#   • Grafana             (visualisation + dashboards)
+#   • Alertmanager        (alert routing + silencing)
+#   • node-exporter       (DaemonSet – host-level metrics)
+#   • kube-state-metrics  (Kubernetes object metrics)
+#
+# IMPORTANT – CRD management:
+#   This chart installs ~10 CRDs (ServiceMonitor, PrometheusRule, etc.).
+#   ArgoCD requires the following syncOptions on the Application:
+#     - ServerSideApply=true
+#     - Replace=true     ← CRDs exceed the 262 KiB annotation limit
+#   See: https://github.com/prometheus-community/helm-charts/tree/main/charts/kube-prometheus-stack#prometheusrules-admission-webhooks
+# ============================================================================
+apiVersion: v2
+name: kube-prometheus-stack
+description: >-
+  Cluster observability stack for the GitOps platform.
+  Wraps upstream prometheus-community/kube-prometheus-stack:67.9.0 with
+  Pod Security Standards (restricted) defaults for all environments.
+type: application
+version: 1.0.0
+appVersion: "v0.80.2"
+keywords:
+  - prometheus
+  - grafana
+  - alertmanager
+  - monitoring
+  - observability
+  - gitops
+maintainers:
+  - name: devops-platform-team
+dependencies:
+  - name: kube-prometheus-stack
+    version: "67.9.0"
+    repository: https://prometheus-community.github.io/helm-charts
