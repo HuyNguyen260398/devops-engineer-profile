@@ -61,7 +61,7 @@ spec:
               storageSpec:
                 volumeClaimTemplate:
                   spec:
-                    storageClassName: "standard"
+                    storageClassName: "hostpath"  # Docker Desktop default (was 'standard')
                     resources:
                       requests:
                         storage: "5Gi"
@@ -80,13 +80,20 @@ spec:
                 cpu: "100m"
                 memory: "128Mi"
             persistence:
-              storageClassName: "standard"
+              storageClassName: "hostpath"  # Docker Desktop default (was 'standard')
               size: "2Gi"
 
           # ── Alertmanager ─────────────────────────────────────────────────
           # Disabled for local – no alert routing required in development
           alertmanager:
             enabled: false
+
+          # ── node-exporter ────────────────────────────────────────────────
+          # Docker Desktop's VM does not support shared/slave mount propagation
+          # required by the host root-fs bind mount. Disable it for local dev.
+          prometheus-node-exporter:
+            hostRootFsMount:
+              enabled: false
 
           # ── Prometheus Operator ──────────────────────────────────────────
           prometheusOperator:
