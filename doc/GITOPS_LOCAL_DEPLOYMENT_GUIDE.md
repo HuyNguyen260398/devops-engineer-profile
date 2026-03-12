@@ -376,6 +376,175 @@ argocd app sync <app-name>
 
 ---
 
+## Teardown and Cleanup
+
+Remove all local platform resources in the **reverse** of the deployment order. Each step waits for its resources to fully terminate before the next one starts.
+
+> [!CAUTION]
+> This is a destructive operation. All workloads, persistent data (Prometheus metrics, Jenkins jobs/configs), and namespaces will be permanently deleted. There is no rollback.
+
+### Cleanup Order
+
+```
+5. Jenkins Pool Application    ← delete first (wave 1 resources)
+4. Tenants App-of-Apps         ← removes Jenkins tenant Applications
+3. Infrastructure App-of-Apps  ← removes kube-prometheus-stack Application
+2. AppProjects                 ← remove RBAC scoping
+1. ArgoCD                      ← uninstall Helm release last
+0. Namespaces and PVCs         ← final manual sweep
+```
+
+---
+
+### Step C1 — Delete the Jenkins Shared Pool Application
+
+The pool Application was applied manually and must be deleted manually. Enable cascade deletion to remove the `pool-1-local` namespace and all Jenkins workloads.
+
+```bash
+kubectl patch application jenkins-pool-1-local -n argocd --type=merge -p '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}'
+
+kubectl delete application jenkins-pool-1-local -n argocd
+```
+
+Wait for the namespace to terminate:
+
+```bash
+kubectl wait --for=delete namespace/pool-1-local --timeout=120s
+```
+
+> [!NOTE]
+> Jenkins `PersistentVolumeClaims` (PVCs) are not removed automatically by cascade delete. Clean them up after the namespace is gone:
+> ```bash
+> kubectl get pvc -n pool-1-local
+> kubectl delete pvc --all -n pool-1-local
+> ```
+> If the namespace is already gone, any orphaned PVs will move to `Released` state — delete them with `kubectl delete pv <pv-name>`.
+
+---
+
+### Step C2 — Delete the Tenant App-of-Apps
+
+Deleting the root tenant Application causes ArgoCD to cascade-delete all child tenant Applications (e.g., `jenkins-basic-local`).
+
+```bash
+kubectl patch application app-of-apps -n argocd --type=merge -p '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}'
+
+kubectl delete application app-of-apps -n argocd
+
+# Verify all tenant child Applications are gone
+kubectl get applications -n argocd
+```
+
+---
+
+### Step C3 — Delete the Infrastructure App-of-Apps
+
+Deleting the root infrastructure Application cascade-deletes `kube-prometheus-stack-local` and all monitoring resources.
+
+> [!NOTE]
+> The Application name includes the environment suffix (e.g., `app-of-apps-infrastructure-local`). Adjust if your environment uses a different suffix.
+
+```bash
+kubectl patch application app-of-apps-infrastructure-local -n argocd --type=merge -p '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}'
+
+kubectl delete application app-of-apps-infrastructure-local -n argocd
+```
+
+ArgoCD cascade-deletes all workloads inside the namespace but does **not** delete the namespace itself. After the delete command returns, confirm the namespace is empty then remove it manually:
+
+```bash
+# Confirm no resources remain inside monitoring
+kubectl get all -n monitoring
+
+# Delete the now-empty namespace
+kubectl delete namespace monitoring
+kubectl wait --for=delete namespace/monitoring --timeout=60s
+```
+
+> [!NOTE]
+> Prometheus `PersistentVolumeClaims` are not removed by cascade delete. If any remain after the namespace is gone, delete them:
+> ```bash
+> kubectl get pvc -n monitoring
+> kubectl delete pvc --all -n monitoring
+> ```
+
+---
+
+### Step C4 — Delete AppProjects
+
+```bash
+kubectl delete -f gitops/bootstrap/projects/
+
+# Confirm all three projects are gone
+kubectl get appprojects -n argocd
+```
+
+---
+
+### Step C5 — Uninstall ArgoCD
+
+```bash
+helm uninstall argocd --namespace argocd
+
+# Wait for all ArgoCD pods to terminate
+kubectl wait --for=delete pod --all -n argocd --timeout=120s
+```
+
+If any ArgoCD resources have lingering finalizers, clear them before deleting the namespace:
+
+```powershell
+kubectl get applicationsets -n argocd -o name | ForEach-Object { kubectl patch $_ -n argocd --type=merge -p "{`"metadata`":{`"finalizers`":[]}}`" }
+kubectl get applications -n argocd -o name | ForEach-Object { kubectl patch $_ -n argocd --type=merge -p "{`"metadata`":{`"finalizers`":[]}}`" }
+```
+
+Then delete the namespace:
+
+```bash
+kubectl delete namespace argocd
+kubectl wait --for=delete namespace/argocd --timeout=60s
+```
+
+---
+
+### Step C6 — Final Sweep (PVs and CRDs)
+
+After all namespaces are gone, check for and remove any orphaned PersistentVolumes and ArgoCD CRDs:
+
+```bash
+# Check for Released / Failed PVs left behind by Prometheus or Jenkins
+kubectl get pv | grep -E 'Released|Failed'
+# Delete individually as needed
+# kubectl delete pv <pv-name>
+
+# Remove ArgoCD CRDs (optional — safe to leave if you plan to reinstall soon)
+kubectl get crd | grep argoproj.io
+kubectl delete crd applications.argoproj.io applicationsets.argoproj.io appprojects.argoproj.io
+```
+
+> [!TIP]
+> Removing the ArgoCD CRDs is optional. If you leave them, the next `helm upgrade --install` will reuse them. If you delete them, the install is fully clean but takes slightly longer as CRDs are re-created.
+
+---
+
+### Full Cleanup Verification
+
+```bash
+# No platform namespaces should remain
+kubectl get namespaces | grep -E 'argocd|monitoring|pool-1-local'
+
+# No orphaned PVCs or PVs
+kubectl get pvc --all-namespaces
+kubectl get pv
+
+# No ArgoCD Applications or Projects remain
+kubectl get applications --all-namespaces 2>/dev/null || echo "CRD removed"
+kubectl get appprojects --all-namespaces 2>/dev/null  || echo "CRD removed"
+```
+
+Expected output: all commands return empty or the "CRD removed" message.
+
+---
+
 ## Next Steps
 
 - Add a custom `ServiceMonitor` to scrape your application metrics — see the [Jenkins + Prometheus Integration](../gitops/README.md#jenkins--prometheus-integration) section in the GitOps README.
