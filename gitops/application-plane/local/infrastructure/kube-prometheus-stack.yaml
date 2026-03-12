@@ -97,13 +97,14 @@ spec:
 
           # ── Prometheus Operator ──────────────────────────────────────────
           prometheusOperator:
-            # Disable the cert-patching Job (pre-install hooks) for local dev.
-            # The Job creates ClusterRole/ClusterRoleBinding RBAC resources that
-            # fail with "already exists" on ArgoCD retries. The webhooks still
-            # function (validation is skipped rather than cert-patched).
+            # Disable admission webhooks entirely for local dev.
+            # With only patch.enabled:false, the operator still starts its
+            # webhook server with a self-signed cert that the API server cannot
+            # verify (x509: certificate signed by unknown authority). Disabling
+            # the entire webhook avoids both the cert-patching Job conflict and
+            # the TLS verification failure on PrometheusRule admission calls.
             admissionWebhooks:
-              patch:
-                enabled: false
+              enabled: false
             resources:
               requests:
                 cpu: "50m"
