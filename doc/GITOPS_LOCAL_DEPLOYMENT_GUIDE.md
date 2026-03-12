@@ -58,20 +58,31 @@ The platform follows a strict sync-wave order. Always deploy in this sequence:
 ArgoCD is the only component installed via `helm` directly. Everything else is managed by ArgoCD itself.
 
 ```bash
-# 1a. Create the ArgoCD namespace with Pod Security labels
+# 1a. Check whether the argocd namespace already exists or is stuck terminating
+kubectl get namespace argocd
+```
+
+> [!IMPORTANT]
+> If the output shows `STATUS: Terminating`, the namespace is stuck from a previous install. Run the recovery commands below before continuing — otherwise step 1d will fail.
+> ```powershell
+> # 1. Clear finalizers on any lingering ArgoCD ApplicationSets inside the namespace
+> kubectl get applicationsets -n argocd -o name | ForEach-Object { kubectl patch $_ -n argocd --type=merge -p "{`"metadata`":{`"finalizers`":[]}}`" }
+> # 2. Clear finalizers on any lingering ArgoCD Applications inside the namespace
+> kubectl get applications -n argocd -o name | ForEach-Object { kubectl patch $_ -n argocd --type=merge -p "{`"metadata`":{`"finalizers`":[]}}`" }
+> # 3. Wait for the namespace to fully disappear
+> kubectl wait --for=delete namespace/argocd --timeout=60s
+> ```
+
+```bash
+# 1b. Create the ArgoCD namespace with Pod Security labels
 kubectl apply -f gitops/bootstrap/argocd/namespace.yaml
 
-# 1b. Add the Argo Helm repository
+# 1c. Add the Argo Helm repository
 helm repo add argo https://argoproj.github.io/argo-helm
 helm repo update argo
 
-# 1c. Install ArgoCD with local resource-light overrides
-helm upgrade --install argocd argo/argo-cd \
-  --namespace argocd \
-  --version 9.4.7 \
-  --values gitops/bootstrap/argocd/values-base.yaml \
-  --values gitops/bootstrap/argocd/values-local.yaml \
-  --wait --timeout 10m
+# 1d. Install ArgoCD with local resource-light overrides
+helm upgrade --install argocd argo/argo-cd --namespace argocd --version 9.4.7 --values gitops/bootstrap/argocd/values-base.yaml --values gitops/bootstrap/argocd/values-local.yaml --wait --timeout 10m
 ```
 
 **Verify ArgoCD is running:**
@@ -83,19 +94,18 @@ kubectl get pods -n argocd
 Expected output (all pods `Running` or `Completed`):
 
 ```
-argocd-application-controller-0          1/1   Running
+argocd-application-controller-0           1/1   Running
 argocd-argocd-application-set-controller  1/1   Running
-argocd-argocd-repo-server                1/1   Running
-argocd-argocd-server                     1/1   Running
-argocd-redis                             1/1   Running
+argocd-argocd-repo-server                 1/1   Running
+argocd-argocd-server                      1/1   Running
+argocd-redis                              1/1   Running
 ```
 
 **Access the ArgoCD UI (local NodePort 30080):**
 
 ```bash
 # Get the initial admin password
-kubectl get secret argocd-initial-admin-secret -n argocd \
-  -o jsonpath='{.data.password}' | base64 -d && echo
+kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 -d && echo
 
 open http://localhost:30080   # kind / k3s / Docker Desktop
 # minikube: open http://$(minikube ip):30080
@@ -240,16 +250,10 @@ jenkins-basic-local-0   2/2   Running
 
 ```bash
 # For the pool instance
-kubectl exec -n pool-1-local \
-  $(kubectl get pod -n pool-1-local -l app.kubernetes.io/component=jenkins-controller \
-    -o jsonpath='{.items[0].metadata.name}') \
-  -- cat /run/secrets/additional/chart-admin-password && echo
+kubectl exec -n pool-1-local $(kubectl get pod -n pool-1-local -l app.kubernetes.io/component=jenkins-controller -o jsonpath='{.items[0].metadata.name}') -- cat /run/secrets/additional/chart-admin-password && echo
 
 # For the basic tenant instance
-kubectl exec -n pool-1-local \
-  $(kubectl get pod -n pool-1-local -l app.kubernetes.io/instance=jenkins-basic-local \
-    -o jsonpath='{.items[0].metadata.name}') \
-  -- cat /run/secrets/additional/chart-admin-password && echo
+kubectl exec -n pool-1-local $(kubectl get pod -n pool-1-local -l app.kubernetes.io/instance=jenkins-basic-local -o jsonpath='{.items[0].metadata.name}') -- cat /run/secrets/additional/chart-admin-password && echo
 ```
 
 ---
@@ -335,6 +339,31 @@ minikube addons enable default-storageclass
 
 # kind
 kubectl apply -f https://raw.githubusercontent.com/rancher/local-path-provisioner/master/deploy/local-path-storage.yaml
+```
+
+### ArgoCD namespace stuck in `Terminating` (Helm install fails)
+
+This happens when ArgoCD custom resources (Applications, ApplicationSets) inside the namespace still have finalizers set. Kubernetes cannot delete the namespace until all resources inside it are fully removed, but the finalizers block removal because the ArgoCD controller that processes them no longer exists. The `helm upgrade --install` command fails with:
+
+```
+secrets "sh.helm.release.v1.argocd.v1" is forbidden: unable to create new content in namespace argocd because it is being terminated
+```
+
+> [!NOTE]
+> Patching the namespace's own finalizers (`kubectl patch namespace argocd ...`) will report "no change" and will **not** fix this — the block is on the resources inside the namespace, not on the namespace itself.
+
+Fix — identify and clear finalizers on all lingering ArgoCD resources, then wait for the namespace to disappear and re-create it:
+
+```powershell
+# 1. Clear finalizers on any lingering ApplicationSets
+kubectl get applicationsets -n argocd -o name | ForEach-Object { kubectl patch $_ -n argocd --type=merge -p "{`"metadata`":{`"finalizers`":[]}}`" }
+# 2. Clear finalizers on any lingering Applications
+kubectl get applications -n argocd -o name | ForEach-Object { kubectl patch $_ -n argocd --type=merge -p "{`"metadata`":{`"finalizers`":[]}}`" }
+# 3. Wait for full deletion
+kubectl wait --for=delete namespace/argocd --timeout=60s
+# 4. Re-create the namespace and re-install ArgoCD
+kubectl apply -f gitops/bootstrap/argocd/namespace.yaml
+helm upgrade --install argocd argo/argo-cd --namespace argocd --version 9.4.7 --values gitops/bootstrap/argocd/values-base.yaml --values gitops/bootstrap/argocd/values-local.yaml --wait --timeout 10m
 ```
 
 ### Application stuck in `OutOfSync` after bootstrap
