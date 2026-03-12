@@ -17,6 +17,11 @@
 - [Jenkins Deployment](#jenkins-deployment)
   - [Deployed Instances](#deployed-instances)
   - [Namespace Layout](#namespace-layout)
+- [kube-prometheus-stack Deployment](#kube-prometheus-stack-deployment)
+  - [Components Deployed](#components-deployed)
+  - [Deployed Instances (Observability)](#deployed-instances-observability)
+  - [Accessing Grafana](#accessing-grafana)
+  - [CRD Notes](#crd-notes)
 - [Tenant Management](#tenant-management)
   - [Onboarding a New Tenant](#onboarding-a-new-tenant)
   - [Offboarding a Tenant](#offboarding-a-tenant)
@@ -35,7 +40,7 @@
 │                        Git Repository                               │
 │  ┌──────────────────────────┐  ┌──────────────────────────────────┐  │
 │  │        bootstrap/         │  │        application-plane/         │  │
-│  │   ArgoCD + AppProjects    │  │  Tenant manifests (env / tier)    │  │
+│  │   ArgoCD + AppProjects    │  │  Infrastructure + Tenant manifests│  │
 │  └────────────┬─────────────┘  └──────────────────┬────────────────┘  │
 │               │                                   │                   │
 └───────────────┼───────────────────────────────────┼───────────────────┘
@@ -50,7 +55,14 @@
 │  └────────┬────────┘                                                │
 │           │                                                          │
 │  ┌────────┴──────────────────────────────────────────────────┐      │
-│  │                  Application Plane                         │      │
+│  │       Infrastructure Plane  (sync wave 0)                 │      │
+│  │  ┌─────────────────────────────────────────────────────┐  │      │
+│  │  │  namespace: monitoring                              │  │      │
+│  │  │  Prometheus │ Grafana │ Alertmanager │ node-exporter│  │      │
+│  │  └─────────────────────────────────────────────────────┘  │      │
+│  └───────────────────────────────────────────────────────────┘      │
+│  ┌────────┴──────────────────────────────────────────────────┐      │
+│  │       Application Plane  (sync waves 1–5)                 │      │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │      │
 │  │  │ pool-1   │  │ tenant-A │  │ tenant-B │  │ tenant-C │ │      │
 │  │  │ (basic)  │  │(advanced)│  │(advanced)│  │(premium) │ │      │
@@ -68,25 +80,33 @@
 gitops/
 ├── README.md                              # This file
 ├── applicationsets/
-│   └── jenkins-appset.yaml                # ApplicationSet: auto-discovers tenant YAMLs via Git
+│   ├── jenkins-appset.yaml                # ApplicationSet: auto-discovers Jenkins tenant YAMLs
+│   └── kube-prometheus-stack-appset.yaml  # ApplicationSet: alt. to app-of-apps-infrastructure
 ├── helm-charts/
-│   └── jenkins/
-│       ├── Chart.yaml                     # Wrapper chart (upstream jenkins/jenkins:5.8.139)
-│       └── values.yaml                    # Secure base defaults shared across all tiers
+│   ├── jenkins/
+│   │   ├── Chart.yaml                     # Wrapper chart (upstream jenkins/jenkins:5.8.139)
+│   │   └── values.yaml                    # Secure base defaults shared across all tiers
+│   └── kube-prometheus-stack/
+│       ├── Chart.yaml                     # Wrapper chart (upstream kube-prometheus-stack:67.9.0)
+│       └── values.yaml                    # Secure base defaults (PSS restricted, EKS-tuned)
 ├── bootstrap/                             # ArgoCD installation and bootstrap
 │   ├── argocd/
 │   │   ├── namespace.yaml                 # ArgoCD namespace with pod security
 │   │   ├── values-base.yaml               # Production-grade base config
 │   │   ├── values-aws.yaml                # AWS EKS-specific overrides (IRSA)
 │   │   └── values-local.yaml              # Local dev overrides (minikube/kind)
-│   ├── app-of-apps.yaml                   # Root Application (entry point)
+│   ├── app-of-apps.yaml                   # Root Application – watches tenants/ (entry point)
+│   ├── app-of-apps-infrastructure.yaml    # Root Application – watches infrastructure/ (all envs)
 │   └── projects/
-│       ├── infrastructure.yaml            # AppProject for infra components
+│       ├── infrastructure.yaml            # AppProject for infra components (+ Prometheus CRDs)
 │       ├── applications.yaml              # AppProject for app workloads
 │       └── tenants.yaml                   # AppProject for tenant-scoped deploys
 │
 ├── application-plane/                     # Tenant deployments by environment
 │   ├── production/
+│   │   ├── infrastructure/                # Cluster-wide infra components (wave 0)
+│   │   │   ├── kustomization.yaml
+│   │   │   └── kube-prometheus-stack.yaml # Prometheus + Grafana + Alertmanager (30d, HA, gp3)
 │   │   ├── pooled-envs/
 │   │   │   ├── kustomization.yaml
 │   │   │   └── pool-1.yaml                # Jenkins shared pool (basic tier, production)
@@ -104,6 +124,9 @@ gitops/
 │   │           ├── kustomization.yaml
 │   │           └── jenkins.yaml           # Jenkins premium tenant (manual sync, 100Gi)
 │   ├── staging/
+│   │   ├── infrastructure/                # Cluster-wide infra components (wave 0)
+│   │   │   ├── kustomization.yaml
+│   │   │   └── kube-prometheus-stack.yaml # Prometheus + Grafana + Alertmanager (7d, gp3)
 │   │   ├── pooled-envs/
 │   │   │   ├── kustomization.yaml
 │   │   │   └── pool-1.yaml                # Jenkins shared pool (basic tier, staging)
@@ -118,6 +141,9 @@ gitops/
 │   │           ├── kustomization.yaml
 │   │           └── jenkins.yaml           # Jenkins advanced tenant (dedicated NS, 20Gi)
 │   └── local/
+│       ├── infrastructure/                # Cluster-wide infra components (wave 0)
+│       │   ├── kustomization.yaml
+│       │   └── kube-prometheus-stack.yaml # Prometheus + Grafana (3d, standard, NodePort 32300)
 │       ├── pooled-envs/
 │       │   ├── kustomization.yaml
 │       │   └── pool-1.yaml                # Jenkins shared pool (basic tier, local)
@@ -170,14 +196,26 @@ The platform implements three deployment tiers inspired by SaaS isolation patter
 The bootstrap uses ArgoCD's [App-of-Apps pattern](https://argo-cd.readthedocs.io/en/stable/operator-manual/cluster-bootstrapping/):
 
 ```
-app-of-apps.yaml (Root Application)
-  └── Watches: gitops/application-plane/${ENVIRONMENT}/tenants/
-      ├── basic/ → Pool references
-      ├── advanced/ → Dedicated controllers
-      └── premium/ → Full silo deployments
+app-of-apps.yaml (Root – Tenant workloads)      app-of-apps-infrastructure.yaml (Root – Infra)
+  └── Watches: .../tenants/                        └── Watches: .../infrastructure/
+      ├── basic/  → pool references                    └── kube-prometheus-stack.yaml
+      ├── advanced/ → dedicated controllers
+      └── premium/ → full silo deployments
 ```
 
-A single root Application bootstraps the entire platform. Adding a new tenant is as simple as committing a YAML file to the appropriate tier directory.
+Two root Applications bootstrap the platform:
+
+- **`app-of-apps.yaml`** – Manages multi-tenant application workloads (Jenkins). Adding a new tenant is as simple as committing a YAML to the appropriate tier directory.
+- **`app-of-apps-infrastructure.yaml`** – Manages cluster-wide infrastructure components (monitoring, ingress, etc.). Adding a new infrastructure service means adding a YAML to the `infrastructure/` directory.
+
+**Sync wave ordering ensures dependencies are respected:**
+
+| Wave | Scope | Examples |
+|---|---|---|
+| `0` | Infrastructure | kube-prometheus-stack |
+| `1` | Pool environments | Jenkins pool-1 |
+| `2–4` | Basic / Advanced tenants | Jenkins basic, advanced |
+| `5` | Premium tenants | Jenkins premium |
 
 ---
 
@@ -244,11 +282,12 @@ A single root Application bootstraps the entire platform. Adding a new tenant is
      --wait --timeout 10m
    ```
 
-4. **Apply the App-of-Apps:**
+4. **Apply the App-of-Apps (tenants and infrastructure):**
 
    ```bash
-   # Substitute environment variables and apply
+   # Substitute environment variables and apply both root Applications
    envsubst < gitops/bootstrap/app-of-apps.yaml | kubectl apply -f -
+   envsubst < gitops/bootstrap/app-of-apps-infrastructure.yaml | kubectl apply -f -
    ```
 
 5. **Apply ArgoCD projects:**
@@ -257,11 +296,13 @@ A single root Application bootstraps the entire platform. Adding a new tenant is
    kubectl apply -f gitops/bootstrap/projects/
    ```
 
-6. **Verify ArgoCD and tenant Applications:**
+6. **Verify ArgoCD Applications:**
 
    ```bash
    kubectl get applications -n argocd
    kubectl get pods -n argocd
+   # Verify infrastructure (Prometheus / Grafana / Alertmanager become ready first – wave 0)
+   kubectl get pods -n monitoring
    ```
 
 7. **Bootstrap Jenkins shared pools** (pooled-envs are outside the app-of-apps watch path and must be applied once manually):
@@ -270,13 +311,15 @@ A single root Application bootstraps the entire platform. Adding a new tenant is
    kubectl apply -f gitops/application-plane/${ENVIRONMENT}/pooled-envs/pool-1.yaml
    ```
 
-8. **(Optional) Deploy the ApplicationSet** for Git file-based auto-discovery of tenant YAMLs:
+8. **(Optional) Deploy ApplicationSets** for Git file-based auto-discovery.
+   > **Important:** Use EITHER the app-of-apps approach OR ApplicationSets — not both simultaneously, as they would create duplicate Application names.
 
    ```bash
    kubectl apply -f gitops/applicationsets/jenkins-appset.yaml
+   kubectl apply -f gitops/applicationsets/kube-prometheus-stack-appset.yaml
    ```
 
-9. **(Optional) Deploy Argo Workflows RBAC and WorkflowTemplates** Deploy Argo Workflows RBAC and WorkflowTemplates:
+9. **(Optional) Deploy Argo Workflows RBAC and WorkflowTemplates:**
 
    ```bash
    kubectl apply -f gitops/control-plane/rbac/workflow-rbac.yaml
@@ -351,6 +394,100 @@ jenkins-production  ← dedicated namespace for jenkins premium (production)
 ```
 
 For full details on the Jenkins implementation — Helm chart overrides, per-tier resource sizing, sync windows, and how to add more Jenkins tenants — see [doc/JENKINS_ARGOCD_IMPLEMENTATION.md](../doc/JENKINS_ARGOCD_IMPLEMENTATION.md).
+
+---
+
+## kube-prometheus-stack Deployment
+
+`kube-prometheus-stack` is the platform's cluster observability stack, deployed as shared infrastructure (not multi-tenant). It is managed by the `infrastructure` AppProject and runs in the dedicated `monitoring` namespace at **sync wave 0** — before any application workloads.
+
+### Components Deployed
+
+| Component | Purpose | Default Port |
+|---|---|---|
+| **Prometheus** | Metrics scraping and alerting rule evaluation | 9090 |
+| **Grafana** | Dashboards and visualisation | 3000 |
+| **Alertmanager** | Alert routing (Slack / PagerDuty) | 9093 |
+| **node-exporter** | Host hardware and OS metrics (DaemonSet) | 9100 |
+| **kube-state-metrics** | Kubernetes object state metrics | 8080 |
+| **Prometheus Operator** | Manages Prometheus/Alertmanager CRDs | — |
+
+### Deployed Instances (Observability)
+
+| ArgoCD Application | Environment | Namespace | Prometheus Retention | Storage | Grafana Access | Sync |
+|---|---|---|---|---|---|---|
+| `kube-prometheus-stack-local` | local | `monitoring` | 3d | 5Gi standard | NodePort 32300 | Auto |
+| `kube-prometheus-stack-staging` | staging | `monitoring` | 7d | 20Gi gp3 | ClusterIP / Ingress | Auto |
+| `kube-prometheus-stack-production` | production | `monitoring` | 30d | 50Gi gp3 | ClusterIP / Ingress | Auto (no prune) |
+
+Production Alertmanager runs 2 replicas for high availability. Production sync never auto-prunes (`prune: false`) to prevent accidental deletion of monitoring infrastructure.
+
+### Accessing Grafana
+
+**Local (NodePort):**
+```bash
+open http://localhost:32300
+# username: admin  |  password: admin  (local dev only – change for staging/production)
+```
+
+**Staging / Production (port-forward):**
+```bash
+kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 3000:80
+open http://localhost:3000
+```
+
+### Adding a Custom ServiceMonitor
+
+Prometheus discovers `ServiceMonitor` resources across all namespaces (no selector restriction). Commit a manifest to your application namespace:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: my-service
+  namespace: my-app-namespace
+spec:
+  selector:
+    matchLabels:
+      app: my-service
+  endpoints:
+    - port: metrics
+      path: /metrics
+      interval: 30s
+```
+
+### Jenkins + Prometheus Integration
+
+The Jenkins Helm chart includes the `prometheus:latest` plugin by default. Add a `ServiceMonitor` in the Jenkins namespace to enable scraping:
+
+```yaml
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: jenkins
+  namespace: pool-1-local   # Adjust per environment / tier
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/component: jenkins-controller
+  endpoints:
+    - port: http
+      path: /prometheus
+      interval: 30s
+```
+
+### CRD Notes
+
+`kube-prometheus-stack` installs ~10 large CRDs. All Application manifests include:
+
+```yaml
+syncOptions:
+  - ServerSideApply=true
+  - Replace=true   # REQUIRED – CRD annotations exceed the 262 KiB kubectl annotation limit
+```
+
+Without `Replace=true`, ArgoCD sync will fail with:
+`metadata.annotations: Too long: must have at most 262144 bytes`
 
 ---
 
@@ -462,27 +599,33 @@ The workflow optionally snapshots the tenant PVC before removing the manifest fr
 
 ## Monitoring and Observability
 
-### Built-in Metrics
+### Deployed Observability Stack
 
-- **ArgoCD metrics:** Exposed on `:8083/metrics` (Prometheus format)
+`kube-prometheus-stack` provides full cluster observability and is deployed via GitOps (see [kube-prometheus-stack Deployment](#kube-prometheus-stack-deployment) above).
+
+| Component | Tool | Status |
+|---|---|---|
+| Metrics collection | Prometheus + kube-state-metrics + node-exporter | ✅ Deployed via GitOps |
+| Visualisation | Grafana (pre-built Kubernetes dashboards) | ✅ Deployed via GitOps |
+| Alerting | Alertmanager + Slack + PagerDuty | ✅ Deployed via GitOps |
+| Logging | Fluentd → OpenSearch | Recommended (not yet deployed) |
+| Tracing | OpenTelemetry → Jaeger | Recommended (not yet deployed) |
+
+### Built-in ArgoCD Metrics
+
+- **ArgoCD metrics:** Exposed on `:8083/metrics` (Prometheus format) — auto-scraped by Prometheus via ServiceMonitor
 - **Application health:** ArgoCD tracks sync status and health for every Application
 
-### Recommended Stack
+### Key Alerts Configured
 
-| Component | Tool | Purpose |
-|---|---|---|
-| Metrics | Prometheus + kube-state-metrics | Cluster and app metrics |
-| Visualization | Grafana | Dashboards for DORA metrics |
-| Logging | Fluentd → OpenSearch | Centralized log aggregation |
-| Tracing | OpenTelemetry → Jaeger | Distributed trace analysis |
-| Alerting | Alertmanager + Slack | Incident notifications |
+The following alerts are enabled via `defaultRules` in the base `values.yaml`:
 
-### Key Alerts to Configure
-
-- ArgoCD application out-of-sync > 5 minutes
-- Pod restart count > 3 in 15 minutes
-- PVC usage > 80%
-- Node CPU/memory > 85%
+- `KubePodCrashLooping` – Pod restart count elevated
+- `KubePodNotReady` – Pod not ready for > 15 minutes
+- `KubeDeploymentReplicasMismatch` – Deployment replicas below desired
+- `KubePersistentVolumeFillingUp` – PVC > 85% full
+- `NodeHighCPUUtilization` / `NodeHighMemoryUtilization` – Node resource pressure
+- `TargetDown` – Scrape target unreachable
 
 ---
 
@@ -499,6 +642,10 @@ This `gitops/` directory is the **recommended successor** to the existing `ops/`
 | `ops/jenkins/argocd/jenkins-staging.yaml` | `gitops/application-plane/staging/tenants/advanced/jenkins.yaml` | Dedicated namespace, sync window enforced |
 | `ops/jenkins/argocd/jenkins-production.yaml` | `gitops/application-plane/production/tenants/premium/jenkins.yaml` | Manual sync, premium tier resources |
 | `ops/jenkins/helm/` | `gitops/helm-charts/jenkins/` | Thin wrapper with secure base defaults |
+| *(not present)* | `gitops/helm-charts/kube-prometheus-stack/` | New: kube-prometheus-stack Helm wrapper |
+| *(not present)* | `gitops/application-plane/*/infrastructure/` | New: per-env infrastructure Application manifests |
+| *(not present)* | `gitops/bootstrap/app-of-apps-infrastructure.yaml` | New: root Application for infrastructure discovery |
+| *(not present)* | `gitops/applicationsets/kube-prometheus-stack-appset.yaml` | New: ApplicationSet alt. for infrastructure |
 | *(not present)* | `gitops/application-plane/*/pooled-envs/pool-1.yaml` | New: shared pool Applications per environment |
 | *(not present)* | `gitops/applicationsets/jenkins-appset.yaml` | New: Git file-based auto-discovery |
 | *(not present)* | `gitops/control-plane/workflows/` | New: Argo WorkflowTemplates for tenant lifecycle |
@@ -522,6 +669,9 @@ This `gitops/` directory is the **recommended successor** to the existing `ops/`
 - [ArgoCD ApplicationSet](https://argo-cd.readthedocs.io/en/stable/operator-manual/applicationset/)
 - [Kubernetes Pod Security Standards](https://kubernetes.io/docs/concepts/security/pod-security-standards/)
 - [DORA Metrics](https://dora.dev/guides/dora-metrics-four-keys/)
+- [kube-prometheus-stack ArtifactHub](https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack)
+- [Prometheus Operator Documentation](https://prometheus-operator.dev/)
+- [Grafana Documentation](https://grafana.com/docs/grafana/latest/)
 
 ---
 

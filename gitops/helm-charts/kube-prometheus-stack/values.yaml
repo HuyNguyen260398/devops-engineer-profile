@@ -1,0 +1,420 @@
+# ============================================================================
+# kube-prometheus-stack – Secure Base Defaults
+# ============================================================================
+# Shared defaults applied across ALL environments. Per-environment overrides
+# (resources, storageClass, retention, Alertmanager routes, Grafana service
+# type, admin credentials) are injected via the ArgoCD Application's
+# helm.values block in application-plane/{env}/infrastructure/*.yaml.
+#
+# Security posture follows Kubernetes Pod Security Standards (restricted):
+#   runAsNonRoot: true                – never run as root (except node-exporter)
+#   allowPrivilegeEscalation: false
+#   capabilities.drop: [ALL]         – no Linux capabilities granted
+#   readOnlyRootFilesystem: true      – where the component supports it
+#   seccompProfile: RuntimeDefault
+#
+# References:
+#   • https://kubernetes.io/docs/concepts/security/pod-security-standards/
+#   • https://github.com/prometheus-community/helm-charts/blob/main/charts/kube-prometheus-stack/README.md
+#   • https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
+# ============================================================================
+
+# All values nested under the dependency name to align with Helm sub-chart
+# propagation. Mirrors the Jenkins wrapper pattern (jenkins: controller: ...).
+kube-prometheus-stack:
+
+  # ── CRD Management ─────────────────────────────────────────────────────────
+  # CRDs are bundled and installed by default. ArgoCD's Application MUST
+  # include Replace=true + ServerSideApply=true in syncOptions to avoid the
+  # 262 KiB annotation limit error on CRD resources.
+  crds:
+    enabled: true
+
+  # ── Default Alerting Rules ──────────────────────────────────────────────────
+  # Selectively disable rules for components whose metrics are not exposed
+  # on AWS EKS (etcd, controller-manager, scheduler, kube-proxy).
+  defaultRules:
+    create: true
+    rules:
+      alertmanager: true
+      etcd: false                       # Not accessible on EKS managed control plane
+      configReloaders: true
+      general: true
+      k8sContainerCpuUsageSecondsTotal: true
+      k8sContainerMemoryCache: true
+      k8sContainerMemoryRss: true
+      k8sContainerMemorySwap: true
+      k8sContainerResource: true
+      k8sContainerMemoryWorkingSetBytes: true
+      k8sPodOwner: true
+      kubeApiserverAvailability: true
+      kubeApiserverBurnrate: true
+      kubeApiserverHistogram: true
+      kubeApiserverSlos: true
+      kubeControllerManager: false      # Not accessible on EKS managed control plane
+      kubelet: true
+      kubeProxy: false                  # Not accessible on EKS managed control plane
+      kubePrometheusGeneral: true
+      kubePrometheusNodeRecording: true
+      kubernetesApps: true
+      kubernetesResources: true
+      kubernetesStorage: true
+      kubernetesSystem: true
+      kubeSchedulerAlerting: false      # Not accessible on EKS managed control plane
+      kubeSchedulerRecording: false     # Not accessible on EKS managed control plane
+      kubeStateMetrics: true
+      network: true
+      node: true
+      nodeExporterAlerting: true
+      nodeExporterRecording: true
+      prometheus: true
+      prometheusOperator: true
+
+  # ── Prometheus Operator ─────────────────────────────────────────────────────
+  prometheusOperator:
+    enabled: true
+
+    # Pod Security Context (PSS restricted)
+    podSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65534   # nobody
+      runAsGroup: 65534
+      fsGroup: 65534
+      seccompProfile:
+        type: RuntimeDefault
+
+    # Container Security Context (PSS restricted)
+    containerSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+
+    # Resources – base defaults (overridden per environment)
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+    # Prometheus Operator manages ServiceMonitors / PodMonitors across all
+    # namespaces by default. Ensure nil selectors are treated as "select all".
+    serviceMonitorSelectorNilUsesHelmValues: false
+    podMonitorSelectorNilUsesHelmValues: false
+    probeSelectorNilUsesHelmValues: false
+    ruleSelectorNilUsesHelmValues: false
+
+    # Health probes
+    livenessProbe:
+      enabled: true
+    readinessProbe:
+      enabled: true
+
+    # Admission webhooks for PrometheusRule / AlertmanagerConfig validation
+    admissionWebhooks:
+      enabled: true
+      certManager:
+        enabled: false  # Use auto-generated certs unless cert-manager is installed
+
+  # ── Prometheus ──────────────────────────────────────────────────────────────
+  prometheus:
+    enabled: true
+
+    # Self-monitoring ServiceMonitor
+    serviceMonitor:
+      selfMonitor: true
+
+    prometheusSpec:
+      # Pod Security Context (PSS restricted)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Resources – overridden per environment
+      # local:       100m–200m CPU | 256Mi–512Mi mem
+      # staging:     200m–1 CPU    | 512Mi–1Gi mem
+      # production:  500m–2 CPU    | 1Gi–4Gi mem
+      resources:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+        limits:
+          cpu: "500m"
+          memory: "1Gi"
+
+      # Data retention – overridden per environment
+      # local: 3d  | staging: 7d  | production: 30d
+      retention: "15d"
+      retentionSize: ""      # Override in production: e.g. "50GiB"
+
+      # Scrape configuration
+      scrapeInterval: "30s"
+      evaluationInterval: "30s"
+      scrapeTimeout: "10s"
+
+      # Discover ServiceMonitors/PodMonitors/PrometheusRules across ALL
+      # namespaces (nil selectors = select all). Overrides any helm-values
+      # defaults from the operator.
+      serviceMonitorSelectorNilUsesHelmValues: false
+      podMonitorSelectorNilUsesHelmValues: false
+      ruleSelectorNilUsesHelmValues: false
+      probeSelectorNilUsesHelmValues: false
+
+      # Persistent storage – storageClass overridden per environment
+      storageSpec:
+        volumeClaimTemplate:
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "20Gi"
+            # storageClassName: ""   # Set per environment: standard (local) | gp3 (AWS)
+
+  # ── Grafana ────────────────────────────────────────────────────────────────
+  grafana:
+    enabled: true
+
+    # Admin credentials – MUST be overridden per environment.
+    # Production: use External Secrets Operator with AWS Secrets Manager.
+    # Staging/local: set adminPassword in Application helm.values override.
+    adminUser: admin
+    adminPassword: "CHANGE_ME_PER_ENVIRONMENT"  # Never commit real credentials
+
+    # Pod Security Context (PSS restricted – Grafana runs as UID 472)
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 472
+      runAsGroup: 472
+      fsGroup: 472
+
+    containerSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 472
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: false  # Grafana writes plugins/data to writable dirs
+      capabilities:
+        drop:
+          - ALL
+
+    # Resources – overridden per environment
+    resources:
+      requests:
+        cpu: "100m"
+        memory: "128Mi"
+      limits:
+        cpu: "200m"
+        memory: "256Mi"
+
+    # Persistent storage – storageClass overridden per environment
+    persistence:
+      enabled: true
+      type: pvc
+      accessModes:
+        - ReadWriteOnce
+      size: "10Gi"
+      # storageClassName: ""   # Set per environment
+
+    # Service – type overridden per environment
+    # local: NodePort (direct access) | staging+production: ClusterIP (via Ingress)
+    service:
+      type: ClusterIP
+      port: 80
+      targetPort: 3000
+
+    # Health probes
+    livenessProbe:
+      httpGet:
+        path: /api/health
+        port: 3000
+      initialDelaySeconds: 60
+      timeoutSeconds: 30
+      failureThreshold: 10
+    readinessProbe:
+      httpGet:
+        path: /api/health
+        port: 3000
+      initialDelaySeconds: 30
+      timeoutSeconds: 10
+      failureThreshold: 3
+
+    # Pre-built dashboards
+    defaultDashboardsEnabled: true
+    defaultDashboardsTimezone: UTC
+
+    # Grafana application configuration (security hardening)
+    grafana.ini:
+      analytics:
+        check_for_updates: false
+        reporting_enabled: false
+      security:
+        allow_embedding: false
+        cookie_secure: true
+        disable_gravatar: true
+        cookie_samesite: lax
+      server:
+        # Override with actual domain in environment-specific values
+        root_url: "%(protocol)s://%(domain)s/"
+      log:
+        mode: console
+      log.console:
+        format: json
+
+    # Sidecar for dashboard/datasource discovery from ConfigMaps
+    sidecar:
+      dashboards:
+        enabled: true
+        label: grafana_dashboard
+        searchNamespace: ALL
+      datasources:
+        enabled: true
+        label: grafana_datasource
+        searchNamespace: ALL
+
+  # ── Alertmanager ───────────────────────────────────────────────────────────
+  alertmanager:
+    enabled: true
+
+    serviceMonitor:
+      selfMonitor: true
+
+    alertmanagerSpec:
+      # Pod Security Context (PSS restricted)
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 65534
+        runAsGroup: 65534
+        fsGroup: 65534
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Resources – overridden per environment
+      resources:
+        requests:
+          cpu: "50m"
+          memory: "64Mi"
+        limits:
+          cpu: "100m"
+          memory: "128Mi"
+
+      # Persistent storage for silences and notification log
+      storage:
+        volumeClaimTemplate:
+          spec:
+            accessModes:
+              - ReadWriteOnce
+            resources:
+              requests:
+                storage: "2Gi"
+            # storageClassName: ""   # Set per environment
+
+      # Replicas – override to 2 in production for HA
+      replicas: 1
+
+    # Base configuration – safe null route. Override per environment with
+    # real receivers (Slack/PagerDuty/OpsGenie) via Application helm.values.
+    config:
+      global:
+        resolve_timeout: 5m
+      inhibit_rules:
+        - source_matchers:
+            - "severity = critical"
+          target_matchers:
+            - "severity =~ warning|info"
+          equal: ["namespace", "alertname"]
+        - source_matchers:
+            - "severity = warning"
+          target_matchers:
+            - "severity = info"
+          equal: ["namespace", "alertname"]
+      route:
+        group_by:
+          - alertname
+          - namespace
+        group_wait: 30s
+        group_interval: 5m
+        repeat_interval: 12h
+        receiver: "null"
+        routes:
+          - matchers:
+              - name: alertname
+                value: Watchdog
+            receiver: "null"      # Watchdog is always silenced at base level
+          - matchers:
+              - name: severity
+                value: critical
+            receiver: "null"      # Override per environment with real receiver
+      receivers:
+        - name: "null"
+
+  # ── Node Exporter ──────────────────────────────────────────────────────────
+  # node-exporter runs as a DaemonSet and requires host access. It cannot
+  # fully comply with PSS restricted (needs host PID namespace + root access).
+  # We drop capabilities and use read-only root FS where possible.
+  nodeExporter:
+    enabled: true
+
+  prometheus-node-exporter:
+    securityContext:
+      runAsNonRoot: false    # Must run as root to read host metrics
+      runAsUser: 0
+    containerSecurityContext:
+      readOnlyRootFilesystem: true
+      allowPrivilegeEscalation: false
+      capabilities:
+        drop:
+          - ALL
+        add:
+          - SYS_TIME       # Required for time-related hardware metrics
+
+    resources:
+      requests:
+        cpu: "50m"
+        memory: "64Mi"
+      limits:
+        cpu: "200m"
+        memory: "128Mi"
+
+    # Ensure node-exporter runs on ALL nodes including tainted ones
+    tolerations:
+      - effect: NoSchedule
+        operator: Exists
+      - effect: NoExecute
+        operator: Exists
+
+  # ── kube-state-metrics ─────────────────────────────────────────────────────
+  kubeStateMetrics:
+    enabled: true
+
+  kube-state-metrics:
+    securityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      runAsGroup: 65534
+      fsGroup: 65534
+
+    containerSecurityContext:
+      runAsNonRoot: true
+      runAsUser: 65534
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop:
+          - ALL
+
+    resources:
+      requests:
+        cpu: "10m"
+        memory: "32Mi"
+      limits:
+        cpu: "100m"
+        memory: "128Mi"

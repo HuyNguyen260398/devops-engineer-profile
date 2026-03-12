@@ -1,0 +1,214 @@
+# ============================================================================
+# kube-prometheus-stack – Production Environment
+# ============================================================================
+# Deploys the cluster observability stack into the monitoring namespace for
+# production (AWS EKS). HA Alertmanager, full retention, production-grade
+# resources, and manual prune for safety.
+#
+# Namespace:  monitoring
+# Project:    infrastructure
+# Sync:       Automated heal (no automated prune – manual prune for safety)
+# Sync Wave:  0  (deploys before all tenant applications)
+#
+# Production overrides (relative to base values.yaml):
+#   • storageClass:       gp3   (AWS EKS)
+#   • Prometheus:         retention 30d, 50Gi storage, full resources
+#   • Grafana:            ClusterIP (behind ALB), 10Gi storage, production URL
+#   • Alertmanager:       HA (2 replicas), PagerDuty + Slack routing, 5Gi storage
+#   • adminPassword:      managed via External Secrets Operator (AWS Secrets Manager)
+#   • Automated prune:    DISABLED – prevents accidental deletion of monitoring data
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kube-prometheus-stack-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: kube-prometheus-stack
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: infrastructure
+    environment: production
+    critical: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-deployed.slack: devops-production
+    description: "Cluster observability stack – production environment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/kube-prometheus-stack
+    helm:
+      releaseName: kube-prometheus-stack
+      values: |
+        kube-prometheus-stack:
+          # ── Prometheus ───────────────────────────────────────────────────
+          prometheus:
+            prometheusSpec:
+              retention: "30d"
+              retentionSize: "45GiB"    # Guard against disk full ahead of retention
+              resources:
+                requests:
+                  cpu: "500m"
+                  memory: "1Gi"
+                limits:
+                  cpu: "2000m"
+                  memory: "4Gi"
+              storageSpec:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: "gp3"
+                    resources:
+                      requests:
+                        storage: "50Gi"
+
+          # ── Grafana ──────────────────────────────────────────────────────
+          # adminPassword sourced from External Secrets Operator:
+          #   externalSecret targeting AWS Secrets Manager key: grafana/admin-password
+          # Replace adminPassword below with ESO-managed Secret reference once
+          # External Secrets Operator is deployed to the cluster.
+          grafana:
+            adminPassword: "REPLACE_WITH_EXTERNAL_SECRET"
+            service:
+              type: ClusterIP
+            resources:
+              requests:
+                cpu: "200m"
+                memory: "256Mi"
+              limits:
+                cpu: "500m"
+                memory: "512Mi"
+            persistence:
+              storageClassName: "gp3"
+              size: "10Gi"
+            grafana.ini:
+              server:
+                root_url: "https://grafana.production.example.com/"  # UPDATE THIS
+              security:
+                allow_embedding: false
+                cookie_secure: true
+                disable_gravatar: true
+
+          # ── Alertmanager ─────────────────────────────────────────────────
+          alertmanager:
+            enabled: true
+            alertmanagerSpec:
+              replicas: 2    # HA for production
+              storage:
+                volumeClaimTemplate:
+                  spec:
+                    storageClassName: "gp3"
+                    resources:
+                      requests:
+                        storage: "5Gi"
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "128Mi"
+                limits:
+                  cpu: "200m"
+                  memory: "256Mi"
+            config:
+              global:
+                resolve_timeout: 5m
+                # PagerDuty integration – replace with actual service key
+                pagerduty_url: "https://events.pagerduty.com/v2/enqueue"
+              inhibit_rules:
+                - source_matchers:
+                    - "severity = critical"
+                  target_matchers:
+                    - "severity =~ warning|info"
+                  equal: ["namespace", "alertname"]
+                - source_matchers:
+                    - "severity = warning"
+                  target_matchers:
+                    - "severity = info"
+                  equal: ["namespace", "alertname"]
+              route:
+                group_by: ["alertname", "namespace"]
+                group_wait: 30s
+                group_interval: 5m
+                repeat_interval: 4h
+                receiver: "slack-production"
+                routes:
+                  - matchers:
+                      - name: alertname
+                        value: Watchdog
+                    receiver: "null"
+                  - matchers:
+                      - name: severity
+                        value: critical
+                    receiver: "pagerduty-production"
+                    continue: true
+                  - matchers:
+                      - name: severity
+                        value: critical
+                    receiver: "slack-critical"
+              receivers:
+                - name: "null"
+                - name: "pagerduty-production"
+                  pagerduty_configs:
+                    - service_key: "REPLACE_WITH_PAGERDUTY_SERVICE_KEY"  # UPDATE THIS
+                      description: '{{ template "pagerduty.default.description" . }}'
+                      severity: '{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}warning{{ end }}'
+                - name: "slack-critical"
+                  slack_configs:
+                    - api_url: "https://hooks.slack.com/services/REPLACE/WITH/WEBHOOK"  # UPDATE THIS
+                      channel: "#devops-critical-alerts"
+                      title: '[CRITICAL] {{ .GroupLabels.alertname }}'
+                      text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
+                - name: "slack-production"
+                  slack_configs:
+                    - api_url: "https://hooks.slack.com/services/REPLACE/WITH/WEBHOOK"  # UPDATE THIS
+                      channel: "#devops-production-alerts"
+                      title: '[PRODUCTION] {{ .GroupLabels.alertname }}'
+                      text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
+
+          # ── Prometheus Operator ──────────────────────────────────────────
+          prometheusOperator:
+            resources:
+              requests:
+                cpu: "100m"
+                memory: "128Mi"
+              limits:
+                cpu: "200m"
+                memory: "256Mi"
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: monitoring
+  # Production: selfHeal enabled so ArgoCD corrects drift, but prune=false
+  # ensures monitoring resources are never automatically removed.
+  syncPolicy:
+    automated:
+      prune: false     # Manual prune only – prevent accidental loss of monitoring data
+      selfHeal: true   # Correct out-of-band drift automatically
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - Replace=true              # Required: CRDs exceed 262 KiB annotation limit
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  ignoreDifferences:
+    - group: monitoring.coreos.com
+      kind: Prometheus
+      jsonPointers:
+        - /spec/replicas
+    - group: monitoring.coreos.com
+      kind: Alertmanager
+      jsonPointers:
+        - /spec/replicas
