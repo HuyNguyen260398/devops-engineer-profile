@@ -1,0 +1,178 @@
+# ============================================================================
+# ECK Stack – Secure Base Defaults
+# ============================================================================
+# Shared defaults applied across ALL environments. Per-environment overrides
+# (node count, storage size, storageClass, resources, TLS mode) are injected
+# via the ArgoCD Application's helm.values block in
+# application-plane/{env}/infrastructure/*.yaml.
+#
+# Security posture:
+#   • TLS encryption enabled between nodes and clients (ECK default)
+#   • Non-root containers enforced via Pod Security Standards
+#   • Self-signed certificates managed by ECK (auto-rotate)
+#
+# Logging stack namespace: logging
+#
+# References:
+#   • https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-elasticsearch-specification.html
+#   • https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-kibana.html
+#   • https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-pod-disruption-budget.html
+# ============================================================================
+
+# All values nested under the dependency name to align with Helm sub-chart
+# propagation. Mirrors the kube-prometheus-stack wrapper pattern.
+eck-stack:
+  # ── Elasticsearch ────────────────────────────────────────────────────────
+  eck-elasticsearch:
+    enabled: true
+    fullnameOverride: "elasticsearch"
+
+    spec:
+      # Elasticsearch version – keep aligned with eck-stack appVersion.
+      version: "8.17.3"
+
+      # HTTP layer: self-signed TLS certificates managed by ECK (default).
+      # For production, replace with cert-manager + your own CA if needed.
+      http:
+        tls:
+          selfSignedCertificate:
+            disabled: false
+
+      # Single node configuration (base default).
+      # Overridden per environment: 1 node local, 3 nodes production/staging.
+      nodeSets:
+        - name: default
+          count: 1
+          config:
+            # Enable X-Pack security (required, always-on from ES 8.x)
+            xpack.security.enabled: true
+            # Reduce JVM heap pressure for base defaults.
+            # Overridden per environment (e.g., -Xms2g -Xmx2g in production).
+            node.store.allow_mmap: false
+
+          podTemplate:
+            metadata:
+              labels:
+                app.kubernetes.io/name: elasticsearch
+                app.kubernetes.io/part-of: gitops-platform
+                app.kubernetes.io/component: logging
+            spec:
+              # ── Pod Security Context (PSS restricted) ─────────────────────
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1000
+                runAsGroup: 1000
+                fsGroup: 1000
+                seccompProfile:
+                  type: RuntimeDefault
+
+              containers:
+                - name: elasticsearch
+                  # ── Container Security Context ─────────────────────────
+                  securityContext:
+                    runAsNonRoot: true
+                    runAsUser: 1000
+                    allowPrivilegeEscalation: false
+                    capabilities:
+                      drop:
+                        - ALL
+
+                  # ── Resources – Base Defaults ──────────────────────────
+                  # Overridden per environment in the ArgoCD Application.
+                  resources:
+                    requests:
+                      cpu: "250m"
+                      memory: "512Mi"
+                    limits:
+                      cpu: "1000m"
+                      memory: "1Gi"
+
+                  # ── JVM Heap – Base Defaults ───────────────────────────
+                  # Heap should be ~50% of container memory limit.
+                  # Overridden per environment.
+                  env:
+                    - name: ES_JAVA_OPTS
+                      value: "-Xms256m -Xmx256m"
+
+          # ── Persistent Volume Claim ──────────────────────────────────────
+          # storageClassName is overridden per environment.
+          volumeClaimTemplates:
+            - metadata:
+                name: elasticsearch-data
+              spec:
+                accessModes:
+                  - ReadWriteOnce
+                resources:
+                  requests:
+                    storage: "10Gi"
+                storageClassName: "standard" # Overridden per environment
+
+  # ── Kibana ───────────────────────────────────────────────────────────────
+  eck-kibana:
+    enabled: true
+    fullnameOverride: "kibana"
+
+    spec:
+      version: "8.17.3"
+      count: 1
+
+      # Reference the Elasticsearch cluster deployed above.
+      elasticsearchRef:
+        name: elasticsearch
+
+      http:
+        tls:
+          selfSignedCertificate:
+            disabled: false
+
+      podTemplate:
+        metadata:
+          labels:
+            app.kubernetes.io/name: kibana
+            app.kubernetes.io/part-of: gitops-platform
+            app.kubernetes.io/component: logging
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
+            fsGroup: 1000
+            seccompProfile:
+              type: RuntimeDefault
+
+          containers:
+            - name: kibana
+              securityContext:
+                runAsNonRoot: true
+                runAsUser: 1000
+                allowPrivilegeEscalation: false
+                capabilities:
+                  drop:
+                    - ALL
+
+              # ── Resources – Base Defaults ────────────────────────────────
+              resources:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "1Gi"
+
+  # ── Logstash – Disabled ──────────────────────────────────────────────────
+  # Fluent Bit is used for log collection and forwarding instead of Logstash.
+  eck-logstash:
+    enabled: false
+
+  # ── Elastic Agent – Disabled ─────────────────────────────────────────────
+  # Enable for APM / Fleet use cases in a future iteration.
+  eck-agent:
+    enabled: false
+
+  # ── Fleet Server – Disabled ──────────────────────────────────────────────
+  eck-fleet-server:
+    enabled: false
+
+  # ── APM Server – Disabled ────────────────────────────────────────────────
+  eck-apm-server:
+    enabled: false

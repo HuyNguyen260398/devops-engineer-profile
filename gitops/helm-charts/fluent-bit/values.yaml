@@ -1,0 +1,187 @@
+# ============================================================================
+# Fluent Bit – Secure Base Defaults
+# ============================================================================
+# Shared defaults applied across ALL environments. Per-environment overrides
+# (Elasticsearch host/TLS cert, resources, log retention, exclusion filters)
+# are injected via the ArgoCD Application's helm.values block in
+# application-plane/{env}/infrastructure/*.yaml.
+#
+# Security posture:
+#   • Minimal RBAC – only metadata read access to Pods and Namespaces
+#   • seccompProfile: RuntimeDefault
+#   • No privilege escalation
+#   • Capabilities dropped (except DAC_READ_SEARCH for log file access)
+#
+# Log pipeline: tail → kubernetes → modify → elasticsearch
+#
+# References:
+#   • https://docs.fluentbit.io/manual/pipeline/outputs/elasticsearch
+#   • https://docs.fluentbit.io/manual/pipeline/filters/kubernetes
+#   • https://artifacthub.io/packages/helm/fluent/fluent-bit
+# ============================================================================
+
+# All values nested under the dependency name to align with Helm sub-chart
+# propagation.
+fluent-bit:
+  # ── Service Account + RBAC ─────────────────────────────────────────────────
+  serviceAccount:
+    create: true
+    name: fluent-bit
+
+  rbac:
+    create: true
+    nodeAccess: true # Required to read node kernel logs (optional)
+
+  # ── Pod Security Context ───────────────────────────────────────────────────
+  podSecurityContext:
+    runAsNonRoot: false # Fluent Bit requires root for /var/log access
+    seccompProfile:
+      type: RuntimeDefault
+
+  # ── Container Security Context ─────────────────────────────────────────────
+  securityContext:
+    runAsNonRoot: false # Required to read host log files
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+      add:
+        - DAC_READ_SEARCH # Required to read log files owned by other users
+
+  # ── Resources – Base Defaults ──────────────────────────────────────────────
+  # DaemonSets must be lean to avoid resource contention on every node.
+  resources:
+    requests:
+      cpu: "50m"
+      memory: "64Mi"
+    limits:
+      cpu: "200m"
+      memory: "256Mi"
+
+  # ── Tolerations ────────────────────────────────────────────────────────────
+  # Deploy on ALL nodes including control-plane and tainted nodes so no
+  # container logs are missed.
+  tolerations:
+    - operator: Exists
+
+  # ── Node Selector ──────────────────────────────────────────────────────────
+  # Run on Linux nodes only (standard for EKS).
+  nodeSelector:
+    kubernetes.io/os: linux
+
+  # ── Host Volume Mounts ─────────────────────────────────────────────────────
+  # Required for reading container log files from the host filesystem.
+  daemonSetVolumes:
+    - name: varlog
+      hostPath:
+        path: /var/log
+    - name: varlibdockercontainers
+      hostPath:
+        path: /var/lib/docker/containers
+
+  daemonSetVolumeMounts:
+    - name: varlog
+      mountPath: /var/log
+      readOnly: true
+    - name: varlibdockercontainers
+      mountPath: /var/lib/docker/containers
+      readOnly: true
+
+  # ── Fluent Bit Pipeline Configuration ──────────────────────────────────────
+  config:
+    # ── Service ──────────────────────────────────────────────────────────────
+    service: |
+      [SERVICE]
+          Flush         5
+          Daemon        Off
+          Log_Level     info
+          Parsers_File  /fluent-bit/etc/parsers.conf
+          HTTP_Server   On
+          HTTP_Listen   0.0.0.0
+          HTTP_Port     2020
+          Health_Check  On
+
+    # ── INPUT – Tail container logs ──────────────────────────────────────────
+    inputs: |
+      [INPUT]
+          Name              tail
+          Path              /var/log/pods/*/*/*.log
+          multiline.parser  docker, cri
+          Tag               kube.*
+          Mem_Buf_Limit     5MB
+          Skip_Long_Lines   On
+          Refresh_Interval  10
+
+    # ── FILTER – Enrich with Kubernetes metadata ──────────────────────────────
+    filters: |
+      [FILTER]
+          Name                kubernetes
+          Match               kube.*
+          Kube_URL            https://kubernetes.default.svc:443
+          Kube_CA_File        /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+          Kube_Token_File     /var/run/secrets/kubernetes.io/serviceaccount/token
+          Merge_Log           On
+          Keep_Log            Off
+          K8S-Logging.Parser  On
+          K8S-Logging.Exclude On
+
+      [FILTER]
+          Name    modify
+          Match   kube.*
+          Remove  kubernetes.annotations.kubectl.kubernetes.io/last-applied-configuration
+          Remove  kubernetes.annotations.checksum/config
+
+    # ── OUTPUT – Elasticsearch ────────────────────────────────────────────────
+    # Host is overridden per environment in the ArgoCD Application helm.values.
+    # The base CA cert path references the ECK self-signed certificate secret
+    # mounted from the elasticsearch-es-http-certs-public Secret.
+    outputs: |
+      [OUTPUT]
+          Name            es
+          Match           kube.*
+          Host            ${ELASTICSEARCH_HOST}
+          Port            9200
+          HTTP_User       elastic
+          HTTP_Passwd     ${ELASTICSEARCH_PASSWORD}
+          tls             On
+          tls.verify      Off
+          Logstash_Format On
+          Logstash_Prefix kube
+          Retry_Limit     False
+          Suppress_Type_Name On
+
+  # ── Environment Variables ───────────────────────────────────────────────────
+  # ELASTICSEARCH_HOST and ELASTICSEARCH_PASSWORD are injected per environment
+  # or sourced from a Kubernetes Secret. Override in the ArgoCD Application.
+  env:
+    - name: ELASTICSEARCH_HOST
+      value: "elasticsearch-es-http.logging.svc.cluster.local"
+    - name: ELASTICSEARCH_PASSWORD
+      valueFrom:
+        secretKeyRef:
+          name: elasticsearch-es-elastic-user
+          key: elastic
+
+  # ── LivenessProbe ──────────────────────────────────────────────────────────
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 2020
+
+  # ── ReadinessProbe ─────────────────────────────────────────────────────────
+  readinessProbe:
+    httpGet:
+      path: /api/v1/health
+      port: 2020
+
+  # ── Metrics ServiceMonitor ─────────────────────────────────────────────────
+  # Prometheus scrapes Fluent Bit's built-in metrics via the ServiceMonitor.
+  serviceMonitor:
+    enabled: true
+    interval: 30s
+    path: /api/v1/metrics/prometheus
+    namespace: logging
+    selector:
+      matchLabels:
+        app.kubernetes.io/name: fluent-bit

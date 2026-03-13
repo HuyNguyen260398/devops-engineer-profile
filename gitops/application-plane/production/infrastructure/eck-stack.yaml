@@ -1,0 +1,115 @@
+# ============================================================================
+# ECK Stack (Elasticsearch + Kibana) – Production Environment
+# ============================================================================
+# Deploys Elasticsearch (3-node HA cluster) and Kibana into the logging
+# namespace for production (AWS EKS). Full resources, manual prune.
+#
+# Namespace:  logging
+# Project:    infrastructure
+# Sync:       Automated heal (no automated prune – manual for safety)
+# Sync Wave:  0  (requires ECK Operator at wave -1)
+#
+# Production overrides (relative to base values.yaml):
+#   • storageClass:    gp3   (AWS EKS)
+#   • Elasticsearch:   3 nodes, 4Gi JVM heap, 100Gi gp3 storage per node
+#   • Kibana:          2 replicas, ClusterIP (behind ALB Ingress)
+#   • TLS:             self-signed (ECK managed – replace with cert-manager CA)
+#   • prune:           DISABLED – prevents accidental log data deletion
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: eck-stack-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: eck-stack
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: infrastructure
+    environment: production
+    critical: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-deployed.slack: devops-production
+    description: "Elasticsearch + Kibana logging stack – production environment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/eck-stack
+    helm:
+      releaseName: eck-stack
+      values: |
+        eck-stack:
+          eck-elasticsearch:
+            enabled: true
+            spec:
+              nodeSets:
+                - name: default
+                  count: 3
+                  config:
+                    node.store.allow_mmap: false
+                  podTemplate:
+                    spec:
+                      containers:
+                        - name: elasticsearch
+                          resources:
+                            requests:
+                              cpu: "1000m"
+                              memory: "8Gi"
+                            limits:
+                              cpu: "4000m"
+                              memory: "16Gi"
+                          env:
+                            - name: ES_JAVA_OPTS
+                              value: "-Xms4g -Xmx4g"
+                  volumeClaimTemplates:
+                    - metadata:
+                        name: elasticsearch-data
+                      spec:
+                        accessModes:
+                          - ReadWriteOnce
+                        resources:
+                          requests:
+                            storage: "100Gi"
+                        storageClassName: "gp3"
+
+          eck-kibana:
+            enabled: true
+            spec:
+              count: 2
+              podTemplate:
+                spec:
+                  containers:
+                    - name: kibana
+                      resources:
+                        requests:
+                          cpu: "500m"
+                          memory: "1Gi"
+                        limits:
+                          cpu: "1000m"
+                          memory: "2Gi"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging
+  syncPolicy:
+    automated:
+      prune: false # Manual prune only – never auto-delete logging data
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

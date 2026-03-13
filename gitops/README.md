@@ -22,6 +22,12 @@
   - [Deployed Instances (Observability)](#deployed-instances-observability)
   - [Accessing Grafana](#accessing-grafana)
   - [CRD Notes](#crd-notes)
+- [ELK Stack Deployment](#elk-stack-deployment)
+  - [ELK Components Deployed](#elk-components-deployed)
+  - [Deployed Instances (Logging)](#deployed-instances-logging)
+  - [Accessing Kibana](#accessing-kibana)
+  - [Log Pipeline](#log-pipeline)
+  - [Retrieve the Elastic Password](#retrieve-the-elastic-password)
 - [Tenant Management](#tenant-management)
   - [Onboarding a New Tenant](#onboarding-a-new-tenant)
   - [Offboarding a Tenant](#offboarding-a-tenant)
@@ -55,14 +61,22 @@
 │  └────────┬────────┘                                                │
 │           │                                                          │
 │  ┌────────┴──────────────────────────────────────────────────┐      │
-│  │       Infrastructure Plane  (sync wave 0)                 │      │
-│  │  ┌─────────────────────────────────────────────────────┐  │      │
-│  │  │  namespace: monitoring                              │  │      │
-│  │  │  Prometheus │ Grafana │ Alertmanager │ node-exporter│  │      │
-│  │  └─────────────────────────────────────────────────────┘  │      │
+│  │  Infrastructure Plane  (sync waves -1 … 1)               │      │
+│  │  ┌──────────────────────────────────────────────────┐    │      │
+│  │  │  namespace: monitoring                           │    │      │
+│  │  │  Prometheus │ Grafana │ Alertmanager │ node-exporter  │      │
+│  │  └──────────────────────────────────────────────────┘    │      │
+│  │  ┌──────────────────────────────────────────────────┐    │      │
+│  │  │  namespace: elastic-system (wave -1)             │    │      │
+│  │  │  ECK Operator (manages Elastic CRDs + lifecycle) │    │      │
+│  │  └──────────────────────────────────────────────────┘    │      │
+│  │  ┌──────────────────────────────────────────────────┐    │      │
+│  │  │  namespace: logging (wave 0-1)                   │    │      │
+│  │  │  Elasticsearch │ Kibana │ Fluent Bit (DaemonSet)  │    │      │
+│  │  └──────────────────────────────────────────────────┘    │      │
 │  └───────────────────────────────────────────────────────────┘      │
 │  ┌────────┴──────────────────────────────────────────────────┐      │
-│  │       Application Plane  (sync waves 1–5)                 │      │
+│  │       Application Plane  (sync waves 2–6)                 │      │
 │  │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐ │      │
 │  │  │ pool-1   │  │ tenant-A │  │ tenant-B │  │ tenant-C │ │      │
 │  │  │ (basic)  │  │(advanced)│  │(advanced)│  │(premium) │ │      │
@@ -86,9 +100,18 @@ gitops/
 │   ├── jenkins/
 │   │   ├── Chart.yaml                     # Wrapper chart (upstream jenkins/jenkins:5.8.139)
 │   │   └── values.yaml                    # Secure base defaults shared across all tiers
-│   └── kube-prometheus-stack/
-│       ├── Chart.yaml                     # Wrapper chart (upstream kube-prometheus-stack:67.9.0)
-│       └── values.yaml                    # Secure base defaults (PSS restricted, EKS-tuned)
+│   ├── kube-prometheus-stack/
+│   │   ├── Chart.yaml                     # Wrapper chart (upstream kube-prometheus-stack:67.9.0)
+│   │   └── values.yaml                    # Secure base defaults (PSS restricted, EKS-tuned)
+│   ├── eck-operator/
+│   │   ├── Chart.yaml                     # Wrapper chart (upstream elastic/eck-operator:3.3.1)
+│   │   └── values.yaml                    # ECK Operator secure defaults (telemetry off, PSS)
+│   ├── eck-stack/
+│   │   ├── Chart.yaml                     # Wrapper chart (upstream elastic/eck-stack:0.18.1)
+│   │   └── values.yaml                    # Elasticsearch + Kibana base config
+│   └── fluent-bit/
+│       ├── Chart.yaml                     # Wrapper chart (upstream fluent/fluent-bit:0.49.1)
+│       └── values.yaml                    # DaemonSet log pipeline → Elasticsearch
 ├── bootstrap/                             # ArgoCD installation and bootstrap
 │   ├── argocd/
 │   │   ├── namespace.yaml                 # ArgoCD namespace with pod security
@@ -104,9 +127,12 @@ gitops/
 │
 ├── application-plane/                     # Tenant deployments by environment
 │   ├── production/
-│   │   ├── infrastructure/                # Cluster-wide infra components (wave 0)
+│   │   ├── infrastructure/                # Cluster-wide infra components (waves -1 … 1)
 │   │   │   ├── kustomization.yaml
-│   │   │   └── kube-prometheus-stack.yaml # Prometheus + Grafana + Alertmanager (30d, HA, gp3)
+│   │   │   ├── kube-prometheus-stack.yaml # Prometheus + Grafana + Alertmanager (30d, HA, gp3)
+│   │   │   ├── eck-operator.yaml          # ECK Operator (wave -1, elastic-system namespace)
+│   │   │   ├── eck-stack.yaml             # Elasticsearch 3-node HA + Kibana (wave 0, 100Gi)
+│   │   │   └── fluent-bit.yaml            # Fluent Bit DaemonSet → Elasticsearch (wave 1)
 │   │   ├── pooled-envs/
 │   │   │   ├── kustomization.yaml
 │   │   │   └── pool-1.yaml                # Jenkins shared pool (basic tier, production)
@@ -124,9 +150,12 @@ gitops/
 │   │           ├── kustomization.yaml
 │   │           └── jenkins.yaml           # Jenkins premium tenant (manual sync, 100Gi)
 │   ├── staging/
-│   │   ├── infrastructure/                # Cluster-wide infra components (wave 0)
+│   │   ├── infrastructure/                # Cluster-wide infra components (waves -1 … 1)
 │   │   │   ├── kustomization.yaml
-│   │   │   └── kube-prometheus-stack.yaml # Prometheus + Grafana + Alertmanager (7d, gp3)
+│   │   │   ├── kube-prometheus-stack.yaml # Prometheus + Grafana + Alertmanager (7d, gp3)
+│   │   │   ├── eck-operator.yaml          # ECK Operator (wave -1)
+│   │   │   ├── eck-stack.yaml             # Elasticsearch 3-node + Kibana (wave 0, 30Gi)
+│   │   │   └── fluent-bit.yaml            # Fluent Bit DaemonSet → Elasticsearch (wave 1)
 │   │   ├── pooled-envs/
 │   │   │   ├── kustomization.yaml
 │   │   │   └── pool-1.yaml                # Jenkins shared pool (basic tier, staging)
@@ -141,9 +170,12 @@ gitops/
 │   │           ├── kustomization.yaml
 │   │           └── jenkins.yaml           # Jenkins advanced tenant (dedicated NS, 20Gi)
 │   └── local/
-│       ├── infrastructure/                # Cluster-wide infra components (wave 0)
+│       ├── infrastructure/                # Cluster-wide infra components (waves -1 … 1)
 │       │   ├── kustomization.yaml
-│       │   └── kube-prometheus-stack.yaml # Prometheus + Grafana (3d, standard, NodePort 32300)
+│       │   ├── kube-prometheus-stack.yaml # Prometheus + Grafana (3d, standard, NodePort 32300)
+│       │   ├── eck-operator.yaml          # ECK Operator (wave -1)
+│       │   ├── eck-stack.yaml             # Elasticsearch 1-node + Kibana (wave 0, 5Gi standard)
+│       │   └── fluent-bit.yaml            # Fluent Bit DaemonSet → Elasticsearch (wave 1)
 │       ├── pooled-envs/
 │       │   ├── kustomization.yaml
 │       │   └── pool-1.yaml                # Jenkins shared pool (basic tier, local)
@@ -173,17 +205,17 @@ gitops/
 
 The platform implements three deployment tiers inspired by SaaS isolation patterns, each providing different levels of resource isolation and customization:
 
-| Feature | Basic (Pool) | Advanced (Hybrid) | Premium (Silo) |
-|---|---|---|---|
-| **Isolation** | Shared namespace | Dedicated namespace | Dedicated namespace + resources |
-| **Controller** | Shared | Dedicated | Dedicated HA |
-| **Agents** | Shared | Shared | Dedicated |
-| **Resources** | Minimal | Moderate (500m-2CPU) | Full (2-8 CPU, 4-8Gi) |
-| **Storage** | Pool PVC | 20Gi gp3 | 100Gi gp3 |
-| **Ingress** | None (via pool) | ClusterIP | NLB + TLS Ingress |
-| **Sync Policy** | Auto | Auto | Manual (safety) |
-| **Environments** | All | Staging, Production | Production only |
-| **Notifications** | None | On failure | Full (deploy, degrade, fail) |
+| Feature           | Basic (Pool)     | Advanced (Hybrid)    | Premium (Silo)                  |
+| ----------------- | ---------------- | -------------------- | ------------------------------- |
+| **Isolation**     | Shared namespace | Dedicated namespace  | Dedicated namespace + resources |
+| **Controller**    | Shared           | Dedicated            | Dedicated HA                    |
+| **Agents**        | Shared           | Shared               | Dedicated                       |
+| **Resources**     | Minimal          | Moderate (500m-2CPU) | Full (2-8 CPU, 4-8Gi)           |
+| **Storage**       | Pool PVC         | 20Gi gp3             | 100Gi gp3                       |
+| **Ingress**       | None (via pool)  | ClusterIP            | NLB + TLS Ingress               |
+| **Sync Policy**   | Auto             | Auto                 | Manual (safety)                 |
+| **Environments**  | All              | Staging, Production  | Production only                 |
+| **Notifications** | None             | On failure           | Full (deploy, degrade, fail)    |
 
 **When to use each tier:**
 
@@ -198,9 +230,10 @@ The bootstrap uses ArgoCD's [App-of-Apps pattern](https://argo-cd.readthedocs.io
 ```
 app-of-apps.yaml (Root – Tenant workloads)      app-of-apps-infrastructure.yaml (Root – Infra)
   └── Watches: .../tenants/                        └── Watches: .../infrastructure/
-      ├── basic/  → pool references                    └── kube-prometheus-stack.yaml
-      ├── advanced/ → dedicated controllers
-      └── premium/ → full silo deployments
+      ├── basic/  → pool references                    ├── kube-prometheus-stack.yaml
+      ├── advanced/ → dedicated controllers             ├── eck-operator.yaml
+      └── premium/ → full silo deployments              ├── eck-stack.yaml
+                                                        └── fluent-bit.yaml
 ```
 
 Two root Applications bootstrap the platform:
@@ -210,12 +243,13 @@ Two root Applications bootstrap the platform:
 
 **Sync wave ordering ensures dependencies are respected:**
 
-| Wave | Scope | Examples |
-|---|---|---|
-| `0` | Infrastructure | kube-prometheus-stack |
-| `1` | Pool environments | Jenkins pool-1 |
-| `2–4` | Basic / Advanced tenants | Jenkins basic, advanced |
-| `5` | Premium tenants | Jenkins premium |
+| Wave  | Scope                    | Examples                                                  |
+| ----- | ------------------------ | --------------------------------------------------------- |
+| `-1`  | Operator CRDs            | eck-operator (ECK CRDs must precede eck-stack)            |
+| `0`   | Infrastructure stacks    | kube-prometheus-stack, eck-stack (Elasticsearch + Kibana) |
+| `1`   | Log collection + pools   | fluent-bit, Jenkins pool-1                                |
+| `2–4` | Basic / Advanced tenants | Jenkins basic, advanced                                   |
+| `5`   | Premium tenants          | Jenkins premium                                           |
 
 ---
 
@@ -223,11 +257,11 @@ Two root Applications bootstrap the platform:
 
 ### Prerequisites
 
-| Tool | Version | Purpose |
-|---|---|---|
-| AWS CLI | >= 2.x | AWS authentication |
-| kubectl | >= 1.29 | Kubernetes management |
-| Helm | >= 3.14 | Chart management |
+| Tool       | Version | Purpose                      |
+| ---------- | ------- | ---------------------------- |
+| AWS CLI    | >= 2.x  | AWS authentication           |
+| kubectl    | >= 1.29 | Kubernetes management        |
+| Helm       | >= 3.14 | Chart management             |
 | ArgoCD CLI | >= 2.10 | (Optional) ArgoCD management |
 
 **Cluster requirements:**
@@ -334,14 +368,14 @@ Jenkins is the first application deployed on this platform, using the multi-tena
 
 ### Deployed Instances
 
-| ArgoCD Application | Tier | Environment | Namespace | Sync | Storage |
-|---|---|---|---|---|---|
-| `jenkins-pool-1-local` | basic | local | `pool-1-local` | Auto | 8Gi standard |
-| `jenkins-pool-1-staging` | basic | staging | `pool-1-staging` | Auto | 20Gi gp3 |
-| `jenkins-pool-1-production` | basic | production | `pool-1-production` | Auto | 20Gi gp3 |
-| `jenkins-basic-local` | basic | local | `pool-1-local` (shared) | Auto | — |
-| `jenkins-advanced-staging` | advanced | staging | `jenkins-staging` | Auto (Mon–Fri) | 20Gi gp3 |
-| `jenkins-premium-production` | premium | production | `jenkins-production` | **Manual** | 100Gi gp3 |
+| ArgoCD Application           | Tier     | Environment | Namespace               | Sync           | Storage      |
+| ---------------------------- | -------- | ----------- | ----------------------- | -------------- | ------------ |
+| `jenkins-pool-1-local`       | basic    | local       | `pool-1-local`          | Auto           | 8Gi standard |
+| `jenkins-pool-1-staging`     | basic    | staging     | `pool-1-staging`        | Auto           | 20Gi gp3     |
+| `jenkins-pool-1-production`  | basic    | production  | `pool-1-production`     | Auto           | 20Gi gp3     |
+| `jenkins-basic-local`        | basic    | local       | `pool-1-local` (shared) | Auto           | —            |
+| `jenkins-advanced-staging`   | advanced | staging     | `jenkins-staging`       | Auto (Mon–Fri) | 20Gi gp3     |
+| `jenkins-premium-production` | premium  | production  | `jenkins-production`    | **Manual**     | 100Gi gp3    |
 
 > **Note:** Pool Applications (`pool-1-*.yaml`) must be bootstrapped with `kubectl apply` once (step 7 above). Tenant Applications (`jenkins.yaml`) are picked up automatically by the app-of-apps watcher.
 
@@ -403,22 +437,22 @@ For full details on the Jenkins implementation — Helm chart overrides, per-tie
 
 ### Components Deployed
 
-| Component | Purpose | Default Port |
-|---|---|---|
-| **Prometheus** | Metrics scraping and alerting rule evaluation | 9090 |
-| **Grafana** | Dashboards and visualisation | 3000 |
-| **Alertmanager** | Alert routing (Slack / PagerDuty) | 9093 |
-| **node-exporter** | Host hardware and OS metrics (DaemonSet) | 9100 |
-| **kube-state-metrics** | Kubernetes object state metrics | 8080 |
-| **Prometheus Operator** | Manages Prometheus/Alertmanager CRDs | — |
+| Component               | Purpose                                       | Default Port |
+| ----------------------- | --------------------------------------------- | ------------ |
+| **Prometheus**          | Metrics scraping and alerting rule evaluation | 9090         |
+| **Grafana**             | Dashboards and visualisation                  | 3000         |
+| **Alertmanager**        | Alert routing (Slack / PagerDuty)             | 9093         |
+| **node-exporter**       | Host hardware and OS metrics (DaemonSet)      | 9100         |
+| **kube-state-metrics**  | Kubernetes object state metrics               | 8080         |
+| **Prometheus Operator** | Manages Prometheus/Alertmanager CRDs          | —            |
 
 ### Deployed Instances (Observability)
 
-| ArgoCD Application | Environment | Namespace | Prometheus Retention | Storage | Grafana Access | Sync |
-|---|---|---|---|---|---|---|
-| `kube-prometheus-stack-local` | local | `monitoring` | 3d | 5Gi standard | NodePort 32300 | Auto |
-| `kube-prometheus-stack-staging` | staging | `monitoring` | 7d | 20Gi gp3 | ClusterIP / Ingress | Auto |
-| `kube-prometheus-stack-production` | production | `monitoring` | 30d | 50Gi gp3 | ClusterIP / Ingress | Auto (no prune) |
+| ArgoCD Application                 | Environment | Namespace    | Prometheus Retention | Storage      | Grafana Access      | Sync            |
+| ---------------------------------- | ----------- | ------------ | -------------------- | ------------ | ------------------- | --------------- |
+| `kube-prometheus-stack-local`      | local       | `monitoring` | 3d                   | 5Gi standard | NodePort 32300      | Auto            |
+| `kube-prometheus-stack-staging`    | staging     | `monitoring` | 7d                   | 20Gi gp3     | ClusterIP / Ingress | Auto            |
+| `kube-prometheus-stack-production` | production  | `monitoring` | 30d                  | 50Gi gp3     | ClusterIP / Ingress | Auto (no prune) |
 
 Production Alertmanager runs 2 replicas for high availability. Production sync never auto-prunes (`prune: false`) to prevent accidental deletion of monitoring infrastructure.
 
@@ -488,6 +522,90 @@ syncOptions:
 
 Without `Replace=true`, ArgoCD sync will fail with:
 `metadata.annotations: Too long: must have at most 262144 bytes`
+
+---
+
+## ELK Stack Deployment
+
+The ELK stack provides cluster-wide log aggregation and search. It is managed by the `infrastructure` AppProject across three dedicated namespaces using the [Elastic Cloud on Kubernetes (ECK)](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html) operator.
+
+> **Deploy order:** ECK Operator (wave -1) → Elasticsearch + Kibana (wave 0) → Fluent Bit (wave 1). This is enforced automatically by ArgoCD sync-wave annotations.
+
+### ELK Components Deployed
+
+| Component         | Chart                        | Purpose                                      | Namespace        |
+| ----------------- | ---------------------------- | -------------------------------------------- | ---------------- |
+| **ECK Operator**  | `elastic/eck-operator:3.3.1` | Manages all Elastic CRDs and stack lifecycle | `elastic-system` |
+| **Elasticsearch** | `elastic/eck-stack:0.18.1`   | Distributed log index and search engine      | `logging`        |
+| **Kibana**        | `elastic/eck-stack:0.18.1`   | Log search, dashboards, and Discover UI      | `logging`        |
+| **Fluent Bit**    | `fluent/fluent-bit:0.49.1`   | DaemonSet log collection from all nodes      | `logging`        |
+
+Logstash is **not used** — Fluent Bit ships logs directly to Elasticsearch with Kubernetes metadata enrichment, reducing resource overhead.
+
+### Deployed Instances (Logging)
+
+| ArgoCD Application        | Environment | ES Nodes | ES Storage    | Kibana Replicas | Kibana Access       | Sync            |
+| ------------------------- | ----------- | -------- | ------------- | --------------- | ------------------- | --------------- |
+| `eck-operator-local`      | local       | —        | —             | —               | —                   | Auto            |
+| `eck-stack-local`         | local       | 1        | 5Gi standard  | 1               | NodePort 32601      | Auto            |
+| `fluent-bit-local`        | local       | —        | —             | —               | —                   | Auto            |
+| `eck-operator-staging`    | staging     | —        | —             | —               | —                   | Auto            |
+| `eck-stack-staging`       | staging     | 3        | 30Gi gp3 × 3  | 2               | ClusterIP / Ingress | Auto            |
+| `fluent-bit-staging`      | staging     | —        | —             | —               | —                   | Auto            |
+| `eck-operator-production` | production  | —        | —             | —               | —                   | Auto (no prune) |
+| `eck-stack-production`    | production  | 3        | 100Gi gp3 × 3 | 2               | ClusterIP / Ingress | Auto (no prune) |
+| `fluent-bit-production`   | production  | —        | —             | —               | —                   | Auto (no prune) |
+
+Production sync never auto-prunes (`prune: false`) to prevent accidental deletion of log data.
+
+### Accessing Kibana
+
+**Local (NodePort — HTTPS with self-signed cert):**
+```bash
+# Accept the self-signed certificate in your browser
+open https://localhost:32601
+# OR via minikube:
+open https://$(minikube ip):32601
+```
+
+**Staging / Production (port-forward):**
+```bash
+kubectl port-forward -n logging svc/kibana-kb-http 5601:5601
+open https://localhost:5601
+```
+
+### Retrieve the Elastic Password
+
+ECK generates a random password for the `elastic` superuser and stores it in a Kubernetes Secret. Retrieve it with:
+
+```bash
+# Local
+kubectl get secret elasticsearch-es-elastic-user -n logging \
+  -o jsonpath='{.data.elastic}' | base64 -d && echo
+```
+
+Login with username `elastic` and the retrieved password.
+
+> [!WARNING]
+> For staging and production, rotate the `elastic` password and restrict access using [Elasticsearch native realm users](https://www.elastic.co/guide/en/elasticsearch/reference/current/native-realm.html). Never use the `elastic` superuser for application access.
+
+### Log Pipeline
+
+Fluent Bit collects logs from every node and enriches them with Kubernetes metadata before forwarding to Elasticsearch:
+
+```
+/var/log/pods/**/*.log
+  → [INPUT: tail]              (multiline Docker/CRI format)
+  → [FILTER: kubernetes]       (enriches: namespace, pod, labels, container)
+  → [FILTER: modify]           (removes noisy annotation fields)
+  → [OUTPUT: elasticsearch]    (index: kube.<namespace>.<date>, TLS enabled)
+```
+
+The Fluent Bit `ServiceMonitor` exposes metrics on port `2020/api/v1/metrics/prometheus`, auto-scraped by Prometheus from the `logging` namespace.
+
+### Fluent Bit + Prometheus Integration
+
+Fluent Bit metrics (input records, output retries, dropped records) are scraped by Prometheus automatically via the `ServiceMonitor` resource it deploys. Add a Grafana dashboard for Fluent Bit observability using the [Fluent Bit dashboard](https://grafana.com/grafana/dashboards/7752).
 
 ---
 
@@ -561,11 +679,11 @@ The workflow optionally snapshots the tenant PVC before removing the manifest fr
 
 ## Environments
 
-| Environment | Cluster | Tiers Available | Sync Policy | Notes |
-|---|---|---|---|---|
-| **local** | minikube/kind/k3s | Basic only | Auto | Minimal resources, NodePort access |
-| **staging** | EKS (staging) | Basic, Advanced | Auto | Pre-production validation |
-| **production** | EKS (production) | Basic, Advanced, Premium | Mixed* | Full isolation, HA, monitoring |
+| Environment    | Cluster           | Tiers Available          | Sync Policy | Notes                              |
+| -------------- | ----------------- | ------------------------ | ----------- | ---------------------------------- |
+| **local**      | minikube/kind/k3s | Basic only               | Auto        | Minimal resources, NodePort access |
+| **staging**    | EKS (staging)     | Basic, Advanced          | Auto        | Pre-production validation          |
+| **production** | EKS (production)  | Basic, Advanced, Premium | Mixed*      | Full isolation, HA, monitoring     |
 
 *Premium tier uses manual sync in production for safety.
 
@@ -603,13 +721,13 @@ The workflow optionally snapshots the tenant PVC before removing the manifest fr
 
 `kube-prometheus-stack` provides full cluster observability and is deployed via GitOps (see [kube-prometheus-stack Deployment](#kube-prometheus-stack-deployment) above).
 
-| Component | Tool | Status |
-|---|---|---|
-| Metrics collection | Prometheus + kube-state-metrics + node-exporter | ✅ Deployed via GitOps |
-| Visualisation | Grafana (pre-built Kubernetes dashboards) | ✅ Deployed via GitOps |
-| Alerting | Alertmanager + Slack + PagerDuty | ✅ Deployed via GitOps |
-| Logging | Fluentd → OpenSearch | Recommended (not yet deployed) |
-| Tracing | OpenTelemetry → Jaeger | Recommended (not yet deployed) |
+| Component          | Tool                                            | Status                         |
+| ------------------ | ----------------------------------------------- | ------------------------------ |
+| Metrics collection | Prometheus + kube-state-metrics + node-exporter | ✅ Deployed via GitOps          |
+| Visualisation      | Grafana (pre-built Kubernetes dashboards)       | ✅ Deployed via GitOps          |
+| Alerting           | Alertmanager + Slack + PagerDuty                | ✅ Deployed via GitOps          |
+| Logging            | Fluent Bit → Elasticsearch + Kibana (ECK)       | ✅ Deployed via GitOps          |
+| Tracing            | OpenTelemetry → Jaeger                          | Recommended (not yet deployed) |
 
 ### Built-in ArgoCD Metrics
 
@@ -633,22 +751,22 @@ The following alerts are enabled via `defaultRules` in the base `values.yaml`:
 
 This `gitops/` directory is the **recommended successor** to the existing `ops/` directory structure. Here is how the components map:
 
-| Existing (`ops/`) | New (`gitops/`) | Notes |
-|---|---|---|
-| `ops/argocd/` | `gitops/bootstrap/argocd/` | Enhanced with multi-env values and RBAC |
-| `ops/argocd/manifests/app-of-apps.yaml` | `gitops/bootstrap/app-of-apps.yaml` | Parameterized with envsubst |
-| `ops/argocd/manifests/projects/` | `gitops/bootstrap/projects/` | Added `tenants` project |
-| `ops/jenkins/argocd/jenkins-local.yaml` | `gitops/application-plane/local/tenants/basic/jenkins.yaml` | Aligned to tier model, uses gitops Helm chart |
-| `ops/jenkins/argocd/jenkins-staging.yaml` | `gitops/application-plane/staging/tenants/advanced/jenkins.yaml` | Dedicated namespace, sync window enforced |
-| `ops/jenkins/argocd/jenkins-production.yaml` | `gitops/application-plane/production/tenants/premium/jenkins.yaml` | Manual sync, premium tier resources |
-| `ops/jenkins/helm/` | `gitops/helm-charts/jenkins/` | Thin wrapper with secure base defaults |
-| *(not present)* | `gitops/helm-charts/kube-prometheus-stack/` | New: kube-prometheus-stack Helm wrapper |
-| *(not present)* | `gitops/application-plane/*/infrastructure/` | New: per-env infrastructure Application manifests |
-| *(not present)* | `gitops/bootstrap/app-of-apps-infrastructure.yaml` | New: root Application for infrastructure discovery |
-| *(not present)* | `gitops/applicationsets/kube-prometheus-stack-appset.yaml` | New: ApplicationSet alt. for infrastructure |
-| *(not present)* | `gitops/application-plane/*/pooled-envs/pool-1.yaml` | New: shared pool Applications per environment |
-| *(not present)* | `gitops/applicationsets/jenkins-appset.yaml` | New: Git file-based auto-discovery |
-| *(not present)* | `gitops/control-plane/workflows/` | New: Argo WorkflowTemplates for tenant lifecycle |
+| Existing (`ops/`)                            | New (`gitops/`)                                                    | Notes                                              |
+| -------------------------------------------- | ------------------------------------------------------------------ | -------------------------------------------------- |
+| `ops/argocd/`                                | `gitops/bootstrap/argocd/`                                         | Enhanced with multi-env values and RBAC            |
+| `ops/argocd/manifests/app-of-apps.yaml`      | `gitops/bootstrap/app-of-apps.yaml`                                | Parameterized with envsubst                        |
+| `ops/argocd/manifests/projects/`             | `gitops/bootstrap/projects/`                                       | Added `tenants` project                            |
+| `ops/jenkins/argocd/jenkins-local.yaml`      | `gitops/application-plane/local/tenants/basic/jenkins.yaml`        | Aligned to tier model, uses gitops Helm chart      |
+| `ops/jenkins/argocd/jenkins-staging.yaml`    | `gitops/application-plane/staging/tenants/advanced/jenkins.yaml`   | Dedicated namespace, sync window enforced          |
+| `ops/jenkins/argocd/jenkins-production.yaml` | `gitops/application-plane/production/tenants/premium/jenkins.yaml` | Manual sync, premium tier resources                |
+| `ops/jenkins/helm/`                          | `gitops/helm-charts/jenkins/`                                      | Thin wrapper with secure base defaults             |
+| *(not present)*                              | `gitops/helm-charts/kube-prometheus-stack/`                        | New: kube-prometheus-stack Helm wrapper            |
+| *(not present)*                              | `gitops/application-plane/*/infrastructure/`                       | New: per-env infrastructure Application manifests  |
+| *(not present)*                              | `gitops/bootstrap/app-of-apps-infrastructure.yaml`                 | New: root Application for infrastructure discovery |
+| *(not present)*                              | `gitops/applicationsets/kube-prometheus-stack-appset.yaml`         | New: ApplicationSet alt. for infrastructure        |
+| *(not present)*                              | `gitops/application-plane/*/pooled-envs/pool-1.yaml`               | New: shared pool Applications per environment      |
+| *(not present)*                              | `gitops/applicationsets/jenkins-appset.yaml`                       | New: Git file-based auto-discovery                 |
+| *(not present)*                              | `gitops/control-plane/workflows/`                                  | New: Argo WorkflowTemplates for tenant lifecycle   |
 
 ### Migration Path
 
@@ -672,6 +790,11 @@ This `gitops/` directory is the **recommended successor** to the existing `ops/`
 - [kube-prometheus-stack ArtifactHub](https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack)
 - [Prometheus Operator Documentation](https://prometheus-operator.dev/)
 - [Grafana Documentation](https://grafana.com/docs/grafana/latest/)
+- [Elastic Cloud on Kubernetes (ECK) Documentation](https://www.elastic.co/guide/en/cloud-on-k8s/current/index.html)
+- [ECK Operator ArtifactHub](https://artifacthub.io/packages/helm/elastic/eck-operator)
+- [ECK Stack ArtifactHub](https://artifacthub.io/packages/helm/elastic/eck-stack)
+- [Fluent Bit Documentation](https://docs.fluentbit.io/manual/)
+- [Fluent Bit ArtifactHub](https://artifacthub.io/packages/helm/fluent/fluent-bit)
 
 ---
 

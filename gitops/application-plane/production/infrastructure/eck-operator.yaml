@@ -1,0 +1,76 @@
+# ============================================================================
+# ECK Operator – Production Environment
+# ============================================================================
+# Deploys the Elastic Cloud on Kubernetes operator into the elastic-system
+# namespace for production (AWS EKS). Full resources, manual prune-safety.
+#
+# Namespace:  elastic-system
+# Project:    infrastructure
+# Sync:       Automated heal (no automated prune – manual for safety)
+# Sync Wave:  -1  (MUST deploy before eck-stack at wave 0)
+#
+# Production overrides (relative to base values.yaml):
+#   • resources:    full production sizing
+#   • log verbosity: 0 (info – no debug noise in production)
+#   • telemetry:    disabled
+#   • prune:        DISABLED – prevents accidental operator deletion
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: eck-operator-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: eck-operator
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: infrastructure
+    environment: production
+    critical: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-deployed.slack: devops-production
+    description: "ECK Operator – production environment (prerequisite for eck-stack)"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/eck-operator
+    helm:
+      releaseName: eck-operator
+      values: |
+        eck-operator:
+          resources:
+            requests:
+              cpu: "200m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          log:
+            verbosity: 0
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: elastic-system
+  syncPolicy:
+    automated:
+      prune: false # Manual prune only – never auto-delete the operator
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - Replace=true
+      - PrunePropagationPolicy=foreground
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

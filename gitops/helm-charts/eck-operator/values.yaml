@@ -1,0 +1,81 @@
+# ============================================================================
+# ECK Operator – Secure Base Defaults
+# ============================================================================
+# Shared defaults applied across ALL environments. Per-environment overrides
+# (resources, tolerations, log level) are injected via the ArgoCD
+# Application's helm.values block in application-plane/{env}/infrastructure/*.yaml.
+#
+# Security posture follows Kubernetes Pod Security Standards (restricted):
+#   runAsNonRoot: true                – never run as root
+#   allowPrivilegeEscalation: false
+#   capabilities.drop: [ALL]         – no Linux capabilities granted
+#   readOnlyRootFilesystem: true
+#   seccompProfile: RuntimeDefault
+#
+# References:
+#   • https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-install-helm.html
+#   • https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-operator-config.html
+#   • https://artifacthub.io/packages/helm/elastic/eck-operator
+# ============================================================================
+
+# All values nested under the dependency name to align with Helm sub-chart
+# propagation. Mirrors the kube-prometheus-stack wrapper pattern.
+eck-operator:
+  # ── Operator Configuration ─────────────────────────────────────────────────
+  # managedNamespaces: [] means the operator manages ALL namespaces.
+  # Restrict to ["logging"] in production for tighter scope if desired.
+  managedNamespaces: []
+
+  # Operator log verbosity (0=info, 1=debug, 2=trace). Keep at 0 for production.
+  log:
+    verbosity: 0
+
+  # ── Pod Security Context (PSS restricted) ──────────────────────────────────
+  podSecurityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    runAsGroup: 1000
+    fsGroup: 1000
+    seccompProfile:
+      type: RuntimeDefault
+
+  # ── Container Security Context (PSS restricted) ────────────────────────────
+  securityContext:
+    runAsNonRoot: true
+    runAsUser: 1000
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    capabilities:
+      drop:
+        - ALL
+
+  # ── Resources – Base Defaults ──────────────────────────────────────────────
+  # These are overridden per environment in the ArgoCD Application helm.values.
+  resources:
+    requests:
+      cpu: "100m"
+      memory: "150Mi"
+    limits:
+      cpu: "500m"
+      memory: "512Mi"
+
+  # ── Telemetry ──────────────────────────────────────────────────────────────
+  # Disable anonymous usage telemetry in all environments.
+  telemetry:
+    disabled: true
+
+  # ── Webhook ────────────────────────────────────────────────────────────────
+  # Validation webhook is enabled by default. Required for proper field
+  # validation of ECK CRDs. Do not disable in production.
+  webhook:
+    enabled: true
+
+  # ── Config ─────────────────────────────────────────────────────────────────
+  config:
+    # UBI image (Universal Base Image) – FIPS-compatible minimal image.
+    # Set to false if your cluster requires distroless images.
+    ubiOnly: false
+
+    # Operator metrics exposed at :8080/metrics (Prometheus format).
+    # Scraped automatically by kube-prometheus-stack ServiceMonitor.
+    metricsPort: 8080

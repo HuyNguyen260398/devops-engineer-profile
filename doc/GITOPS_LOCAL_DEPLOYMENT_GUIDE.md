@@ -22,13 +22,13 @@ This guide walks through the complete bootstrap sequence for the local developme
 
 ## Prerequisites
 
-| Tool | Version | Notes |
-|---|---|---|
-| `kubectl` | >= 1.29 | Configured against your local cluster |
-| `helm` | >= 3.14 | Used to install ArgoCD |
-| `envsubst` | any | Part of `gettext` (`brew install gettext` / `apt install gettext`) |
-| Local cluster | minikube / kind / k3s | Storage class `standard` must be available |
-| ArgoCD CLI | >= 2.10 | Optional — for status checks and manual syncs |
+| Tool          | Version               | Notes                                                              |
+| ------------- | --------------------- | ------------------------------------------------------------------ |
+| `kubectl`     | >= 1.29               | Configured against your local cluster                              |
+| `helm`        | >= 3.14               | Used to install ArgoCD                                             |
+| `envsubst`    | any                   | Part of `gettext` (`brew install gettext` / `apt install gettext`) |
+| Local cluster | minikube / kind / k3s | Storage class `standard` must be available                         |
+| ArgoCD CLI    | >= 2.10               | Optional — for status checks and manual syncs                      |
 
 **Verify your cluster is reachable before starting:**
 
@@ -46,8 +46,12 @@ The platform follows a strict sync-wave order. Always deploy in this sequence:
 ```
 1. ArgoCD                  ← GitOps engine (manual Helm install)
 2. AppProjects             ← RBAC scoping for argocd
-3. App-of-Apps (infra)     ← bootstraps kube-prometheus-stack (wave 0)
-4. App-of-Apps (tenants)   ← bootstraps Jenkins tenants (waves 2–4)
+3. App-of-Apps (infra)     ← bootstraps:
+                               kube-prometheus-stack (wave 0)
+                               eck-operator          (wave -1)
+                               eck-stack             (wave 0)
+                               fluent-bit            (wave 1)
+4. App-of-Apps (tenants)   ← bootstraps Jenkins tenants (waves 2–6)
 5. Jenkins Pool (manual)   ← shared pool bootstrap (wave 1, outside app-of-apps)
 ```
 
@@ -123,11 +127,11 @@ kubectl apply -f gitops/bootstrap/projects/
 
 This creates three AppProjects:
 
-| Project | Manages |
-|---|---|
-| `infrastructure` | `monitoring` namespace — kube-prometheus-stack |
-| `applications` | `pool-1-local` namespace — Jenkins pool and tenants |
-| `tenants` | Tenant-scoped namespaces |
+| Project          | Manages                                             |
+| ---------------- | --------------------------------------------------- |
+| `infrastructure` | `monitoring` namespace — kube-prometheus-stack      |
+| `applications`   | `pool-1-local` namespace — Jenkins pool and tenants |
+| `tenants`        | Tenant-scoped namespaces                            |
 
 **Verify:**
 
@@ -182,8 +186,8 @@ open http://localhost:32300          # kind / k3s / Docker Desktop
 open http://$(minikube ip):32300     # minikube
 ```
 
-| Field | Value |
-|---|---|
+| Field    | Value   |
+| -------- | ------- |
 | Username | `admin` |
 | Password | `admin` |
 
@@ -196,6 +200,79 @@ open http://$(minikube ip):32300     # minikube
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-prometheus 9090:9090
 open http://localhost:9090
 ```
+
+The same `app-of-apps-infrastructure-local` application also deploys the ELK stack. See below for how to watch the logging stack rollout.
+
+### ELK Stack Rollout (included in Step 3)
+
+The infrastructure App-of-Apps also deploys three ELK stack ArgoCD Applications (same `envsubst` apply above):
+
+| ArgoCD Application   | Wave | What it deploys                      | Namespace        |
+| -------------------- | ---- | ------------------------------------ | ---------------- |
+| `eck-operator-local` | `-1` | ECK Operator + CRDs                  | `elastic-system` |
+| `eck-stack-local`    | `0`  | Elasticsearch (1 node, 5Gi) + Kibana | `logging`        |
+| `fluent-bit-local`   | `1`  | Log collector DaemonSet              | `logging`        |
+
+**Watch the ECK Operator come up first (wave -1):**
+
+```bash
+kubectl get application eck-operator-local -n argocd -w
+kubectl get pods -n elastic-system -w
+```
+
+Expected pods when healthy:
+
+```
+elastic-operator-xxx   1/1   Running
+```
+
+**Watch Elasticsearch and Kibana (wave 0 — may take 3–5 minutes on first pull):**
+
+```bash
+kubectl get application eck-stack-local -n argocd -w
+kubectl get pods -n logging -w
+```
+
+Expected pods when healthy:
+
+```
+elasticsearch-es-default-0    1/1   Running
+kibana-kb-xxx                 1/1   Running
+```
+
+Elasticsearch will show `HEALTH: green` once ready:
+
+```bash
+kubectl get elasticsearch -n logging
+# NAME            HEALTH   NODES   VERSION   PHASE   AGE
+# elasticsearch   green    1       8.17.3    Ready   5m
+```
+
+**Watch Fluent Bit DaemonSet (wave 1):**
+
+```bash
+kubectl get application fluent-bit-local -n argocd -w
+kubectl get daemonset -n logging -w
+```
+
+**Access Kibana (NodePort 32601 — HTTPS with self-signed cert):**
+
+```bash
+open https://localhost:32601          # kind / k3s / Docker Desktop
+open https://$(minikube ip):32601     # minikube
+```
+
+> [!NOTE]
+> Your browser will show a certificate warning for the ECK self-signed certificate. Accept it to proceed — this is expected for local dev.
+
+**Retrieve the Elastic password (ECK auto-generates it):**
+
+```bash
+kubectl get secret elasticsearch-es-elastic-user -n logging \
+  -o jsonpath='{.data.elastic}' | base64 -d && echo
+```
+
+Login with username `elastic` and the retrieved password.
 
 ---
 
@@ -241,10 +318,10 @@ jenkins-basic-local-0   2/2   Running
 
 **Access Jenkins instances:**
 
-| Instance | NodePort | URL (kind/k3s) | URL (minikube) |
-|---|---|---|---|
-| Pool-1 (shared) | `32000` | `http://localhost:32000` | `http://$(minikube ip):32000` |
-| Basic tenant | `32001` | `http://localhost:32001` | `http://$(minikube ip):32001` |
+| Instance        | NodePort | URL (kind/k3s)           | URL (minikube)                |
+| --------------- | -------- | ------------------------ | ----------------------------- |
+| Pool-1 (shared) | `32000`  | `http://localhost:32000` | `http://$(minikube ip):32000` |
+| Basic tenant    | `32001`  | `http://localhost:32001` | `http://$(minikube ip):32001` |
 
 **Retrieve the Jenkins admin password:**
 
@@ -267,25 +344,32 @@ Once all steps are complete, verify the entire platform:
 kubectl get applications -n argocd
 
 # Namespaces created
-kubectl get namespaces | grep -E 'argocd|monitoring|pool-1-local'
+kubectl get namespaces | grep -E 'argocd|monitoring|elastic-system|logging|pool-1-local'
 
 # Pods across all platform namespaces
 kubectl get pods -n argocd
 kubectl get pods -n monitoring
+kubectl get pods -n elastic-system
+kubectl get pods -n logging
 kubectl get pods -n pool-1-local
+
+# Elasticsearch cluster health
+kubectl get elasticsearch -n logging
+kubectl get kibana -n logging
 ```
 
 ---
 
 ## Local Service Reference
 
-| Service | URL | Credentials | Notes |
-|---|---|---|---|
-| ArgoCD UI | `http://localhost:30080` | `admin` / see Step 1 | NodePort |
-| Grafana | `http://localhost:32300` | `admin` / `admin` | NodePort |
-| Prometheus | `http://localhost:9090` | — | Port-forward only |
-| Jenkins Pool-1 | `http://localhost:32000` | `admin` / see Step 5 | NodePort |
-| Jenkins Basic | `http://localhost:32001` | `admin` / see Step 5 | NodePort |
+| Service        | URL                       | Credentials            | Notes                              |
+| -------------- | ------------------------- | ---------------------- | ---------------------------------- |
+| ArgoCD UI      | `http://localhost:30080`  | `admin` / see Step 1   | NodePort                           |
+| Grafana        | `http://localhost:32300`  | `admin` / `admin`      | NodePort                           |
+| Prometheus     | `http://localhost:9090`   | —                      | Port-forward only                  |
+| Kibana         | `https://localhost:32601` | `elastic` / see Step 3 | NodePort (HTTPS, self-signed cert) |
+| Jenkins Pool-1 | `http://localhost:32000`  | `admin` / see Step 5   | NodePort                           |
+| Jenkins Basic  | `http://localhost:32001`  | `admin` / see Step 5   | NodePort                           |
 
 > [!NOTE]
 > For minikube, replace `localhost` with `$(minikube ip)` in all URLs above.
@@ -317,6 +401,9 @@ kind does not expose NodePorts on `localhost` by default. Use port-forward as a 
 ```bash
 # Grafana
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 32300:80
+
+# Kibana
+kubectl port-forward -n logging svc/kibana-kb-http 5601:5601
 
 # Jenkins Pool-1
 kubectl port-forward -n pool-1-local svc/jenkins-pool-1 32000:8080
@@ -381,14 +468,15 @@ argocd app sync <app-name>
 Remove all local platform resources in the **reverse** of the deployment order. Each step waits for its resources to fully terminate before the next one starts.
 
 > [!CAUTION]
-> This is a destructive operation. All workloads, persistent data (Prometheus metrics, Jenkins jobs/configs), and namespaces will be permanently deleted. There is no rollback.
+> This is a destructive operation. All workloads, persistent data (Prometheus metrics, Elasticsearch indexes, Jenkins jobs/configs), and namespaces will be permanently deleted. There is no rollback.
 
 ### Cleanup Order
 
 ```
-5. Jenkins Pool Application    ← delete first (wave 1 resources)
-4. Tenants App-of-Apps         ← removes Jenkins tenant Applications
-3. Infrastructure App-of-Apps  ← removes kube-prometheus-stack Application
+6. Jenkins Pool Application    ← delete first (wave 1 resources)
+5. Tenants App-of-Apps         ← removes Jenkins tenant Applications
+4. Infrastructure App-of-Apps  ← removes kube-prometheus-stack + eck-stack + fluent-bit + eck-operator
+3. ELK namespaces              ← delete logging and elastic-system namespaces manually
 2. AppProjects                 ← remove RBAC scoping
 1. ArgoCD                      ← uninstall Helm release last
 0. Namespaces and PVCs         ← final manual sweep
@@ -468,6 +556,28 @@ kubectl wait --for=delete namespace/monitoring --timeout=60s
 > kubectl delete pvc --all -n monitoring
 > ```
 
+The same cascade also removes `eck-operator-local`, `eck-stack-local`, and `fluent-bit-local` Applications. After cascade completes, clean up the ELK namespaces manually:
+
+```bash
+# Confirm no resources remain inside logging
+kubectl get all -n logging
+
+# Delete the logging namespace (Elasticsearch PVCs not removed by cascade)
+kubectl delete pvc --all -n logging 2>/dev/null || true
+kubectl delete namespace logging
+kubectl wait --for=delete namespace/logging --timeout=120s
+
+# Delete the elastic-system namespace (ECK Operator)
+kubectl delete namespace elastic-system
+kubectl wait --for=delete namespace/elastic-system --timeout=60s
+```
+
+> [!NOTE]
+> Elasticsearch `PersistentVolumeClaims` must be deleted manually before the `logging` namespace can fully terminate. Check for orphaned PVs afterward:
+> ```bash
+> kubectl get pv | grep -E 'Released|Failed'
+> ```
+
 ---
 
 ### Step C4 — Delete AppProjects
@@ -511,7 +621,7 @@ kubectl wait --for=delete namespace/argocd --timeout=60s
 After all namespaces are gone, check for and remove any orphaned PersistentVolumes and ArgoCD CRDs:
 
 ```bash
-# Check for Released / Failed PVs left behind by Prometheus or Jenkins
+# Check for Released / Failed PVs left behind by Prometheus, Elasticsearch, or Jenkins
 kubectl get pv | grep -E 'Released|Failed'
 # Delete individually as needed
 # kubectl delete pv <pv-name>
@@ -519,6 +629,10 @@ kubectl get pv | grep -E 'Released|Failed'
 # Remove ArgoCD CRDs (optional — safe to leave if you plan to reinstall soon)
 kubectl get crd | grep argoproj.io
 kubectl delete crd applications.argoproj.io applicationsets.argoproj.io appprojects.argoproj.io
+
+# Remove ECK CRDs (optional — safe to leave if you plan to reinstall soon)
+kubectl get crd | grep k8s.elastic.co
+kubectl delete crd $(kubectl get crd -o name | grep k8s.elastic.co)
 ```
 
 > [!TIP]
@@ -530,7 +644,7 @@ kubectl delete crd applications.argoproj.io applicationsets.argoproj.io appproje
 
 ```bash
 # No platform namespaces should remain
-kubectl get namespaces | grep -E 'argocd|monitoring|pool-1-local'
+kubectl get namespaces | grep -E 'argocd|monitoring|elastic-system|logging|pool-1-local'
 
 # No orphaned PVCs or PVs
 kubectl get pvc --all-namespaces
@@ -548,5 +662,6 @@ Expected output: all commands return empty or the "CRD removed" message.
 ## Next Steps
 
 - Add a custom `ServiceMonitor` to scrape your application metrics — see the [Jenkins + Prometheus Integration](../gitops/README.md#jenkins--prometheus-integration) section in the GitOps README.
+- Search and visualise logs in Kibana — open the **Discover** view and select the `kube-*` index pattern. See the [ELK Stack Deployment](../gitops/README.md#elk-stack-deployment) section in the GitOps README.
 - Onboard a new Jenkins tenant — see [Tenant Management](../gitops/README.md#tenant-management) in the GitOps README.
 - For staging/production deployment, refer to the [kube-prometheus-stack GitOps Implementation Plan](KUBE_PROMETHEUS_STACK_GITOPS_IMPLEMENTATION_PLAN.md) and [Jenkins ArgoCD Implementation](JENKINS_ARGOCD_IMPLEMENTATION.md).

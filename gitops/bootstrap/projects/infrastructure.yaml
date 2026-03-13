@@ -1,7 +1,7 @@
 # ============================================================================
 # ArgoCD AppProject – Infrastructure Components
 # ============================================================================
-# Manages cluster-level infrastructure: monitoring, ingress controllers,
+# Manages cluster-level infrastructure: monitoring, logging, ingress controllers,
 # cert-manager, external-secrets-operator, ArgoCD itself.
 # Follows least-privilege by restricting allowed namespaces and resource types.
 apiVersion: argoproj.io/v1alpha1
@@ -16,7 +16,7 @@ metadata:
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
-  description: "Infrastructure components (monitoring, ingress, cert-manager, etc.)"
+  description: "Infrastructure components (monitoring, logging, ingress, cert-manager, etc.)"
 
   sourceRepos:
     - "*"
@@ -26,6 +26,12 @@ spec:
       namespace: kube-system
     - server: https://kubernetes.default.svc
       namespace: monitoring
+    # ── ELK Logging Stack (ECK) ─────────────────
+    - server: https://kubernetes.default.svc
+      namespace: elastic-system # ECK Operator
+    - server: https://kubernetes.default.svc
+      namespace: logging # Elasticsearch, Kibana, Fluent Bit
+    # ───────────────────────────────────
     - server: https://kubernetes.default.svc
       namespace: ingress-nginx
     - server: https://kubernetes.default.svc
@@ -81,6 +87,27 @@ spec:
     # Priority classes used by Prometheus / Alertmanager pods
     - group: scheduling.k8s.io
       kind: PriorityClass
+    # ── ECK Operator CRDs ────────────────────────────────────────────────
+    # Elastic Cloud on Kubernetes custom resources (cluster-scoped)
+    - group: elasticsearch.k8s.elastic.co
+      kind: Elasticsearch
+    - group: kibana.k8s.elastic.co
+      kind: Kibana
+    - group: beat.k8s.elastic.co
+      kind: Beat
+    - group: agent.k8s.elastic.co
+      kind: Agent
+    - group: apmserver.k8s.elastic.co
+      kind: ApmServer
+    - group: logstash.k8s.elastic.co
+      kind: Logstash
+    - group: maps.k8s.elastic.co
+      kind: ElasticMapsServer
+    - group: enterprisesearch.k8s.elastic.co
+      kind: EnterpriseSearch
+    # ECK Operator webhook (installed by eck-operator chart)
+    - group: admissionregistration.k8s.io
+      kind: ValidatingWebhookConfiguration
 
   namespaceResourceWhitelist:
     - group: "*"

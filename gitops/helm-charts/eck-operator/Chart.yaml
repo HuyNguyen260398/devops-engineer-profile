@@ -1,0 +1,54 @@
+# ============================================================================
+# ECK Operator Multi-Environment Wrapper Chart
+# ============================================================================
+# Thin wrapper around the upstream elastic/eck-operator chart providing
+# opinionated security defaults aligned with Kubernetes Pod Security
+# Standards (restricted) and per-environment value overrides injected via
+# the ArgoCD Application's helm.values block.
+#
+# Chart version:          1.0.0 (wrapper)
+# Upstream chart version: 3.3.1 (pinned – update deliberately via PR)
+# Upstream repo:          https://helm.elastic.co
+# ArtifactHub:            https://artifacthub.io/packages/helm/elastic/eck-operator
+#
+# Components deployed:
+#   • ECK Operator controller (manages CRDs + Elastic stack lifecycle)
+#   • ECK CRDs (Elasticsearch, Kibana, Agent, Beats, Logstash, APM, etc.)
+#
+# Namespace: elastic-system (operator), logging (workloads)
+#
+# IMPORTANT – Sync wave ordering:
+#   ECK Operator MUST deploy at sync wave -1 (before eck-stack at wave 0)
+#   so that the Elasticsearch/Kibana CRDs exist before eck-stack resources
+#   are applied.
+#
+# IMPORTANT – CRD management:
+#   This chart installs ~12 CRDs for the ECK operator.
+#   ArgoCD requires the following syncOptions on the Application:
+#     - ServerSideApply=true
+#     - Replace=true     ← CRDs may exceed the 262 KiB annotation limit
+#   See: https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-install-helm.html
+# ============================================================================
+apiVersion: v2
+name: eck-operator
+description: >-
+  ECK Operator wrapper chart for the GitOps platform.
+  Wraps upstream elastic/eck-operator:3.3.1 with Pod Security Standards
+  (restricted) defaults for all environments.
+type: application
+version: 1.0.0
+appVersion: "3.3.1"
+keywords:
+  - elasticsearch
+  - kibana
+  - eck
+  - elastic
+  - logging
+  - operator
+  - gitops
+maintainers:
+  - name: devops-platform-team
+dependencies:
+  - name: eck-operator
+    version: "3.3.1"
+    repository: https://helm.elastic.co
