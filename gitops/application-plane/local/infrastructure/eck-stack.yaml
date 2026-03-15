@@ -107,6 +107,16 @@ spec:
   destination:
     server: https://kubernetes.default.svc
     namespace: logging
+  # ECK mutates Kibana service ports after ArgoCD applies the CR, adding
+  # protocol:TCP and targetPort:0 as defaults. These fields are not in our
+  # values, creating a persistent diff loop. Ignore them so ArgoCD treats
+  # the live state as in-sync without fighting ECK over its own defaults.
+  ignoreDifferences:
+    - group: kibana.k8s.elastic.co
+      kind: Kibana
+      jsonPointers:
+        - /spec/http/service/spec/ports/0/protocol
+        - /spec/http/service/spec/ports/0/targetPort
   syncPolicy:
     automated:
       prune: true
