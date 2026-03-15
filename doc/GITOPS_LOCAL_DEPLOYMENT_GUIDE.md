@@ -169,6 +169,29 @@ envsubst < gitops/bootstrap/local/app-of-apps-infrastructure.yaml | kubectl appl
 > branch name, tag, or commit SHA — use this to test infrastructure changes on a feature branch
 > before merging to `main`.
 
+> [!NOTE]
+> **Feature branch testing — keeping all child apps on the same branch:**
+> The four child Applications (`kube-prometheus-stack-local`, `eck-operator-local`,
+> `eck-stack-local`, `fluent-bit-local`) inherit their `targetRevision` from a single
+> Kustomize JSON patch defined in
+> `gitops/application-plane/local/infrastructure/kustomization.yaml`.
+> When testing on a feature branch, update the `value:` field in that patch to match
+> your branch name, then push — ArgoCD will auto-reconcile all child apps:
+>
+> ```yaml
+> # gitops/application-plane/local/infrastructure/kustomization.yaml
+> patches:
+>   - target:
+>       group: argoproj.io
+>       kind: Application
+>     patch: |-
+>       - op: replace
+>         path: /spec/source/targetRevision
+>         value: feature/my-branch   # ← change this, then push
+> ```
+>
+> Reset this value back to `main` before merging the feature branch.
+
 **Watch the rollout** (CRD installation takes 1–2 minutes on first sync):
 
 ```bash
