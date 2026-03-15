@@ -1,0 +1,54 @@
+# ============================================================================
+# Fluent Bit Multi-Environment Wrapper Chart
+# ============================================================================
+# Thin wrapper around the upstream fluent/fluent-bit chart. Fluent Bit runs
+# as a DaemonSet on each node, collecting container logs from /var/log/pods
+# and forwarding them to Elasticsearch via the ECK-managed endpoint.
+#
+# Chart version:          1.0.0 (wrapper)
+# Upstream chart version: 0.49.1 (pinned – update deliberately via PR)
+# Upstream repo:          https://fluent.github.io/helm-charts
+# ArtifactHub:            https://artifacthub.io/packages/helm/fluent/fluent-bit
+#
+# Components deployed:
+#   • Fluent Bit DaemonSet  (runs on every node – collects container logs)
+#   • ServiceAccount + RBAC (minimal read-only access to Pod/Namespace APIs)
+#   • ConfigMap             (pipeline config: tail → kubernetes → es output)
+#
+# Log pipeline:
+#   /var/log/pods/**/*.log
+#     → [INPUT: tail]
+#     → [FILTER: kubernetes]     (enriches with pod/namespace/label metadata)
+#     → [FILTER: modify]         (strips noisy annotations)
+#     → [OUTPUT: elasticsearch]  (indexed by: kube.<namespace>.<pod-name>)
+#
+# PREREQUISITE:
+#   ECK Operator + Elasticsearch (eck-stack) MUST be deployed first.
+#   Controlled via ArgoCD sync-wave: eck-stack wave 0, this chart wave 1.
+#
+# References:
+#   • https://docs.fluentbit.io/manual/pipeline/outputs/elasticsearch
+#   • https://artifacthub.io/packages/helm/fluent/fluent-bit
+# ============================================================================
+apiVersion: v2
+name: fluent-bit
+description: >-
+  Fluent Bit log collector wrapper chart for the GitOps platform.
+  Wraps upstream fluent/fluent-bit:0.49.1 with DaemonSet log collection
+  forwarding to Elasticsearch managed by ECK.
+type: application
+version: 1.0.0
+appVersion: "3.3.2"
+keywords:
+  - fluent-bit
+  - logging
+  - log-collection
+  - elasticsearch
+  - eck
+  - gitops
+maintainers:
+  - name: devops-platform-team
+dependencies:
+  - name: fluent-bit
+    version: "0.49.1"
+    repository: https://fluent.github.io/helm-charts

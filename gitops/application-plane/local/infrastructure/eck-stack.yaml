@@ -1,0 +1,121 @@
+# ============================================================================
+# ECK Stack (Elasticsearch + Kibana) – Local Environment
+# ============================================================================
+# Deploys Elasticsearch (single-node) and Kibana into the logging namespace
+# for local development (minikube / kind / k3s).
+#
+# Namespace:  logging
+# Project:    infrastructure
+# Sync:       Automated
+# Sync Wave:  0  (requires ECK Operator at wave -1)
+#
+# Local overrides (relative to base values.yaml):
+#   • storageClass:        hostpath / standard (local cluster default)
+#   • Elasticsearch:       1 node, 256m JVM heap, 5Gi storage, minimal resources
+#   • Kibana:              1 replica, minimal resources
+#   • TLS:                 self-signed (ECK managed)
+#   • Kibana service type: NodePort 32601 for direct browser access
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: eck-stack-local
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: eck-stack
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: infrastructure
+    environment: local
+  annotations:
+    argocd.argoproj.io/sync-wave: "0"
+    description: "Elasticsearch + Kibana logging stack – local environment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/eck-stack
+    helm:
+      releaseName: eck-stack
+      values: |
+        eck-stack:
+          eck-elasticsearch:
+            enabled: true
+            spec:
+              nodeSets:
+                - name: default
+                  count: 1
+                  config:
+                    node.store.allow_mmap: false
+                  podTemplate:
+                    spec:
+                      containers:
+                        - name: elasticsearch
+                          resources:
+                            requests:
+                              cpu: "250m"
+                              memory: "512Mi"
+                            limits:
+                              cpu: "500m"
+                              memory: "1Gi"
+                          env:
+                            - name: ES_JAVA_OPTS
+                              value: "-Xms256m -Xmx256m"
+                  volumeClaimTemplates:
+                    - metadata:
+                        name: elasticsearch-data
+                      spec:
+                        accessModes:
+                          - ReadWriteOnce
+                        resources:
+                          requests:
+                            storage: "5Gi"
+                        storageClassName: "hostpath"   # Docker Desktop / kind default
+
+          eck-kibana:
+            enabled: true
+            spec:
+              count: 1
+              podTemplate:
+                spec:
+                  containers:
+                    - name: kibana
+                      resources:
+                        requests:
+                          cpu: "100m"
+                          memory: "256Mi"
+                        limits:
+                          cpu: "300m"
+                          memory: "512Mi"
+              # Expose Kibana via NodePort for direct browser access in local dev.
+              # Access: https://localhost:32601 (ECK TLS – accept self-signed cert)
+              http:
+                service:
+                  spec:
+                    type: NodePort
+                    ports:
+                      - port: 5601
+                        nodePort: 32601
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 5

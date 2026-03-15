@@ -1,5 +1,13 @@
-# Production infrastructure components – cluster-wide observability stack
+# Production infrastructure components – cluster-wide observability and logging stacks
 apiVersion: kustomize.config.k8s.io/v1beta1
 kind: Kustomization
 resources:
   - kube-prometheus-stack.yaml
+  # ── ELK Logging Stack (ECK) ─────────────────────────────────────────────
+  # Deploy order enforced via ArgoCD sync-wave annotations:
+  #   wave -1: eck-operator  (CRDs + controller – must precede eck-stack)
+  #   wave  0: eck-stack     (Elasticsearch + Kibana)
+  #   wave  1: fluent-bit    (DaemonSet log forwarder)
+  - eck-operator.yaml
+  - eck-stack.yaml
+  - fluent-bit.yaml

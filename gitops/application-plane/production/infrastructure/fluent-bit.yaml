@@ -1,0 +1,74 @@
+# ============================================================================
+# Fluent Bit – Production Environment
+# ============================================================================
+# Deploys Fluent Bit as a DaemonSet into the logging namespace for production
+# (AWS EKS). Collects container logs from all nodes and forwards to the
+# production HA Elasticsearch cluster.
+#
+# Namespace:  logging
+# Project:    infrastructure
+# Sync:       Automated heal (no automated prune – manual for safety)
+# Sync Wave:  1  (requires eck-stack Elasticsearch at wave 0)
+#
+# Production overrides (relative to base values.yaml):
+#   • resources:    full production sizing (handles high log throughput)
+#   • TLS verify:   disabled (self-signed ECK cert – replace with trusted CA)
+#   • Log level:    info
+#   • prune:        DISABLED – prevents accidental DaemonSet deletion
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fluent-bit-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: infrastructure
+    environment: production
+    critical: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-deployed.slack: devops-production
+    description: "Fluent Bit log collector – production environment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/fluent-bit
+    helm:
+      releaseName: fluent-bit
+      values: |
+        fluent-bit:
+          resources:
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+            limits:
+              cpu: "500m"
+              memory: "512Mi"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging
+  syncPolicy:
+    automated:
+      prune: false # Manual prune only
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

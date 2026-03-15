@@ -1,0 +1,72 @@
+# ============================================================================
+# Fluent Bit – Staging Environment
+# ============================================================================
+# Deploys Fluent Bit as a DaemonSet into the logging namespace for staging
+# (AWS EKS). Collects container logs from all nodes and forwards to the
+# staging Elasticsearch cluster.
+#
+# Namespace:  logging
+# Project:    infrastructure
+# Sync:       Automated
+# Sync Wave:  1  (requires eck-stack Elasticsearch at wave 0)
+#
+# Staging overrides (relative to base values.yaml):
+#   • resources:    production-aligned medium tier
+#   • TLS verify:   disabled (self-signed ECK cert)
+#   • Log level:    info
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: fluent-bit-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: fluent-bit
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: infrastructure
+    environment: staging
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-alerts
+    description: "Fluent Bit log collector – staging environment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/fluent-bit
+    helm:
+      releaseName: fluent-bit
+      values: |
+        fluent-bit:
+          resources:
+            requests:
+              cpu: "50m"
+              memory: "64Mi"
+            limits:
+              cpu: "200m"
+              memory: "256Mi"
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: logging
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

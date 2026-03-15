@@ -1,0 +1,49 @@
+# ============================================================================
+# ECK Stack Multi-Environment Wrapper Chart
+# ============================================================================
+# Thin wrapper around the upstream elastic/eck-stack chart which deploys
+# Elasticsearch and Kibana as CRD-based resources managed by the ECK Operator.
+#
+# Chart version:          1.0.0 (wrapper)
+# Upstream chart version: 0.18.1 (pinned – update deliberately via PR)
+# Upstream repo:          https://helm.elastic.co
+# ArtifactHub:            https://artifacthub.io/packages/helm/elastic/eck-stack
+#
+# Components deployed:
+#   • Elasticsearch  (single-node local / HA for staging+production)
+#   • Kibana         (1 replica local, 2 replicas production)
+#   • Logstash       (disabled – Fluent Bit used for log shipping instead)
+#   • Elastic Agent  (disabled – optional for APM use cases)
+#
+# PREREQUISITE:
+#   The ECK Operator (eck-operator chart) MUST be deployed FIRST.
+#   Controlled via ArgoCD sync-wave: ECK operator wave -1, this chart wave 0.
+#
+# References:
+#   • https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-deploy-elasticsearch.html
+#   • https://www.elastic.co/guide/en/cloud-on-k8s/current/k8s-deploy-kibana.html
+#   • https://artifacthub.io/packages/helm/elastic/eck-stack
+# ============================================================================
+apiVersion: v2
+name: eck-stack
+description: >-
+  ECK Stack wrapper chart for the GitOps platform.
+  Wraps upstream elastic/eck-stack:0.18.1 with secure base defaults providing
+  Elasticsearch and Kibana managed via the ECK Operator.
+type: application
+version: 1.0.0
+appVersion: "8.17.3"
+keywords:
+  - elasticsearch
+  - kibana
+  - eck
+  - elastic
+  - logging
+  - observability
+  - gitops
+maintainers:
+  - name: devops-platform-team
+dependencies:
+  - name: eck-stack
+    version: "0.18.1"
+    repository: https://helm.elastic.co
