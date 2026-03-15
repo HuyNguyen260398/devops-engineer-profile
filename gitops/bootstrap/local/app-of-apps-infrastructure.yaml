@@ -1,0 +1,74 @@
+# ============================================================================
+# ArgoCD App-of-Apps – Infrastructure Root Bootstrap (LOCAL ONLY)
+# ============================================================================
+# Use this file when bootstrapping a LOCAL cluster (minikube / kind / k3s).
+# It deploys only the local-environment infrastructure Application so that
+# staging and production Applications are never accidentally created on a
+# local cluster.
+#
+# The parent file (gitops/bootstrap/app-of-apps-infrastructure.yaml) contains
+# all three environments in a single multi-document YAML. Apply that file
+# ONLY when targeting a cluster that should run all environments (e.g., a
+# shared GitOps management cluster). For local development, always use this
+# file instead.
+#
+# Required environment variables (substituted via envsubst):
+#   GIT_REPO_URL          – URL of your forked repository
+#                           e.g. https://github.com/your-org/devops-engineer-profile.git
+#   GIT_TARGET_REVISION   – Branch, tag, or commit SHA to track
+#                           e.g. main  |  feature/my-branch  |  v1.2.3
+#
+# Usage:
+#   export GIT_REPO_URL=https://github.com/your-org/devops-engineer-profile.git
+#   export GIT_TARGET_REVISION=main   # or a feature branch
+#   envsubst < gitops/bootstrap/local/app-of-apps-infrastructure.yaml | kubectl apply -f -
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: app-of-apps-infrastructure-local
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: app-of-apps-infrastructure
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: bootstrap
+    environment: local
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+  annotations:
+    argocd.argoproj.io/manifest-generate-paths: .
+    description: "Root App-of-Apps for local infrastructure components"
+spec:
+  project: default
+
+  source:
+    repoURL: ${GIT_REPO_URL}
+    targetRevision: ${GIT_TARGET_REVISION}
+    path: gitops/application-plane/local/infrastructure
+    # No directory block: ArgoCD auto-detects kustomization.yaml and uses
+    # Kustomize mode, correctly processing kustomization.yaml as a build config.
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+
+  revisionHistoryLimit: 10

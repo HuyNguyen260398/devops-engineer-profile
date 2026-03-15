@@ -149,15 +149,25 @@ kubectl get appprojects -n argocd
 The infrastructure App-of-Apps watches `gitops/application-plane/local/infrastructure/` and auto-deploys `kube-prometheus-stack-local` at **sync wave 0** — before any application workloads.
 
 ```bash
-# Set your forked repository URL
+# Set your forked repository URL and the branch/tag/SHA to track
 export GIT_REPO_URL=https://github.com/your-org/devops-engineer-profile.git
+export GIT_TARGET_REVISION=main   # replace with a feature branch if needed, e.g. feature/my-branch
 
-# Apply the infrastructure root Application
-envsubst < gitops/bootstrap/app-of-apps-infrastructure.yaml | kubectl apply -f -
+# Apply the LOCAL-ONLY infrastructure root Application
+envsubst < gitops/bootstrap/local/app-of-apps-infrastructure.yaml | kubectl apply -f -
 ```
 
 > [!IMPORTANT]
-> The `repoURL` in the Application manifests is a placeholder. `GIT_REPO_URL` must point to your fork or the sync will fail with a repository not found error.
+> Use `gitops/bootstrap/local/app-of-apps-infrastructure.yaml` — **not** the parent file
+> `gitops/bootstrap/app-of-apps-infrastructure.yaml`. The parent file is a multi-document YAML
+> that contains local, staging, and production Applications. Applying it to a local cluster
+> creates all three root Applications simultaneously, causing staging and production workloads
+> to be deployed alongside local ones. The local-specific file contains only the
+> `app-of-apps-infrastructure-local` Application.
+>
+> Both `GIT_REPO_URL` and `GIT_TARGET_REVISION` must be set. `GIT_TARGET_REVISION` accepts any
+> branch name, tag, or commit SHA — use this to test infrastructure changes on a feature branch
+> before merging to `main`.
 
 **Watch the rollout** (CRD installation takes 1–2 minutes on first sync):
 
@@ -479,6 +489,52 @@ helm upgrade --install argocd argo/argo-cd --namespace argocd --version 9.4.7 --
 # Force a hard refresh and re-sync
 argocd app get <app-name> --hard-refresh
 argocd app sync <app-name>
+```
+
+### Staging and production Applications appear on the ArgoCD dashboard
+
+**Cause:** The bootstrap file `gitops/bootstrap/app-of-apps-infrastructure.yaml` is a
+multi-document YAML containing local, staging, and production root Applications. Running
+`kubectl apply -f -` against that file creates all three, causing ArgoCD to auto-sync
+staging and production application sets on the local cluster.
+
+**Fix:** Strip finalizers from all staging/production Applications (to prevent cascade-
+deletion of shared namespaces such as `monitoring` and `logging` which local apps also use),
+then delete them by environment label.
+
+```powershell
+# 1. Remove finalizers from all staging Applications
+kubectl get applications -n argocd -l environment=staging -o name | `
+  ForEach-Object { kubectl patch $_ -n argocd --type=merge -p '{"metadata":{"finalizers":[]}}' }
+
+# 2. Remove finalizers from all production Applications
+kubectl get applications -n argocd -l environment=production -o name | `
+  ForEach-Object { kubectl patch $_ -n argocd --type=merge -p '{"metadata":{"finalizers":[]}}' }
+
+# 3. Delete all staging and production Applications
+kubectl delete applications -n argocd -l environment=staging
+kubectl delete applications -n argocd -l environment=production
+
+# 4. Confirm only local Applications remain
+kubectl get applications -n argocd
+```
+
+Expected output after cleanup — only five local Applications:
+
+```
+app-of-apps-infrastructure-local   ...
+eck-operator-local                 ...
+eck-stack-local                    ...
+fluent-bit-local                   ...
+kube-prometheus-stack-local        ...
+```
+
+**Prevention:** Always bootstrap the local infrastructure using the local-specific file:
+
+```bash
+export GIT_REPO_URL=https://github.com/your-org/devops-engineer-profile.git
+export GIT_TARGET_REVISION=main
+envsubst < gitops/bootstrap/local/app-of-apps-infrastructure.yaml | kubectl apply -f -
 ```
 
 ### Elasticsearch stuck in `yellow` or `red` health
