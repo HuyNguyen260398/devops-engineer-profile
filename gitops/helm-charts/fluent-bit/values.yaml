@@ -182,6 +182,9 @@ fluent-bit:
     interval: 30s
     path: /api/v1/metrics/prometheus
     namespace: logging
+    # selector must be a flat key:value map — the chart passes this directly
+    # to both metadata.labels and spec.selector.matchLabels. Nesting under
+    # matchLabels: produces an object-valued label and fails ArgoCD dry-run
+    # with: "cannot unmarshal object into ObjectMeta.metadata.labels of type string"
     selector:
-      matchLabels:
-        app.kubernetes.io/name: fluent-bit
+      app.kubernetes.io/name: fluent-bit

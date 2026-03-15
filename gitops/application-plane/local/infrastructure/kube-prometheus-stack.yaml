@@ -41,7 +41,7 @@ spec:
   project: infrastructure
   source:
     repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
-    targetRevision: main
+    # targetRevision is set centrally via kustomization.yaml patches
     path: gitops/helm-charts/kube-prometheus-stack
     helm:
       releaseName: kube-prometheus-stack
@@ -104,6 +104,13 @@ spec:
             # the entire webhook avoids both the cert-patching Job conflict and
             # the TLS verification failure on PrometheusRule admission calls.
             admissionWebhooks:
+              enabled: false
+            # Disable the operator's own TLS server so it does not try to
+            # mount the kube-prometheus-stack-admission secret. Without this,
+            # even with admissionWebhooks.enabled:false the operator pod stays
+            # Pending with FailedMount because the Job that creates the secret
+            # is also disabled.
+            tls:
               enabled: false
             resources:
               requests:

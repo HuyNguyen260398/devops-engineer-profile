@@ -11,3 +11,17 @@ resources:
   - eck-operator.yaml
   - eck-stack.yaml
   - fluent-bit.yaml
+
+# ── Centralised targetRevision override ─────────────────────────────────────
+# All child Application resources in this directory inherit targetRevision from
+# this single patch. To test on a feature branch, change the value below and
+# push — ArgoCD will auto-reconcile all four Applications to the new revision.
+# When merging back to main, reset the value to 'main'.
+patches:
+  - target:
+      group: argoproj.io
+      kind: Application
+    patch: |-
+      - op: replace
+        path: /spec/source/targetRevision
+        value: feature/update-gitops-local-bootstrap
