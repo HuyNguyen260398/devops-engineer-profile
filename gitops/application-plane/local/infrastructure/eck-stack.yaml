@@ -36,7 +36,7 @@ spec:
   project: infrastructure
   source:
     repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git # UPDATE THIS
-    targetRevision: main
+    # targetRevision is set centrally via kustomization.yaml patches
     path: gitops/helm-charts/eck-stack
     helm:
       releaseName: eck-stack
