@@ -304,8 +304,7 @@ open https://$(minikube ip):32601     # minikube
 **Retrieve the Elastic password (ECK auto-generates it):**
 
 ```bash
-kubectl get secret elasticsearch-es-elastic-user -n logging \
-  -o jsonpath='{.data.elastic}' | base64 -d && echo
+kubectl get secret elasticsearch-es-elastic-user -n logging -o jsonpath='{.data.elastic}' | base64 -d && echo
 ```
 
 Login with username `elastic` and the retrieved password.
