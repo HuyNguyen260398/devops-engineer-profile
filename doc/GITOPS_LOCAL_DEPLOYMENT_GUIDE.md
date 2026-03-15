@@ -5,15 +5,15 @@ post_slug: "gitops-local-deployment-guide"
 microsoft_alias: ""
 featured_image: ""
 categories: []
-tags: ["kubernetes", "monitoring", "prometheus", "grafana", "jenkins", "local-dev", "gitops", "argocd"]
+tags: ["kubernetes", "monitoring", "prometheus", "grafana", "jenkins", "local-dev", "gitops", "argocd", "elk", "elasticsearch", "kibana", "fluent-bit", "logging"]
 ai_note: "Assisted"
-summary: "Step-by-step guide to bootstrap the full GitOps platform locally — ArgoCD, kube-prometheus-stack, and Jenkins — using minikube, kind, or k3s."
-post_date: "2026-03-12"
+summary: "Step-by-step guide to bootstrap the full GitOps platform locally — ArgoCD, kube-prometheus-stack (observability), ELK Stack (logging), and Jenkins — using minikube, kind, or k3s."
+post_date: "2026-03-15"
 ---
 
 ## GitOps Local Deployment Guide
 
-This guide walks through the complete bootstrap sequence for the local development environment: ArgoCD, the observability stack (`kube-prometheus-stack`), and Jenkins. All services are managed via GitOps — no manual `helm install` required after the initial bootstrap.
+This guide walks through the complete bootstrap sequence for the local development environment: ArgoCD, the observability stack (`kube-prometheus-stack`), the logging stack (ELK — ECK Operator, Elasticsearch, Kibana, Fluent Bit), and Jenkins. All services are managed via GitOps — no manual `helm install` required after the initial bootstrap.
 
 > [!NOTE]
 > All commands assume you are running from the **repository root** (`c:\Workspace\devops-engineer-profile` or equivalent).
@@ -110,6 +110,9 @@ argocd-redis                              1/1   Running
 ```bash
 # Get the initial admin password
 kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.password}' | base64 -d && echo
+
+# PowerShell (Windows) users may need to decode with:
+[System.Text.Encoding]::UTF8.GetString([System.Convert]::FromBase64String((kubectl get secret argocd-initial-admin-secret --namespace argocd --output jsonpath="{.data.password}")))
 
 open http://localhost:30080   # kind / k3s / Docker Desktop
 # minikube: open http://$(minikube ip):30080
@@ -273,6 +276,23 @@ kubectl get secret elasticsearch-es-elastic-user -n logging \
 ```
 
 Login with username `elastic` and the retrieved password.
+
+### Log Pipeline
+
+Fluent Bit collects logs from every node, enriches them with Kubernetes metadata, and forwards them to Elasticsearch:
+
+```
+/var/log/pods/**/*.log
+  → [INPUT: tail]              (multiline Docker/CRI format)
+  → [FILTER: kubernetes]       (Kubernetes metadata enrichment)
+  → [OUTPUT: elasticsearch]    (index: kube.<namespace>.<date>, TLS enabled)
+```
+
+Logs are indexed as `kube.<namespace>.<date>` in Elasticsearch. Search them in Kibana via the **Discover** view using the `kube-*` index pattern.
+
+### Fluent Bit + Prometheus Integration
+
+Fluent Bit exposes metrics (input records, output retries, dropped records) on port `2020/api/v1/metrics/prometheus`. These are auto-scraped by Prometheus via the `ServiceMonitor` resource that Fluent Bit deploys. To visualise them, import the [Fluent Bit Grafana dashboard (ID 7752)](https://grafana.com/grafana/dashboards/7752) in your local Grafana instance.
 
 ---
 
@@ -460,6 +480,59 @@ helm upgrade --install argocd argo/argo-cd --namespace argocd --version 9.4.7 --
 argocd app get <app-name> --hard-refresh
 argocd app sync <app-name>
 ```
+
+### Elasticsearch stuck in `yellow` or `red` health
+
+This usually means the single-node local cluster cannot form a quorum or the PVC is not bound.
+
+```bash
+# Check Elasticsearch phase and conditions
+kubectl get elasticsearch -n logging
+kubectl describe elasticsearch elasticsearch -n logging
+
+# Check the pod for errors
+kubectl describe pod elasticsearch-es-default-0 -n logging
+kubectl logs elasticsearch-es-default-0 -n logging
+```
+
+Common causes and fixes:
+
+- **PVC not bound** — run `kubectl get pvc -n logging` and check for `Pending` status. Ensure the `standard` storage class is available (see [Pods stuck in Pending](#pods-stuck-in-pending--storage-class-missing) above).
+- **JVM heap too small** — the local values set a reduced heap for resource efficiency. If the node has insufficient memory, Elasticsearch will OOM. Increase Docker/VM memory allocation.
+- **Previous data volume conflict** — delete the old PVC if re-deploying from scratch: `kubectl delete pvc --all -n logging`.
+
+### Kibana shows `Could not connect to Elasticsearch`
+
+Kibana starts before Elasticsearch is fully ready. Wait for Elasticsearch to reach `green` health:
+
+```bash
+kubectl get elasticsearch -n logging -w
+```
+
+Once `HEALTH: green` and `PHASE: Ready`, Kibana will reconnect automatically. Force a Kibana pod restart if it remains stuck:
+
+```bash
+kubectl rollout restart deployment kibana-kb -n logging
+```
+
+### Fluent Bit not collecting logs
+
+If logs are not appearing in Kibana's Discover view:
+
+```bash
+# Check the DaemonSet is fully deployed
+kubectl get daemonset -n logging
+kubectl get pods -n logging -l app.kubernetes.io/name=fluent-bit
+
+# Inspect Fluent Bit logs for output errors
+kubectl logs -n logging -l app.kubernetes.io/name=fluent-bit --tail=50
+
+# Verify the Elasticsearch output target resolves
+kubectl exec -n logging -l app.kubernetes.io/name=fluent-bit -- \
+  wget -qO- --no-check-certificate https://elasticsearch-es-http:9200 2>&1 | head -5
+```
+
+Common cause: ECK generates a self-signed TLS certificate. The Fluent Bit `values.yaml` already sets `tls.verify Off` for local environments. If a custom chart version is used, confirm that setting is present.
 
 ---
 
