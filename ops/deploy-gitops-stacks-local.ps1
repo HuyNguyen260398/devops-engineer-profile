@@ -1111,20 +1111,43 @@ function Show-MainMenu {
         Interactive numbered menu. Loops until the user selects Exit.
     #>
     do {
+        # Compute dynamic box width so the frame always fits the longest line
+        $title     = '  GitOps Local Stack — Deployment Manager'
+        $infoLines = @(
+            "  Repo  : $($script:ParamRepoUrl)",
+            "  Rev   : $($script:ParamTargetRevision)",
+            "  Root  : $($script:RepoRoot)"
+        )
+        $menuLines = @(
+            '  [1] Deploy full stack',
+            '  [2] Deploy individual step',
+            '  [3] Check platform status',
+            '  [4] Cleanup / Teardown',
+            '  [5] Exit'
+        )
+
+        # Inner width = longest content + 2 (right-side padding), minimum 56
+        $maxLen  = (@($title) + $infoLines + $menuLines |
+                    Measure-Object -Property Length -Maximum).Maximum
+        $innerW  = [Math]::Max($maxLen + 2, 56)
+
+        $hBorder = '═' * $innerW
+        $top     = "╔$hBorder╗"
+        $sep     = "╠$hBorder╣"
+        $bot     = "╚$hBorder╝"
+
         Write-Host ''
-        Write-Host '╔══════════════════════════════════════════════════════════╗' -ForegroundColor Cyan
-        Write-Host '║       GitOps Local Stack — Deployment Manager           ║' -ForegroundColor Cyan
-        Write-Host '╠══════════════════════════════════════════════════════════╣' -ForegroundColor Cyan
-        Write-Host "║  Repo  : $($script:ParamRepoUrl.PadRight(50).Substring(0,50)) ║" -ForegroundColor Cyan
-        Write-Host "║  Rev   : $($script:ParamTargetRevision.PadRight(50).Substring(0,50)) ║" -ForegroundColor Cyan
-        Write-Host "║  Root  : $($script:RepoRoot.PadRight(50).Substring(0,50)) ║" -ForegroundColor Cyan
-        Write-Host '╠══════════════════════════════════════════════════════════╣' -ForegroundColor Cyan
-        Write-Host '║  [1] Deploy full stack                                  ║'
-        Write-Host '║  [2] Deploy individual step                             ║'
-        Write-Host '║  [3] Check platform status                              ║'
-        Write-Host '║  [4] Cleanup / Teardown                                 ║'
-        Write-Host '║  [5] Exit                                               ║'
-        Write-Host '╚══════════════════════════════════════════════════════════╝' -ForegroundColor Cyan
+        Write-Host $top -ForegroundColor Cyan
+        Write-Host "║$($title.PadRight($innerW))║" -ForegroundColor Cyan
+        Write-Host $sep -ForegroundColor Cyan
+        foreach ($line in $infoLines) {
+            Write-Host "║$($line.PadRight($innerW))║" -ForegroundColor Cyan
+        }
+        Write-Host $sep -ForegroundColor Cyan
+        foreach ($line in $menuLines) {
+            Write-Host "║$($line.PadRight($innerW))║"
+        }
+        Write-Host $bot -ForegroundColor Cyan
         Write-Host ''
 
         $choice = Read-Host 'Select option'
