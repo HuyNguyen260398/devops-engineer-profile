@@ -105,6 +105,13 @@ spec:
             # the TLS verification failure on PrometheusRule admission calls.
             admissionWebhooks:
               enabled: false
+            # Disable the operator's own TLS server so it does not try to
+            # mount the kube-prometheus-stack-admission secret. Without this,
+            # even with admissionWebhooks.enabled:false the operator pod stays
+            # Pending with FailedMount because the Job that creates the secret
+            # is also disabled.
+            tls:
+              enabled: false
             resources:
               requests:
                 cpu: "50m"
