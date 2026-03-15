@@ -150,6 +150,52 @@ configs:
       p, role:tenant-admin, applications, *, */*, allow
       p, role:tenant-admin, logs, get, */*, allow
 
+  # ── Custom Health Checks (Lua) ──────────────────────────────────────────
+  # ArgoCD has no built-in knowledge of ECK CRDs. Without these scripts it
+  # cannot evaluate Elasticsearch/Kibana health and defaults the application
+  # status to Progressing indefinitely.
+  #
+  # Logic:
+  #   Elasticsearch: green OR yellow → Healthy (yellow is expected on a
+  #     single-node cluster — no replica shards can be placed).
+  #   Kibana:        green OR yellow → Healthy.
+  #   Anything else                 → Progressing (still initialising).
+  cm:
+    resource.customizations.health.elasticsearch.k8s.elastic.co_Elasticsearch: |
+      hs = {}
+      if obj.status ~= nil then
+        local health = obj.status.health or ""
+        local phase  = obj.status.phase  or "unknown"
+        if health == "green" or health == "yellow" or phase == "Ready" then
+          hs.status  = "Healthy"
+          hs.message = "Elasticsearch phase=" .. phase .. " health=" .. health
+        else
+          hs.status  = "Progressing"
+          hs.message = "Elasticsearch phase=" .. phase .. " health=" .. health
+        end
+      else
+        hs.status  = "Progressing"
+        hs.message = "Waiting for Elasticsearch status"
+      end
+      return hs
+
+    resource.customizations.health.kibana.k8s.elastic.co_Kibana: |
+      hs = {}
+      if obj.status ~= nil then
+        local health = obj.status.health or ""
+        if health == "green" or health == "yellow" then
+          hs.status  = "Healthy"
+          hs.message = "Kibana health=" .. health
+        else
+          hs.status  = "Progressing"
+          hs.message = "Kibana health=" .. health
+        end
+      else
+        hs.status  = "Progressing"
+        hs.message = "Waiting for Kibana status"
+      end
+      return hs
+
   params:
     server.insecure: false
     controller.status.processors: 20
