@@ -60,38 +60,39 @@ devops-engineer-profile/
 ### High-Level System Diagram (C4 Context)
 
 ```
-┌─────────────────────────────────────────────────────────────────────────────────┐
-│                              GitHub Repository                                   │
-│   (Single source of truth for code, infrastructure, and desired cluster state)   │
+┌───────────────────────────────────────────────────────────────────────────────────┐
+│                                 GitHub Repository                                 │
+│       (Single source of truth for code, infrastructure, and desired state)        │
 │                                                                                   │
-│   ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐       │
-│   │   src/        │  │   inf/        │  │   gitops/     │  │   ops/        │       │
-│   │ Portfolio     │  │ Terraform +   │  │ ArgoCD Apps   │  │ Python/Shell  │       │
-│   │ Website       │  │ CloudFormation│  │ Helm Charts   │  │ Automation    │       │
-│   └──────┬───────┘  └──────┬────────┘  └──────┬────────┘  └──────────────┘       │
-└──────────┼────────────────┼────────────────────┼──────────────────────────────────┘
-           │                │                    │
-           │  push:main     │  PR → tf plan      │  reconcile loop
-           ▼                ▼                    ▼
-┌──────────────────┐  ┌────────────────┐  ┌─────────────────────────────────────────┐
-│  GitHub Actions  │  │ GitHub Actions  │  │         AWS EKS Cluster                 │
-│  aws-s3-web-     │  │ terraform-      │  │                                         │
-│  sync-prod.yml   │  │ plan/apply/     │  │  ┌─────────────┐                        │
-│                  │  │ validation.yml  │  │  │   ArgoCD     │◄── git pull (gitops/)  │
-│  uses OIDC →     │  │                 │  │  │  GitOps Ctrl │                        │
-│  AWS IAM Role    │  │  uses OIDC →    │  │  └──────┬──────┘                        │
-└──────────┬───────┘  │  AWS IAM Role   │  │         │ deploys                       │
-           │          └────────┬────────┘  │  ┌──────▼───────────────────────────┐  │
-           ▼                   │           │  │  Infrastructure Plane (waves -1…1) │  │
-┌──────────────────┐           ▼           │  │  kube-prometheus-stack             │  │
-│   AWS S3 Bucket  │  ┌────────────────┐  │  │  ECK Operator + Elasticsearch      │  │
-│  (Static Website)│  │  AWS Resources  │  │  │  Fluent Bit DaemonSet              │  │
-│  CloudFront CDN  │  │  EKS, VPC, IAM  │  │  └────────────────────────────────────┘  │
-│  (Resume PDF)    │  │  KMS, S3, OAC   │  │  ┌──────▼───────────────────────────┐  │
-└──────────────────┘  └────────────────┘  │  │  Application Plane  (waves 2–5)    │  │
-                                           │  │  Jenkins: basic / advanced / premium│  │
-                                           │  └────────────────────────────────────┘  │
-                                           └─────────────────────────────────────────┘
+│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐   │
+│  │ src/           │  │ inf/           │  │ gitops/        │  │ ops/           │   │
+│  │ Portfolio      │  │ Terraform +    │  │ ArgoCD Apps    │  │ Python/Shell   │   │
+│  │ Website        │  │ CloudFormation │  │ Helm Charts    │  │ Automation     │   │
+│  └────────┬───────┘  └────────┬───────┘  └────────┬───────┘  └────────────────┘   │
+└───────────┼───────────────────┼───────────────────┼───────────────────────────────┘
+            │  push:main        │  PR → tf plan     │  reconcile loop
+            ▼                   ▼                   ▼
+
+┌────────────────────┐  ┌────────────────────┐  ┌──────────────────────────────────────┐
+│ GitHub Actions     │  │ GitHub Actions     │  │  AWS EKS Cluster                     │
+│ (aws-s3-web-sync)  │  │ terraform-plan/    │  │                                      │
+│                    │  │ apply/validate     │  │  ┌────────────────────────────────┐  │
+│ OIDC → IAM Role    │  │ OIDC → IAM Role    │  │  │ ArgoCD  ◄── git pull (gitops/) │  │
+└────────────────────┘  └────────────────────┘  │  └────────────────┬───────────────┘  │
+           │                   │                │                   │ deploys          │
+           │                   │                │                   ▼                  │
+           ▼                   ▼                │  ┌────────────────────────────────┐  │
+                                                │  │ Infrastructure Plane (w: -1..1)│  │
+┌────────────────────┐  ┌────────────────────┐  │  │  kube-prometheus-stack         │  │
+│ AWS S3 Bucket      │  │ AWS Resources      │  │  │  ECK Operator + Elasticsearch  │  │
+│ (Portfolio site)   │  │ EKS, VPC, IAM      │  │  │  Fluent Bit DaemonSet          │  │
+│ CloudFront CDN     │  │ KMS, S3, OAC       │  │  └────────────────────────────────┘  │
+│ (Resume PDF)       │  │                    │  │  ┌────────────────────────────────┐  │
+└────────────────────┘  └────────────────────┘  │  │ Application Plane  (waves 2-5) │  │
+                                                │  │  Jenkins: basic / advanced /   │  │
+                                                │  │  premium                       │  │
+                                                │  └────────────────────────────────┘  │
+                                                └──────────────────────────────────────┘
 ```
 
 ### CI/CD Pipeline Flow
