@@ -28,6 +28,12 @@
   - [Accessing Kibana](#accessing-kibana)
   - [Log Pipeline](#log-pipeline)
   - [Retrieve the Elastic Password](#retrieve-the-elastic-password)
+- [AWX Ansible Automation Platform Deployment](#awx-ansible-automation-platform-deployment)
+  - [AWX Components Deployed](#awx-components-deployed)
+  - [Deployed Instances (AWX)](#deployed-instances-awx)
+  - [Accessing AWX](#accessing-awx)
+  - [Retrieve the AWX Admin Password](#retrieve-the-awx-admin-password)
+  - [AWX CRD Notes](#awx-crd-notes)
 - [Tenant Management](#tenant-management)
   - [Onboarding a New Tenant](#onboarding-a-new-tenant)
   - [Offboarding a Tenant](#offboarding-a-tenant)
@@ -75,6 +81,11 @@
 │  │  │  namespace: logging (wave 0-1)                   │     │      │
 │  │  │  Elasticsearch │ Kibana │ Fluent Bit (DaemonSet) │     │      │
 │  │  └──────────────────────────────────────────────────┘     │      │
+│  │  ┌──────────────────────────────────────────────────┐     │      │
+│  │  │  namespace: awx (wave -1)                        │     │      │
+│  │  │  AWX Operator + AWX instance (Web │ Task │ EE)   │     │      │
+│  │  │  PostgreSQL │ Redis  (bundled, managed by op.)   │     │      │
+│  │  └──────────────────────────────────────────────────┘     │      │
 │  └────────┬──────────────────────────────────────────────────┘      │
 │  ┌────────┴──────────────────────────────────────────────────┐      │
 │  │       Application Plane  (sync waves 2–6)                 │      │
@@ -113,6 +124,9 @@ gitops/
 │   └── fluent-bit/
 │       ├── Chart.yaml                     # Wrapper chart (upstream fluent/fluent-bit:0.49.1)
 │       └── values.yaml                    # DaemonSet log pipeline → Elasticsearch
+│   └── awx-operator/
+│       ├── Chart.yaml                     # Wrapper chart (upstream awx-operator:3.2.1, app 2.19.1)
+│       └── values.yaml                    # AWX Operator + AWX CR secure defaults
 ├── bootstrap/                             # ArgoCD installation and bootstrap
 │   ├── argocd/
 │   │   ├── namespace.yaml                 # ArgoCD namespace with pod security
@@ -133,7 +147,8 @@ gitops/
 │   │   │   ├── kube-prometheus-stack.yaml # Prometheus + Grafana + Alertmanager (30d, HA, gp3)
 │   │   │   ├── eck-operator.yaml          # ECK Operator (wave -1, elastic-system namespace)
 │   │   │   ├── eck-stack.yaml             # Elasticsearch 3-node HA + Kibana (wave 0, 100Gi)
-│   │   │   └── fluent-bit.yaml            # Fluent Bit DaemonSet → Elasticsearch (wave 1)
+│   │   │   ├── fluent-bit.yaml            # Fluent Bit DaemonSet → Elasticsearch (wave 1)
+│   │   │   └── awx-operator.yaml          # AWX Operator + AWX CR (wave -1, 50Gi gp3)
 │   │   ├── pooled-envs/
 │   │   │   ├── kustomization.yaml
 │   │   │   └── pool-1.yaml                # Jenkins shared pool (basic tier, production)
@@ -156,7 +171,8 @@ gitops/
 │   │   │   ├── kube-prometheus-stack.yaml # Prometheus + Grafana + Alertmanager (7d, gp3)
 │   │   │   ├── eck-operator.yaml          # ECK Operator (wave -1)
 │   │   │   ├── eck-stack.yaml             # Elasticsearch 3-node + Kibana (wave 0, 30Gi)
-│   │   │   └── fluent-bit.yaml            # Fluent Bit DaemonSet → Elasticsearch (wave 1)
+│   │   │   ├── fluent-bit.yaml            # Fluent Bit DaemonSet → Elasticsearch (wave 1)
+│   │   │   └── awx-operator.yaml          # AWX Operator + AWX CR (wave -1, 20Gi gp3)
 │   │   ├── pooled-envs/
 │   │   │   ├── kustomization.yaml
 │   │   │   └── pool-1.yaml                # Jenkins shared pool (basic tier, staging)
@@ -176,7 +192,8 @@ gitops/
 │       │   ├── kube-prometheus-stack.yaml # Prometheus + Grafana (3d, standard, NodePort 32300)
 │       │   ├── eck-operator.yaml          # ECK Operator (wave -1)
 │       │   ├── eck-stack.yaml             # Elasticsearch 1-node + Kibana (wave 0, 5Gi standard)
-│       │   └── fluent-bit.yaml            # Fluent Bit DaemonSet → Elasticsearch (wave 1)
+│       │   ├── fluent-bit.yaml            # Fluent Bit DaemonSet → Elasticsearch (wave 1)
+│       │   └── awx-operator.yaml          # AWX Operator + AWX CR (wave -1, 8Gi hostpath, NodePort 32080)
 │       ├── pooled-envs/
 │       │   ├── kustomization.yaml
 │       │   └── pool-1.yaml                # Jenkins shared pool (basic tier, local)
@@ -244,13 +261,13 @@ Two root Applications bootstrap the platform:
 
 **Sync wave ordering ensures dependencies are respected:**
 
-| Wave  | Scope                    | Examples                                                  |
-| ----- | ------------------------ | --------------------------------------------------------- |
-| `-1`  | Operator CRDs            | eck-operator (ECK CRDs must precede eck-stack)            |
-| `0`   | Infrastructure stacks    | kube-prometheus-stack, eck-stack (Elasticsearch + Kibana) |
-| `1`   | Log collection + pools   | fluent-bit, Jenkins pool-1                                |
-| `2–4` | Basic / Advanced tenants | Jenkins basic, advanced                                   |
-| `5`   | Premium tenants          | Jenkins premium                                           |
+| Wave  | Scope                    | Examples                                                                      |
+| ----- | ------------------------ | ----------------------------------------------------------------------------- |
+| `-1`  | Operator CRDs            | eck-operator (ECK CRDs must precede eck-stack), awx-operator (AWX CRDs)      |
+| `0`   | Infrastructure stacks    | kube-prometheus-stack, eck-stack (Elasticsearch + Kibana)                     |
+| `1`   | Log collection + pools   | fluent-bit, Jenkins pool-1                                                    |
+| `2–4` | Basic / Advanced tenants | Jenkins basic, advanced                                                       |
+| `5`   | Premium tenants          | Jenkins premium                                                               |
 
 ---
 
@@ -610,7 +627,86 @@ Fluent Bit metrics (input records, output retries, dropped records) are scraped 
 
 ---
 
-## Tenant Management
+## AWX Ansible Automation Platform Deployment
+
+AWX is the open-source upstream project of Red Hat Ansible Automation Platform. It provides a web-based UI, REST API, and task engine for managing Ansible playbooks and inventories at scale. It is managed by the `infrastructure` AppProject and runs in the dedicated `awx` namespace at **sync wave -1** — the same wave as the ECK operator, because it installs CRDs before the AWX Controller reconciles the AWX Custom Resource.
+
+> **Deploy order:** AWX Operator installs CRDs + controller + AWX CR (all in wave -1). The operator reconciles the AWX CR to provision the full AWX stack (web, task, EE, PostgreSQL, Redis).
+
+### AWX Components Deployed
+
+| Component              | Purpose                                                        | Namespace |
+| ---------------------- | -------------------------------------------------------------- | --------- |
+| **AWX Operator**       | Manages AWX CRDs and full stack lifecycle                      | `awx`     |
+| **AWX Web**            | Django + nginx web UI and REST API                             | `awx`     |
+| **AWX Task Runner**    | Celery workers — runs playbooks and workflow jobs              | `awx`     |
+| **AWX EE Container**   | Execution Environment — ansible-runner with bundled collections| `awx`     |
+| **PostgreSQL**         | Bundled relational DB for AWX job history, credentials, etc.   | `awx`     |
+| **Redis**              | Bundled session store and job queue message broker             | `awx`     |
+
+### Deployed Instances (AWX)
+
+| ArgoCD Application       | Environment | Namespace | Postgres Storage | AWX UI Access       | Sync            |
+| ------------------------ | ----------- | --------- | ---------------- | ------------------- | --------------- |
+| `awx-operator-local`     | local       | `awx`     | 8Gi hostpath     | NodePort 32080      | Auto            |
+| `awx-operator-staging`   | staging     | `awx`     | 20Gi gp3         | ClusterIP / Ingress | Auto            |
+| `awx-operator-production`| production  | `awx`     | 50Gi gp3         | ClusterIP / Ingress | Auto (no prune) |
+
+Production sync never auto-prunes (`prune: false`) to prevent accidental deletion of AWX job history, credentials, and inventories.
+
+### Accessing AWX
+
+**Local (NodePort):**
+```bash
+open http://localhost:32080
+# username: admin  |  retrieve password: see section below
+```
+
+**Staging / Production (port-forward):**
+```bash
+kubectl port-forward -n awx svc/awx-service 8080:80
+open http://localhost:8080
+```
+
+> **Note:** The AWX Operator may take 3–5 minutes after ArgoCD sync to fully provision the AWX stack. Monitor progress with:
+> ```bash
+> kubectl get pods -n awx -w
+> kubectl logs -n awx -l app.kubernetes.io/name=awx -f
+> ```
+
+### Retrieve the AWX Admin Password
+
+The AWX Operator generates an admin password and stores it in a Kubernetes Secret. Retrieve it with:
+
+```bash
+# Local / Staging / Production
+kubectl get secret awx-admin-password -n awx \
+  -o jsonpath='{.data.password}' | base64 -d && echo
+```
+
+Login with username `admin` and the retrieved password.
+
+> [!WARNING]
+> For staging and production, rotate the admin password after first login and manage it via [External Secrets Operator](https://external-secrets.io/) with AWS Secrets Manager. Never use the default auto-generated password for long-lived production deployments.
+
+### AWX CRD Notes
+
+The AWX Operator chart installs three CRDs (`awx.ansible.com`, `awxbackups.ansible.com`, `awxrestores.ansible.com`). All AWX Application manifests include:
+
+```yaml
+syncOptions:
+  - ServerSideApply=true
+  - Replace=true   # Guards against annotation size limit errors on CRD updates
+```
+
+When upgrading AWX Operator across versions with CRD changes, manually refresh the CRDs first:
+
+```bash
+kubectl apply --server-side -k github.com/ansible/awx-operator/config/crd?ref=<VERSION>
+# If conflict errors occur, add: --force-conflicts
+```
+
+---
 
 ### Onboarding a New Tenant
 
@@ -728,6 +824,7 @@ The workflow optionally snapshots the tenant PVC before removing the manifest fr
 | Visualisation      | Grafana (pre-built Kubernetes dashboards)       | ✅ Deployed via GitOps          |
 | Alerting           | Alertmanager + Slack + PagerDuty                | ✅ Deployed via GitOps          |
 | Logging            | Fluent Bit → Elasticsearch + Kibana (ECK)       | ✅ Deployed via GitOps          |
+| Automation         | AWX Ansible Automation Platform                 | ✅ Deployed via GitOps          |
 | Tracing            | OpenTelemetry → Jaeger                          | Recommended (not yet deployed) |
 
 ### Built-in ArgoCD Metrics
@@ -768,6 +865,8 @@ This `gitops/` directory is the **recommended successor** to the existing `ops/`
 | *(not present)*                              | `gitops/application-plane/*/pooled-envs/pool-1.yaml`               | New: shared pool Applications per environment      |
 | *(not present)*                              | `gitops/applicationsets/jenkins-appset.yaml`                       | New: Git file-based auto-discovery                 |
 | *(not present)*                              | `gitops/control-plane/workflows/`                                  | New: Argo WorkflowTemplates for tenant lifecycle   |
+| *(not present)*                              | `gitops/helm-charts/awx-operator/`                                 | New: AWX Operator + AWX CR Helm wrapper            |
+| *(not present)*                              | `gitops/application-plane/*/infrastructure/awx-operator.yaml`      | New: AWX Application manifests per environment     |
 
 ### Migration Path
 
@@ -796,6 +895,10 @@ This `gitops/` directory is the **recommended successor** to the existing `ops/`
 - [ECK Stack ArtifactHub](https://artifacthub.io/packages/helm/elastic/eck-stack)
 - [Fluent Bit Documentation](https://docs.fluentbit.io/manual/)
 - [Fluent Bit ArtifactHub](https://artifacthub.io/packages/helm/fluent/fluent-bit)
+- [AWX Operator Documentation](https://github.com/ansible/awx-operator/blob/devel/README.md)
+- [AWX Operator Helm Chart ArtifactHub](https://artifacthub.io/packages/helm/awx-operator-helm/awx-operator)
+- [AWX Operator Helm Install Guide](https://docs.ansible.com/projects/awx-operator-helm/helm-install-on-existing-cluster.html)
+- [AWX Operator Helm Chart GitHub](https://github.com/ansible-community/awx-operator-helm)
 
 ---
 

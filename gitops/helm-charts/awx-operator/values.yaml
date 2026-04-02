@@ -1,0 +1,120 @@
+# ============================================================================
+# awx-operator – Secure Base Defaults
+# ============================================================================
+# Shared defaults applied across ALL environments. Per-environment overrides
+# (resources, storageClass, service type, node ports, admin credentials) are
+# injected via the ArgoCD Application's helm.values block in
+# application-plane/{env}/infrastructure/awx-operator.yaml.
+#
+# The AWX custom resource (AWX.enabled) is intentionally disabled here and
+# MUST be enabled per-environment via the Application helm.values override.
+# This prevents accidental AWX CR creation during chart templating.
+#
+# Security notes:
+#   • AWX Operator controller runs with non-root kube-rbac-proxy
+#   • AWX pods run as non-root (configured via AWX.spec.security_context_settings)
+#   • Admin password stored in Kubernetes Secret: <awx-name>-admin-password
+#   • PostgreSQL credentials stored in Secret: <awx-name>-postgres-configuration
+#
+# References:
+#   • https://github.com/ansible/awx-operator/blob/devel/README.md
+#   • https://ansible-community.github.io/awx-operator-helm/
+#   • https://artifacthub.io/packages/helm/awx-operator-helm/awx-operator
+# ============================================================================
+
+# All values nested under the dependency name to align with Helm sub-chart
+# propagation — mirrors the kube-prometheus-stack wrapper pattern.
+awx-operator:
+
+  # ── RBAC ────────────────────────────────────────────────────────────────────
+  rbac:
+    create: true    # Creates ClusterRole/ClusterRoleBinding for the operator
+
+  # ── AWX Custom Resource ──────────────────────────────────────────────────────
+  # Disabled by default; enabled and configured per-environment via ArgoCD
+  # Application helm.values. The AWX Operator reconciles this CR to provision
+  # the full AWX stack (web, task, EE, PostgreSQL, Redis).
+  AWX:
+    enabled: false    # OVERRIDE PER ENVIRONMENT: set to true to provision AWX
+    name: awx
+
+    spec:
+      # Admin user — password auto-generated and stored in Kubernetes Secret
+      # Retrieve: kubectl get secret awx-admin-password -n awx -o jsonpath='{.data.password}' | base64 -d
+      admin_user: admin
+
+      # Security context for AWX application pods (PSS restricted-aligned)
+      security_context_settings:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+
+      # Web container security context
+      web_extra_env: []    # Inject additional env vars per environment if needed
+
+      # Resource requirements – overridden per environment
+      # local:       100m–500m CPU  | 512Mi–1Gi mem
+      # staging:     200m–1 CPU     | 1Gi–2Gi mem
+      # production:  500m–2 CPU     | 2Gi–4Gi mem
+      web_resource_requirements:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+
+      task_resource_requirements:
+        requests:
+          cpu: "200m"
+          memory: "512Mi"
+        limits:
+          cpu: "1000m"
+          memory: "2Gi"
+
+      ee_resource_requirements:
+        requests:
+          cpu: "100m"
+          memory: "256Mi"
+        limits:
+          cpu: "500m"
+          memory: "1Gi"
+
+      # PostgreSQL – bundled (managed by AWX Operator)
+      # Override postgres_storage_class per environment
+      postgres_storage_requirements:
+        requests:
+          storage: "8Gi"
+
+      # Service type – overridden per environment
+      # local: nodeport (direct browser access) | staging+production: clusterip
+      service_type: clusterip
+
+  # ── Operator Controller ──────────────────────────────────────────────────────
+  # Override resource allocations for the operator-controller-manager deployment
+  operator-controller:
+    spec:
+      template:
+        spec:
+          securityContext:
+            runAsNonRoot: true
+            seccompProfile:
+              type: RuntimeDefault
+
+  # ── Operator Controller Container Overrides ──────────────────────────────────
+  # Merge-patch for individual containers in the operator controller deployment
+  operator-controller-containers:
+    kube-rbac-proxy:
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL
+    awx-manager:
+      securityContext:
+        runAsNonRoot: true
+        allowPrivilegeEscalation: false
+        capabilities:
+          drop:
+            - ALL

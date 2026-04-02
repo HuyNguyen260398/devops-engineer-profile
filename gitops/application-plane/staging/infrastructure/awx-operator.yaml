@@ -1,0 +1,119 @@
+# ============================================================================
+# awx-operator – Staging Environment
+# ============================================================================
+# Deploys the AWX Operator and provisions an AWX instance in the awx namespace
+# for staging (AWS EKS).
+#
+# Namespace:  awx
+# Project:    infrastructure
+# Sync:       Automated
+# Sync Wave:  -1  (installs AWX CRDs before any workload that depends on them)
+#
+# Staging overrides (relative to base values.yaml):
+#   • AWX.enabled:         true       (provision AWX CR)
+#   • service_type:        clusterip  (access via ClusterIP / Ingress)
+#   • storageClass:        gp3        (AWS EKS)
+#   • postgresStorage:     20Gi       (staging sizing)
+#   • resources:           moderate   (staging workload capacity)
+#
+# AWX Admin Password:
+#   kubectl get secret awx-admin-password -n awx \
+#     -o jsonpath='{.data.password}' | base64 -d && echo
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: awx-operator-staging
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: awx-operator
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: infrastructure
+    environment: staging
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-alerts
+    description: "AWX Ansible Automation Platform – staging environment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/awx-operator
+    helm:
+      releaseName: awx-operator
+      values: |
+        awx-operator:
+          AWX:
+            enabled: true
+            name: awx
+            spec:
+              admin_user: admin
+              # ── Service ─────────────────────────────────────────────────
+              service_type: clusterip
+
+              # ── Storage (AWS EKS gp3) ────────────────────────────────────
+              postgres_storage_class: gp3
+              postgres_storage_requirements:
+                requests:
+                  storage: "20Gi"
+
+              # ── Web Container ────────────────────────────────────────────
+              web_resource_requirements:
+                requests:
+                  cpu: "200m"
+                  memory: "1Gi"
+                limits:
+                  cpu: "1000m"
+                  memory: "2Gi"
+
+              # ── Task Container ───────────────────────────────────────────
+              task_resource_requirements:
+                requests:
+                  cpu: "200m"
+                  memory: "1Gi"
+                limits:
+                  cpu: "1000m"
+                  memory: "2Gi"
+
+              # ── Execution Environment Container ──────────────────────────
+              ee_resource_requirements:
+                requests:
+                  cpu: "100m"
+                  memory: "256Mi"
+                limits:
+                  cpu: "500m"
+                  memory: "1Gi"
+
+              # ── Security Context (PSS restricted-aligned) ────────────────
+              security_context_settings:
+                runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: awx
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - Replace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+  revisionHistoryLimit: 10

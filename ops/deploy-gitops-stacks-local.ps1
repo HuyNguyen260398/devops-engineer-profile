@@ -84,6 +84,7 @@ $script:MonitoringNamespace         = 'monitoring'
 $script:LoggingNamespace            = 'logging'
 $script:ElasticSystemNamespace      = 'elastic-system'
 $script:JenkinsPoolNamespace        = 'pool-1-local'
+$script:AWXNamespace                = 'awx'
 
 # Timeout constants (seconds) — increase on under-resourced machines
 $script:TimeoutArgoCDInstall        = 600
@@ -95,6 +96,7 @@ $script:TimeoutNamespaceDel         = 120
 $script:TimeoutMonitoringDel        = 120
 $script:TimeoutLoggingDel           = 120
 $script:TimeoutElasticDel           = 60
+$script:TimeoutAWXDel               = 180
 
 # Log level ordering
 $script:LogLevelOrder = @{ debug = 0; info = 1; warn = 2; error = 3 }
@@ -711,7 +713,9 @@ function Get-PlatformStatus {
         @{ Label = "Pods (elastic-system)";       Args = @('kubectl','get','pods','-n',$script:ElasticSystemNamespace) },
         @{ Label = "Pods (logging)";              Args = @('kubectl','get','pods','-n',$script:LoggingNamespace) },
         @{ Label = "Pods ($($script:JenkinsPoolNamespace))";  Args = @('kubectl','get','pods','-n',$script:JenkinsPoolNamespace) },
-        @{ Label = 'Elasticsearch health';        Args = @('kubectl','get','elasticsearch','-n',$script:LoggingNamespace) }
+        @{ Label = 'Elasticsearch health';        Args = @('kubectl','get','elasticsearch','-n',$script:LoggingNamespace) },
+        @{ Label = "Pods (awx)";                  Args = @('kubectl','get','pods','-n',$script:AWXNamespace) },
+        @{ Label = 'AWX instances';               Args = @('kubectl','get','awx','-n',$script:AWXNamespace) }
     )
 
     foreach ($check in $checks) {
@@ -876,6 +880,52 @@ function Remove-InfrastructureApp {
 
     Write-Log info '====== Cleanup C3 COMPLETE ======'
 }
+    <#
+    .SYNOPSIS
+        Cleanup C3b — Patches finalizer on the AWX Operator Application, deletes it,
+        waits for ArgoCD cascade to remove AWX workloads, and explicitly removes the
+        awx namespace along with any orphaned PVCs (PostgreSQL data).
+    #>
+    Write-Log info '====== Cleanup C3b: Remove AWX Operator App ======'
+
+    try {
+        Invoke-CommandSafe kubectl, 'patch', 'application', 'awx-operator-local',
+            '-n', $script:ArgoCDNamespace, '--type=merge',
+            '-p', '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}' | Out-Null
+        Invoke-CommandSafe kubectl, 'delete', 'application', 'awx-operator-local',
+            '-n', $script:ArgoCDNamespace | Out-Null
+    }
+    catch {
+        Write-Log warn "  awx-operator-local Application may not exist: $_"
+    }
+
+    # Wait for ArgoCD cascade to start removing AWX resources
+    Write-Log info "  Waiting for ArgoCD cascade deletion to propagate (30s)..."
+    Start-Sleep -Seconds 30
+
+    # Clean orphaned PVCs (PostgreSQL data) before namespace deletion
+    try {
+        $pvcs = (& kubectl get pvc -n $script:AWXNamespace --no-headers 2>&1)
+        if ($pvcs -match '\S' -and $pvcs -notmatch 'not found') {
+            Write-Log warn "  Deleting orphaned PVCs in $($script:AWXNamespace)..."
+            & kubectl delete pvc --all -n $script:AWXNamespace 2>&1 | Out-Null
+        }
+    }
+    catch { Write-Log debug "  No PVCs to clean in $($script:AWXNamespace): $_" }
+
+    # Explicitly delete the awx namespace
+    Write-Log info "  Deleting namespace: $($script:AWXNamespace)"
+    try {
+        & kubectl delete namespace $script:AWXNamespace --ignore-not-found 2>&1 | Out-Null
+        Wait-ForCondition -Description "namespace $($script:AWXNamespace) removed" -TimeoutSeconds $script:TimeoutAWXDel -IntervalSeconds 10 -Condition {
+            $out = & kubectl get namespace $script:AWXNamespace 2>&1
+            $LASTEXITCODE -ne 0 -or "$out" -match 'not found'
+        }
+    }
+    catch { Write-Log warn "  Could not delete $($script:AWXNamespace): $_" }
+
+    Write-Log info '====== Cleanup C3b COMPLETE ======'
+}
 
 function Remove-AppProjects {
     <#
@@ -1000,6 +1050,25 @@ function Remove-OrphanedResources {
         Write-Log info '  No ECK CRDs found.'
     }
 
+    # Optional AWX CRD removal
+    $awxcrds = @((& kubectl get crd --no-headers -o custom-columns=NAME:.metadata.name 2>&1) -split "`n" | Where-Object { $_ -match 'ansible\.com' })
+    if ($awxcrds.Count -gt 0) {
+        Write-Log info "  AWX CRDs found: $($awxcrds -join ', ')"
+        $answer = Read-Host '  Remove AWX CRDs? (y/N — safe to leave if re-installing soon)'
+        if ($answer -match '^[Yy]$') {
+            foreach ($crd in $awxcrds) {
+                & kubectl delete crd $crd 2>&1 | Out-Null
+                Write-Log info "  Deleted CRD: $crd"
+            }
+        }
+        else {
+            Write-Log info '  Skipping AWX CRD deletion.'
+        }
+    }
+    else {
+        Write-Log info '  No AWX CRDs found.'
+    }
+
     Write-Log info '====== Cleanup C6 COMPLETE ======'
 }
 
@@ -1018,6 +1087,7 @@ function Invoke-FullCleanup {
     Write-Host '║    • Jenkins workloads and jobs                               ║' -ForegroundColor Red
     Write-Host '║    • Prometheus metrics (all history)                         ║' -ForegroundColor Red
     Write-Host '║    • Elasticsearch indexes (all logs)                         ║' -ForegroundColor Red
+    Write-Host '║    • AWX jobs, inventories, and credentials                   ║' -ForegroundColor Red
     Write-Host '║    • ArgoCD Applications and configuration                    ║' -ForegroundColor Red
     Write-Host '║    • All GitOps platform namespaces                           ║' -ForegroundColor Red
     Write-Host '║                                                               ║' -ForegroundColor Red
@@ -1037,6 +1107,7 @@ function Invoke-FullCleanup {
         @{ Name = 'Remove Jenkins Pool';         Fn = { Remove-JenkinsPool } },
         @{ Name = 'Remove Tenant App-of-Apps';   Fn = { Remove-TenantsApp } },
         @{ Name = 'Remove Infrastructure App';   Fn = { Remove-InfrastructureApp } },
+        @{ Name = 'Remove AWX App';              Fn = { Remove-AWXApp } },
         @{ Name = 'Remove AppProjects';          Fn = { Remove-AppProjects } },
         @{ Name = 'Uninstall ArgoCD';            Fn = { Remove-ArgoCD } },
         @{ Name = 'Remove Orphaned Resources';   Fn = { Remove-OrphanedResources } }
@@ -1060,7 +1131,7 @@ function Invoke-FullCleanup {
 
     # Final verification
     Write-Log info '--- Final cleanup verification ---'
-    $checkNs = @($script:ArgoCDNamespace, $script:MonitoringNamespace, $script:ElasticSystemNamespace, $script:LoggingNamespace, $script:JenkinsPoolNamespace)
+    $checkNs = @($script:ArgoCDNamespace, $script:MonitoringNamespace, $script:ElasticSystemNamespace, $script:LoggingNamespace, $script:JenkinsPoolNamespace, $script:AWXNamespace)
     foreach ($ns in $checkNs) {
         $out = & kubectl get namespace $ns 2>&1
         if ($LASTEXITCODE -ne 0 -or "$out" -match 'not found') {

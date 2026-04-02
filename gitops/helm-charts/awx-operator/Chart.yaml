@@ -1,0 +1,52 @@
+# ============================================================================
+# awx-operator Multi-Environment Wrapper Chart
+# ============================================================================
+# Thin wrapper around the upstream ansible-community/awx-operator chart
+# providing opinionated security defaults and per-environment value overrides
+# injected via the ArgoCD Application's helm.values block.
+#
+# Chart version:          1.0.0 (wrapper)
+# Upstream chart version: 3.2.1 (pinned – update deliberately via PR)
+# Upstream app version:   2.19.1 (AWX Operator)
+# Upstream repo:          https://ansible-community.github.io/awx-operator-helm/
+# ArtifactHub:            https://artifacthub.io/packages/helm/awx-operator-helm/awx-operator
+# Ansible Docs:           https://docs.ansible.com/projects/awx-operator-helm/helm-install-on-existing-cluster.html
+#
+# Components deployed:
+#   • AWX Operator Controller  (manages AWX CRDs + lifecycle)
+#   • AWX Custom Resource      (AWX.enabled: true in per-env Application values)
+#     └── AWX Web UI           (Django + nginx)
+#     └── AWX Task Runner      (Celery workers)
+#     └── AWX EE (Execution)   (ansible-runner containers)
+#     └── PostgreSQL           (bundled – managed by AWX Operator)
+#     └── Redis                (bundled – session/message broker)
+#
+# Sync wave: -1  (MUST deploy before any workload that depends on AWX CRDs)
+#
+# IMPORTANT – CRD management:
+#   This chart installs AWX CRDs (awx.ansible.com, awxbackups, awxrestores).
+#   ArgoCD requires the following syncOptions on the Application:
+#     - ServerSideApply=true
+#     - Replace=true   ← prevents annotation size limit errors on CRD updates
+# ============================================================================
+apiVersion: v2
+name: awx-operator
+description: >-
+  AWX Ansible Automation Platform operator for the GitOps platform.
+  Wraps upstream ansible-community/awx-operator:3.2.1 (app: 2.19.1) with
+  security defaults for all environments.
+type: application
+version: 1.0.0
+appVersion: "2.19.1"
+keywords:
+  - awx
+  - ansible
+  - automation
+  - operator
+  - gitops
+maintainers:
+  - name: devops-platform-team
+dependencies:
+  - name: awx-operator
+    version: "3.2.1"
+    repository: https://ansible-community.github.io/awx-operator-helm/
