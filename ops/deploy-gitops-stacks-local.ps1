@@ -880,6 +880,8 @@ function Remove-InfrastructureApp {
 
     Write-Log info '====== Cleanup C3 COMPLETE ======'
 }
+
+function Remove-AWXApp {
     <#
     .SYNOPSIS
         Cleanup C3b — Patches finalizer on the AWX Operator Application, deletes it,
