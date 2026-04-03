@@ -96,6 +96,7 @@ $script:TimeoutNamespaceDel         = 120
 $script:TimeoutMonitoringDel        = 120
 $script:TimeoutLoggingDel           = 120
 $script:TimeoutElasticDel           = 60
+$script:TimeoutAWXDeploy            = 600
 $script:TimeoutAWXDel               = 180
 
 # Log level ordering
@@ -608,6 +609,33 @@ function Deploy-Infrastructure {
     Write-Log info "  Monitor: kubectl get pods -n $($script:MonitoringNamespace) -w"
     Write-Log info "  Monitor: kubectl get pods -n $($script:LoggingNamespace) -w"
     Write-Log info '====== Step 3/5 COMPLETE: Infrastructure App-of-Apps applied ======'
+}
+
+function Deploy-AWXOperator {
+    <#
+    .SYNOPSIS
+        Deploys the AWX Operator ArgoCD Application directly (independent of the
+        infrastructure app-of-apps). Applies awx-operator.yaml and waits for the
+        ArgoCD Application to reach Synced + Healthy.
+
+        NOTE: The repoURL inside awx-operator.yaml must already point to your fork
+        (see the '# UPDATE THIS' comment in that file). ArgoCD handles the rest.
+    #>
+    Write-Log info '====== Deploy AWX Operator App ======'
+
+    $awxFile = Join-Path $script:RepoRoot 'gitops' 'application-plane' 'local' 'infrastructure' 'awx-operator.yaml'
+
+    Invoke-CommandSafe kubectl, 'apply', '-f', $awxFile | Out-Null
+
+    Write-Log info '  Waiting for awx-operator-local Synced + Healthy...'
+    Wait-ForCondition -Description 'awx-operator-local Synced+Healthy' -TimeoutSeconds $script:TimeoutAWXDeploy -IntervalSeconds 30 -Condition {
+        $out = & kubectl get application awx-operator-local -n $script:ArgoCDNamespace -o 'custom-columns=SYNC:.status.sync.status,HEALTH:.status.health.status' --no-headers 2>&1
+        $out -match 'Synced\s+Healthy'
+    }
+
+    Write-Log info '====== AWX Operator App COMPLETE ======'
+    Write-Log info '  AWX UI         : http://localhost:32080'
+    Write-Log info "  Admin password : kubectl get secret awx-admin-password -n $($script:AWXNamespace) -o jsonpath='{.data.password}' | base64 -d"
 }
 
 function Deploy-Tenants {
@@ -1152,28 +1180,31 @@ function Invoke-FullCleanup {
 function Show-StepMenu {
     <#
     .SYNOPSIS
-        Sub-menu for running individual deployment steps in isolation.
+        Sub-menu for deploying individual apps in isolation.
+        Apps are independent of each other — ArgoCD must be installed first.
     #>
     do {
         Write-Host ''
-        Write-Host '  --- Individual Deployment Steps ---' -ForegroundColor Cyan
-        Write-Host '  [1] Step 1: Install ArgoCD'
-        Write-Host '  [2] Step 2: Apply AppProjects'
-        Write-Host '  [3] Step 3: Deploy Infrastructure (kube-prometheus-stack + ELK)'
-        Write-Host '  [4] Step 4: Deploy Tenant App-of-Apps (Jenkins)'
-        Write-Host '  [5] Step 5: Deploy Jenkins Shared Pool'
+        Write-Host '  --- Individual App Deployment ---' -ForegroundColor Cyan
+        Write-Host '  [1] Install ArgoCD          (prerequisite — deploy this first)'
+        Write-Host '  [2] Apply AppProjects'
+        Write-Host '  [3] Deploy Infrastructure   (kube-prometheus-stack + ELK + AWX)'
+        Write-Host '  [4] Deploy AWX Operator     (standalone — deploy ArgoCD first)'
+        Write-Host '  [5] Deploy Tenant App-of-Apps'
+        Write-Host '  [6] Deploy Jenkins Shared Pool'
         Write-Host '  [0] Back to main menu'
         Write-Host ''
 
-        $choice = Read-Host '  Select step'
+        $choice = Read-Host '  Select app'
         switch ($choice) {
             '1' { Install-ArgoCD }
             '2' { Apply-AppProjects }
             '3' { Deploy-Infrastructure }
-            '4' { Deploy-Tenants }
-            '5' { Deploy-JenkinsPool }
+            '4' { Deploy-AWXOperator }
+            '5' { Deploy-Tenants }
+            '6' { Deploy-JenkinsPool }
             '0' { return }
-            default { Write-Log warn "  Invalid selection: '$choice'" }
+            default { Write-Log warn "  Invalid selection: '$choice'. Enter 0–6." }
         }
     } while ($true)
 }
@@ -1193,7 +1224,7 @@ function Show-MainMenu {
         )
         $menuLines = @(
             '  [1] Deploy full stack',
-            '  [2] Deploy individual step',
+            '  [2] Deploy individual app',
             '  [3] Check platform status',
             '  [4] Cleanup / Teardown',
             '  [5] Exit'
