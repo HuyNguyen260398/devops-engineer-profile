@@ -31,7 +31,10 @@ spec:
       namespace: elastic-system # ECK Operator
     - server: https://kubernetes.default.svc
       namespace: logging # Elasticsearch, Kibana, Fluent Bit
-    # ───────────────────────────────────
+    # ── AWX Ansible Automation Platform ──────────
+    - server: https://kubernetes.default.svc
+      namespace: awx # AWX Operator + AWX instance
+    # ─────────────────────────────────────────────
     - server: https://kubernetes.default.svc
       namespace: ingress-nginx
     - server: https://kubernetes.default.svc
@@ -108,6 +111,14 @@ spec:
     # ECK Operator webhook (installed by eck-operator chart)
     - group: admissionregistration.k8s.io
       kind: ValidatingWebhookConfiguration
+    # ── AWX Operator CRDs ────────────────────────────────────────────────
+    # Ansible Automation Platform custom resources (cluster-scoped)
+    - group: awx.ansible.com
+      kind: AWX
+    - group: awx.ansible.com
+      kind: AWXBackup
+    - group: awx.ansible.com
+      kind: AWXRestore
 
   namespaceResourceWhitelist:
     - group: "*"
