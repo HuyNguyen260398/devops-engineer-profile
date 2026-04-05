@@ -93,6 +93,10 @@ spec:
                   cpu: "200m"
                   memory: "512Mi"
 
+              # ── Redis (avoid docker.io pull failures on local cluster) ────
+              redis_image: quay.io/sclorg/redis-7-c9s
+              redis_image_version: latest
+
               # ── Security Context (PSS restricted-aligned) ────────────────
               security_context_settings:
                 runAsNonRoot: true
