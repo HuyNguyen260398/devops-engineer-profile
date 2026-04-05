@@ -1,0 +1,130 @@
+# ============================================================================
+# awx-operator – Production Environment
+# ============================================================================
+# Deploys the AWX Operator and provisions an AWX instance in the awx namespace
+# for production (AWS EKS). Full resources, gp3 storage, ClusterIP/Ingress
+# access, no automated prune for safety.
+#
+# Namespace:  awx
+# Project:    infrastructure
+# Sync:       Automated heal (no automated prune – manual prune for safety)
+# Sync Wave:  -1  (installs AWX CRDs before any workload that depends on them)
+#
+# Production overrides (relative to base values.yaml):
+#   • AWX.enabled:         true       (provision AWX CR)
+#   • service_type:        clusterip  (access via ClusterIP / NLB Ingress)
+#   • storageClass:        gp3        (AWS EKS)
+#   • postgresStorage:     50Gi       (production sizing with growth room)
+#   • resources:           full       (production workload capacity)
+#   • Automated prune:     DISABLED   (prevent accidental deletion of AWX data)
+#
+# AWX Admin Password:
+#   kubectl get secret awx-admin-password -n awx \
+#     -o jsonpath='{.data.password}' | base64 -d && echo
+#
+# Production security note:
+#   Rotate admin password immediately after initial deployment and use
+#   External Secrets Operator with AWS Secrets Manager for ongoing rotation.
+# ============================================================================
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: awx-operator-production
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: awx-operator
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+    app.kubernetes.io/component: infrastructure
+    environment: production
+    critical: "true"
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
+    notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-critical-alerts
+    notifications.argoproj.io/subscribe.on-deployed.slack: devops-production
+    description: "AWX Ansible Automation Platform – production environment"
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: infrastructure
+  source:
+    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
+    targetRevision: main
+    path: gitops/helm-charts/awx-operator
+    helm:
+      releaseName: awx-operator
+      values: |
+        awx-operator:
+          AWX:
+            enabled: true
+            name: awx
+            spec:
+              admin_user: admin
+              # ── Service ─────────────────────────────────────────────────
+              # ClusterIP accessed via NLB Ingress (configure separately)
+              service_type: clusterip
+
+              # ── Storage (AWS EKS gp3) ────────────────────────────────────
+              postgres_storage_class: gp3
+              postgres_storage_requirements:
+                requests:
+                  storage: "50Gi"
+
+              # ── Web Container ────────────────────────────────────────────
+              web_resource_requirements:
+                requests:
+                  cpu: "500m"
+                  memory: "2Gi"
+                limits:
+                  cpu: "2000m"
+                  memory: "4Gi"
+
+              # ── Task Container ───────────────────────────────────────────
+              task_resource_requirements:
+                requests:
+                  cpu: "500m"
+                  memory: "2Gi"
+                limits:
+                  cpu: "2000m"
+                  memory: "4Gi"
+
+              # ── Execution Environment Container ──────────────────────────
+              ee_resource_requirements:
+                requests:
+                  cpu: "200m"
+                  memory: "512Mi"
+                limits:
+                  cpu: "1000m"
+                  memory: "2Gi"
+
+              # ── Security Context (PSS restricted-aligned) ────────────────
+              security_context_settings:
+                runAsNonRoot: true
+                seccompProfile:
+                  type: RuntimeDefault
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: awx
+  # Production: selfHeal corrects drift, but prune=false prevents accidental
+  # deletion of AWX job history, credentials, and inventories.
+  syncPolicy:
+    automated:
+      prune: false     # Manual prune only – prevent accidental loss of AWX data
+      selfHeal: true   # Correct out-of-band drift automatically
+      allowEmpty: false
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+      - Replace=true
+      - PrunePropagationPolicy=foreground
+      - PruneLast=true
+      - ApplyOutOfSyncOnly=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 10s
+        factor: 2
+        maxDuration: 5m
+  revisionHistoryLimit: 10

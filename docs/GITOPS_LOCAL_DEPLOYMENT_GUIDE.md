@@ -5,18 +5,21 @@ post_slug: "gitops-local-deployment-guide"
 microsoft_alias: ""
 featured_image: ""
 categories: []
-tags: ["kubernetes", "monitoring", "prometheus", "grafana", "jenkins", "local-dev", "gitops", "argocd", "elk", "elasticsearch", "kibana", "fluent-bit", "logging"]
+tags: ["kubernetes", "monitoring", "prometheus", "grafana", "jenkins", "local-dev", "gitops", "argocd", "elk", "elasticsearch", "kibana", "fluent-bit", "logging", "awx", "ansible"]
 ai_note: "Assisted"
-summary: "Step-by-step guide to bootstrap the full GitOps platform locally — ArgoCD, kube-prometheus-stack (observability), ELK Stack (logging), and Jenkins — using minikube, kind, or k3s."
+summary: "Step-by-step guide to bootstrap the full GitOps platform locally — ArgoCD, kube-prometheus-stack (observability), ELK Stack (logging), AWX Operator (Ansible automation), and Jenkins — using minikube, kind, or k3s."
 post_date: "2026-03-15"
 ---
 
 ## GitOps Local Deployment Guide
 
-This guide walks through the complete bootstrap sequence for the local development environment: ArgoCD, the observability stack (`kube-prometheus-stack`), the logging stack (ELK — ECK Operator, Elasticsearch, Kibana, Fluent Bit), and Jenkins. All services are managed via GitOps — no manual `helm install` required after the initial bootstrap.
+This guide walks through the complete bootstrap sequence for the local development environment: ArgoCD, the observability stack (`kube-prometheus-stack`), the logging stack (ELK — ECK Operator, Elasticsearch, Kibana, Fluent Bit), the AWX Operator (Ansible automation platform), and Jenkins. All services are managed via GitOps — no manual `helm install` required after the initial bootstrap.
 
 > [!NOTE]
 > All commands assume you are running from the **repository root** (`c:\Workspace\devops-engineer-profile` or equivalent).
+
+> [!IMPORTANT]
+> **kind + WSL2 users:** kind NodePorts are bound to the internal Docker bridge network (`172.18.0.x`) and are **not** automatically forwarded to Windows `localhost`. Every service access section below includes a `kubectl port-forward` command — use that instead of the NodePort URL when running kind inside WSL2.
 
 ---
 
@@ -51,6 +54,7 @@ The platform follows a strict sync-wave order. Always deploy in this sequence:
                                eck-operator          (wave -1)
                                eck-stack             (wave 0)
                                fluent-bit            (wave 1)
+3b. AWX Operator (manual)  ← Ansible automation platform (optional, independent of infra app-of-apps)
 4. App-of-Apps (tenants)   ← bootstraps Jenkins tenants (waves 2–6)
 5. Jenkins Pool (manual)   ← shared pool bootstrap (wave 1, outside app-of-apps)
 ```
@@ -117,6 +121,13 @@ kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath='{.data.pas
 open http://localhost:30080   # kind / k3s / Docker Desktop
 # minikube: open http://$(minikube ip):30080
 ```
+
+> [!NOTE]
+> **kind + WSL2:** NodePort 30080 is not reachable on Windows `localhost`. Start a port-forward instead:
+> ```bash
+> kubectl port-forward svc/argocd-server -n argocd 30080:80
+> ```
+> Then open `http://localhost:30080`. Keep this terminal open (or run it as a background job) while you need the ArgoCD UI.
 
 ---
 
@@ -222,6 +233,13 @@ open http://localhost:32300          # kind / k3s / Docker Desktop
 open http://$(minikube ip):32300     # minikube
 ```
 
+> [!NOTE]
+> **kind + WSL2:** Use port-forward instead:
+> ```bash
+> kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 32300:80
+> ```
+> Then open `http://localhost:32300`.
+
 | Field    | Value   |
 | -------- | ------- |
 | Username | `admin` |
@@ -299,6 +317,13 @@ open https://$(minikube ip):32601     # minikube
 ```
 
 > [!NOTE]
+> **kind + WSL2:** Use port-forward instead:
+> ```bash
+> kubectl port-forward -n logging svc/kibana-kb-http 32601:5601
+> ```
+> Then open `https://localhost:32601`.
+
+> [!NOTE]
 > Your browser will show a certificate warning for the ECK self-signed certificate. Accept it to proceed — this is expected for local dev.
 
 **Retrieve the Elastic password (ECK auto-generates it):**
@@ -325,6 +350,66 @@ Logs are indexed as `kube.<namespace>.<date>` in Elasticsearch. Search them in K
 ### Fluent Bit + Prometheus Integration
 
 Fluent Bit exposes metrics (input records, output retries, dropped records) on port `2020/api/v1/metrics/prometheus`. These are auto-scraped by Prometheus via the `ServiceMonitor` resource that Fluent Bit deploys. To visualise them, import the [Fluent Bit Grafana dashboard (ID 7752)](https://grafana.com/grafana/dashboards/7752) in your local Grafana instance.
+
+---
+
+## Step 3b — Deploy AWX Operator (Optional)
+
+AWX is an open-source Ansible automation platform. Unlike the infrastructure stack, it is deployed as a standalone ArgoCD Application independent of the `app-of-apps-infrastructure-local` root — apply it manually just like the Jenkins shared pool.
+
+> [!NOTE]
+> ArgoCD must be installed (Step 1) and the `argocd` namespace must exist before applying this step. The `repoURL` inside `gitops/application-plane/local/infrastructure/awx-operator.yaml` must already point to your fork.
+
+```bash
+kubectl apply -f gitops/application-plane/local/infrastructure/awx-operator.yaml
+```
+
+**Watch the AWX Operator Application sync:**
+
+```bash
+kubectl get application awx-operator-local -n argocd -w
+```
+
+Wait for the Application to reach `Synced + Healthy` (may take up to 10 minutes on first pull — the AWX Operator image is large):
+
+```bash
+kubectl get pods -n awx -w
+```
+
+Expected pods when healthy:
+
+```
+awx-operator-controller-manager-xxx   2/2   Running
+awx-xxx                               4/4   Running
+```
+
+**Access the AWX UI (NodePort 32080):**
+
+```bash
+open http://localhost:32080          # kind / k3s / Docker Desktop
+open http://$(minikube ip):32080     # minikube
+```
+
+> [!NOTE]
+> **kind + WSL2:** Use port-forward instead:
+> ```bash
+> kubectl port-forward -n awx svc/awx-service 32080:80
+> ```
+> Then open `http://localhost:32080`.
+
+**Retrieve the AWX admin password:**
+
+```bash
+kubectl get secret awx-admin-password -n awx -o jsonpath='{.data.password}' | base64 -d && echo
+```
+
+| Field    | Value                        |
+| -------- | ---------------------------- |
+| Username | `admin`                      |
+| Password | retrieved from secret above  |
+
+> [!WARNING]
+> These credentials are auto-generated for local development only. Never reuse them in staging or production.
 
 ---
 
@@ -375,6 +460,16 @@ jenkins-basic-local-0   2/2   Running
 | Pool-1 (shared) | `32000`  | `http://localhost:32000` | `http://$(minikube ip):32000` |
 | Basic tenant    | `32001`  | `http://localhost:32001` | `http://$(minikube ip):32001` |
 
+> [!NOTE]
+> **kind + WSL2:** Use port-forwards instead:
+> ```bash
+> # Pool-1 (shared)
+> kubectl port-forward -n pool-1-local svc/jenkins-pool-1 32000:8080
+> # Basic tenant (run in a separate terminal)
+> kubectl port-forward -n pool-1-local svc/jenkins-basic-local 32001:8080
+> ```
+> Then open `http://localhost:32000` and `http://localhost:32001`.
+
 **Retrieve the Jenkins admin password:**
 
 ```bash
@@ -396,35 +491,41 @@ Once all steps are complete, verify the entire platform:
 kubectl get applications -n argocd
 
 # Namespaces created
-kubectl get namespaces | grep -E 'argocd|monitoring|elastic-system|logging|pool-1-local'
+kubectl get namespaces | grep -E 'argocd|monitoring|elastic-system|logging|pool-1-local|awx'
 
 # Pods across all platform namespaces
 kubectl get pods -n argocd
 kubectl get pods -n monitoring
 kubectl get pods -n elastic-system
 kubectl get pods -n logging
+kubectl get pods -n awx
 kubectl get pods -n pool-1-local
 
 # Elasticsearch cluster health
 kubectl get elasticsearch -n logging
 kubectl get kibana -n logging
+
+# AWX Application status
+kubectl get application awx-operator-local -n argocd
 ```
 
 ---
 
 ## Local Service Reference
 
-| Service        | URL                       | Credentials            | Notes                              |
-| -------------- | ------------------------- | ---------------------- | ---------------------------------- |
-| ArgoCD UI      | `http://localhost:30080`  | `admin` / see Step 1   | NodePort                           |
-| Grafana        | `http://localhost:32300`  | `admin` / `admin`      | NodePort                           |
-| Prometheus     | `http://localhost:9090`   | —                      | Port-forward only                  |
-| Kibana         | `https://localhost:32601` | `elastic` / see Step 3 | NodePort (HTTPS, self-signed cert) |
-| Jenkins Pool-1 | `http://localhost:32000`  | `admin` / see Step 5   | NodePort                           |
-| Jenkins Basic  | `http://localhost:32001`  | `admin` / see Step 5   | NodePort                           |
+| Service        | URL                       | Credentials              | Notes                                              |
+| -------------- | ------------------------- | ------------------------ | -------------------------------------------------- |
+| ArgoCD UI      | `http://localhost:30080`  | `admin` / see Step 1     | NodePort / port-forward on kind+WSL2               |
+| Grafana        | `http://localhost:32300`  | `admin` / `admin`        | NodePort / port-forward on kind+WSL2               |
+| Prometheus     | `http://localhost:9090`   | —                        | Port-forward only                                  |
+| Kibana         | `https://localhost:32601` | `elastic` / see Step 3   | NodePort / port-forward on kind+WSL2 (HTTPS)       |
+| AWX            | `http://localhost:32080`  | `admin` / see Step 3b    | NodePort / port-forward on kind+WSL2               |
+| Jenkins Pool-1 | `http://localhost:32000`  | `admin` / see Step 5     | NodePort / port-forward on kind+WSL2               |
+| Jenkins Basic  | `http://localhost:32001`  | `admin` / see Step 5     | NodePort / port-forward on kind+WSL2               |
 
 > [!NOTE]
 > For minikube, replace `localhost` with `$(minikube ip)` in all URLs above.
+> For kind + WSL2, use `kubectl port-forward` for every service — see the [NodePort not reachable on kind](#nodeport-not-reachable-on-kind-wsl2) troubleshooting section for the full list of commands.
 
 ---
 
@@ -446,22 +547,45 @@ Then trigger a manual sync:
 argocd app sync kube-prometheus-stack-local
 ```
 
-### NodePort not reachable on kind
+### NodePort not reachable on kind (WSL2)
 
-kind does not expose NodePorts on `localhost` by default. Use port-forward as a fallback:
+kind clusters running inside WSL2 bind NodePorts to the internal Docker bridge network (`172.18.0.x`), not to Windows `localhost`. Each deployment step above already includes the port-forward command — use these as a consolidated reference:
 
 ```bash
+# ArgoCD UI
+kubectl port-forward svc/argocd-server -n argocd 30080:80
+
 # Grafana
 kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 32300:80
 
-# Kibana
-kubectl port-forward -n logging svc/kibana-kb-http 5601:5601
+# Kibana (HTTPS)
+kubectl port-forward -n logging svc/kibana-kb-http 32601:5601
+
+# AWX
+kubectl port-forward -n awx svc/awx-service 32080:80
 
 # Jenkins Pool-1
 kubectl port-forward -n pool-1-local svc/jenkins-pool-1 32000:8080
 
 # Jenkins Basic tenant
 kubectl port-forward -n pool-1-local svc/jenkins-basic-local 32001:8080
+```
+
+Each `kubectl port-forward` command blocks the terminal it runs in. Use separate terminals or start them as background jobs in PowerShell:
+
+```powershell
+Start-Job -ScriptBlock { kubectl port-forward svc/argocd-server -n argocd 30080:80 }
+Start-Job -ScriptBlock { kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 32300:80 }
+Start-Job -ScriptBlock { kubectl port-forward -n logging svc/kibana-kb-http 32601:5601 }
+Start-Job -ScriptBlock { kubectl port-forward -n awx svc/awx-service 32080:80 }
+Start-Job -ScriptBlock { kubectl port-forward -n pool-1-local svc/jenkins-pool-1 32000:8080 }
+Start-Job -ScriptBlock { kubectl port-forward -n pool-1-local svc/jenkins-basic-local 32001:8080 }
+
+# List all running jobs
+Get-Job
+
+# Stop all port-forward jobs when done
+Get-Job | Stop-Job
 ```
 
 ### Pods stuck in `Pending` — storage class missing
@@ -628,6 +752,7 @@ Remove all local platform resources in the **reverse** of the deployment order. 
 5. Tenants App-of-Apps         ← removes Jenkins tenant Applications
 4. Infrastructure App-of-Apps  ← removes kube-prometheus-stack + eck-stack + fluent-bit + eck-operator
 3. ELK namespaces              ← delete logging and elastic-system namespaces manually
+3b. AWX Operator Application   ← delete awx-operator-local Application and awx namespace
 2. AppProjects                 ← remove RBAC scoping
 1. ArgoCD                      ← uninstall Helm release last
 0. Namespaces and PVCs         ← final manual sweep
@@ -731,6 +856,35 @@ kubectl wait --for=delete namespace/elastic-system --timeout=60s
 
 ---
 
+### Step C3b — Delete the AWX Operator Application
+
+If you deployed the AWX Operator in Step 3b, delete it here (between infrastructure and AppProjects teardown). Enable cascade deletion to remove the `awx` namespace and all AWX workloads.
+
+```bash
+kubectl patch application awx-operator-local -n argocd --type=merge -p '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}'
+
+kubectl delete application awx-operator-local -n argocd
+```
+
+Wait briefly for cascade to propagate, then clean up the namespace manually:
+
+```bash
+# Wait for ArgoCD cascade deletion to propagate
+sleep 30
+
+# Clean orphaned PVCs (PostgreSQL data volume) before namespace deletion
+kubectl delete pvc --all -n awx 2>/dev/null || true
+
+# Delete the awx namespace
+kubectl delete namespace awx
+kubectl wait --for=delete namespace/awx --timeout=180s
+```
+
+> [!NOTE]
+> AWX uses a PostgreSQL PVC for job history and credential storage. This PVC is **not** removed by ArgoCD cascade delete. Deleting it is required for the `awx` namespace to fully terminate.
+
+---
+
 ### Step C4 — Delete AppProjects
 
 ```bash
@@ -772,7 +926,7 @@ kubectl wait --for=delete namespace/argocd --timeout=60s
 After all namespaces are gone, check for and remove any orphaned PersistentVolumes and ArgoCD CRDs:
 
 ```bash
-# Check for Released / Failed PVs left behind by Prometheus, Elasticsearch, or Jenkins
+# Check for Released / Failed PVs left behind by Prometheus, Elasticsearch, Jenkins, or AWX
 kubectl get pv | grep -E 'Released|Failed'
 # Delete individually as needed
 # kubectl delete pv <pv-name>
@@ -784,6 +938,10 @@ kubectl delete crd applications.argoproj.io applicationsets.argoproj.io appproje
 # Remove ECK CRDs (optional — safe to leave if you plan to reinstall soon)
 kubectl get crd | grep k8s.elastic.co
 kubectl delete crd $(kubectl get crd -o name | grep k8s.elastic.co)
+
+# Remove AWX / Ansible Operator CRDs (optional — safe to leave if you plan to reinstall soon)
+kubectl get crd | grep ansible.com
+kubectl delete crd $(kubectl get crd -o name | grep ansible.com)
 ```
 
 > [!TIP]
@@ -795,7 +953,7 @@ kubectl delete crd $(kubectl get crd -o name | grep k8s.elastic.co)
 
 ```bash
 # No platform namespaces should remain
-kubectl get namespaces | grep -E 'argocd|monitoring|elastic-system|logging|pool-1-local'
+kubectl get namespaces | grep -E 'argocd|monitoring|elastic-system|logging|pool-1-local|awx'
 
 # No orphaned PVCs or PVs
 kubectl get pvc --all-namespaces

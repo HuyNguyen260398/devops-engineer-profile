@@ -11,3 +11,7 @@ resources:
   - eck-operator.yaml
   - eck-stack.yaml
   - fluent-bit.yaml
+  # ── AWX Ansible Automation Platform ─────────────────────────────────────
+  # Deploy order: wave -1 (installs AWX CRDs + operator + AWX CR)
+  # AWX Operator reconciles the AWX CR to provision the full AWX stack.
+  - awx-operator.yaml

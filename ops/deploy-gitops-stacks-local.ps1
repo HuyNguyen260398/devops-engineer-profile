@@ -62,7 +62,7 @@
 [CmdletBinding()]
 param(
     [string] $GitopsPath     = '',
-    [string] $RepoUrl        = '',
+    [string] $RepoUrl        = 'https://github.com/HuyNguyen260398/devops-engineer-profile',
     [string] $TargetRevision = 'main',
     [string] $LogPath        = '.',
     [ValidateSet('debug', 'info', 'warn', 'error')]
@@ -84,6 +84,10 @@ $script:MonitoringNamespace         = 'monitoring'
 $script:LoggingNamespace            = 'logging'
 $script:ElasticSystemNamespace      = 'elastic-system'
 $script:JenkinsPoolNamespace        = 'pool-1-local'
+$script:AWXNamespace                = 'awx'
+
+# Port-forward job tracking — populated by Start-PortForwardJob, cleared by Stop-AllPortForwards
+$script:PortForwardJobs             = [ordered]@{}
 
 # Timeout constants (seconds) — increase on under-resourced machines
 $script:TimeoutArgoCDInstall        = 600
@@ -95,6 +99,8 @@ $script:TimeoutNamespaceDel         = 120
 $script:TimeoutMonitoringDel        = 120
 $script:TimeoutLoggingDel           = 120
 $script:TimeoutElasticDel           = 60
+$script:TimeoutAWXDeploy            = 600
+$script:TimeoutAWXDel               = 180
 
 # Log level ordering
 $script:LogLevelOrder = @{ debug = 0; info = 1; warn = 2; error = 3 }
@@ -550,7 +556,8 @@ function Install-ArgoCD {
     Write-Log info '====== Step 1/5 COMPLETE: ArgoCD installed ======'
 
     $adminPwdCmd = 'kubectl get secret argocd-initial-admin-secret -n argocd -o jsonpath=''{.data.password}'' | base64 -d'
-    Write-Log info "  ArgoCD UI: http://localhost:30080  (admin / run: $adminPwdCmd)"
+    Write-Log info "  ArgoCD UI     : http://localhost:30080  (admin / run: $adminPwdCmd)"
+    Write-Log info '  kind+WSL2     : kubectl port-forward svc/argocd-server -n argocd 30080:80'
 }
 
 function Apply-AppProjects {
@@ -605,7 +612,51 @@ function Deploy-Infrastructure {
     Write-Log info '  Infrastructure Applications deployed and syncing. Full stack rollout may take several minutes.'
     Write-Log info "  Monitor: kubectl get pods -n $($script:MonitoringNamespace) -w"
     Write-Log info "  Monitor: kubectl get pods -n $($script:LoggingNamespace) -w"
+    Write-Log info '  kind+WSL2 — Grafana : kubectl port-forward -n monitoring svc/kube-prometheus-stack-grafana 32300:80'
+    Write-Log info '  kind+WSL2 — Kibana  : kubectl port-forward -n logging svc/kibana-kb-http 32601:5601'
     Write-Log info '====== Step 3/5 COMPLETE: Infrastructure App-of-Apps applied ======'
+}
+
+function Deploy-AWXOperator {
+    <#
+    .SYNOPSIS
+        Deploys the AWX Operator ArgoCD Application directly (independent of the
+        infrastructure app-of-apps). Applies awx-operator.yaml and waits for the
+        ArgoCD Application to reach Synced + Healthy.
+
+        NOTE: The repoURL inside awx-operator.yaml must already point to your fork
+        (see the '# UPDATE THIS' comment in that file). ArgoCD handles the rest.
+    #>
+    Write-Log info '====== Deploy AWX Operator App ======'
+
+    # Preflight: ArgoCD CRDs must exist before we can apply an Application manifest
+    Write-Log info '  Checking ArgoCD CRDs are installed...'
+    $crdCheck = & kubectl get crd applications.argoproj.io 2>&1
+    if ($LASTEXITCODE -ne 0 -or "$crdCheck" -match 'not found') {
+        throw "ArgoCD CRDs not found (applications.argoproj.io). Install ArgoCD first (Step 1 / menu option 1) before deploying the AWX Operator."
+    }
+    Write-Log info '  ArgoCD CRDs present — proceeding.'
+
+    # Preflight: argocd namespace must exist
+    $nsCheck = & kubectl get namespace $script:ArgoCDNamespace 2>&1
+    if ($LASTEXITCODE -ne 0 -or "$nsCheck" -match 'not found') {
+        throw "Namespace '$($script:ArgoCDNamespace)' not found. Install ArgoCD first (Step 1 / menu option 1) before deploying the AWX Operator."
+    }
+
+    $awxFile = Join-Path $script:RepoRoot 'gitops' 'application-plane' 'local' 'infrastructure' 'awx-operator.yaml'
+
+    Invoke-CommandSafe kubectl, 'apply', '-f', $awxFile | Out-Null
+
+    Write-Log info '  Waiting for awx-operator-local Synced + Healthy...'
+    Wait-ForCondition -Description 'awx-operator-local Synced+Healthy' -TimeoutSeconds $script:TimeoutAWXDeploy -IntervalSeconds 30 -Condition {
+        $out = & kubectl get application awx-operator-local -n $script:ArgoCDNamespace -o 'custom-columns=SYNC:.status.sync.status,HEALTH:.status.health.status' --no-headers 2>&1
+        $out -match 'Synced\s+Healthy'
+    }
+
+    Write-Log info '====== AWX Operator App COMPLETE ======'
+    Write-Log info '  AWX UI         : http://localhost:32080'
+    Write-Log info "  Admin password : kubectl get secret awx-admin-password -n $($script:AWXNamespace) -o jsonpath='{.data.password}' | base64 -d"
+    Write-Log info '  kind+WSL2      : kubectl port-forward -n awx svc/awx-service 32080:80'
 }
 
 function Deploy-Tenants {
@@ -655,6 +706,8 @@ function Deploy-JenkinsPool {
     Write-Log info '====== Step 5/5 COMPLETE: Jenkins Pool deployed ======'
     Write-Log info '  Jenkins Pool-1 : http://localhost:32000'
     Write-Log info '  Jenkins Basic  : http://localhost:32001'
+    Write-Log info '  kind+WSL2 — Pool-1: kubectl port-forward -n pool-1-local svc/jenkins-pool-1 32000:8080'
+    Write-Log info '  kind+WSL2 — Basic : kubectl port-forward -n pool-1-local svc/jenkins-basic-local 32001:8080'
 }
 
 function Deploy-AllStacks {
@@ -689,6 +742,8 @@ function Deploy-AllStacks {
 
     Write-Log info '########## DEPLOY COMPLETE ##########'
     Get-PlatformStatus
+    Write-Log info 'Starting port-forwards for kind + WSL2 access...'
+    Start-AllPortForwards
 }
 
 # ============================================================================
@@ -711,7 +766,9 @@ function Get-PlatformStatus {
         @{ Label = "Pods (elastic-system)";       Args = @('kubectl','get','pods','-n',$script:ElasticSystemNamespace) },
         @{ Label = "Pods (logging)";              Args = @('kubectl','get','pods','-n',$script:LoggingNamespace) },
         @{ Label = "Pods ($($script:JenkinsPoolNamespace))";  Args = @('kubectl','get','pods','-n',$script:JenkinsPoolNamespace) },
-        @{ Label = 'Elasticsearch health';        Args = @('kubectl','get','elasticsearch','-n',$script:LoggingNamespace) }
+        @{ Label = 'Elasticsearch health';        Args = @('kubectl','get','elasticsearch','-n',$script:LoggingNamespace) },
+        @{ Label = "Pods (awx)";                  Args = @('kubectl','get','pods','-n',$script:AWXNamespace) },
+        @{ Label = 'AWX instances';               Args = @('kubectl','get','awx','-n',$script:AWXNamespace) }
     )
 
     foreach ($check in $checks) {
@@ -877,6 +934,54 @@ function Remove-InfrastructureApp {
     Write-Log info '====== Cleanup C3 COMPLETE ======'
 }
 
+function Remove-AWXApp {
+    <#
+    .SYNOPSIS
+        Cleanup C3b — Patches finalizer on the AWX Operator Application, deletes it,
+        waits for ArgoCD cascade to remove AWX workloads, and explicitly removes the
+        awx namespace along with any orphaned PVCs (PostgreSQL data).
+    #>
+    Write-Log info '====== Cleanup C3b: Remove AWX Operator App ======'
+
+    try {
+        Invoke-CommandSafe kubectl, 'patch', 'application', 'awx-operator-local',
+            '-n', $script:ArgoCDNamespace, '--type=merge',
+            '-p', '{"metadata":{"finalizers":["resources-finalizer.argocd.argoproj.io"]}}' | Out-Null
+        Invoke-CommandSafe kubectl, 'delete', 'application', 'awx-operator-local',
+            '-n', $script:ArgoCDNamespace | Out-Null
+    }
+    catch {
+        Write-Log warn "  awx-operator-local Application may not exist: $_"
+    }
+
+    # Wait for ArgoCD cascade to start removing AWX resources
+    Write-Log info "  Waiting for ArgoCD cascade deletion to propagate (30s)..."
+    Start-Sleep -Seconds 30
+
+    # Clean orphaned PVCs (PostgreSQL data) before namespace deletion
+    try {
+        $pvcs = (& kubectl get pvc -n $script:AWXNamespace --no-headers 2>&1)
+        if ($pvcs -match '\S' -and $pvcs -notmatch 'not found') {
+            Write-Log warn "  Deleting orphaned PVCs in $($script:AWXNamespace)..."
+            & kubectl delete pvc --all -n $script:AWXNamespace 2>&1 | Out-Null
+        }
+    }
+    catch { Write-Log debug "  No PVCs to clean in $($script:AWXNamespace): $_" }
+
+    # Explicitly delete the awx namespace
+    Write-Log info "  Deleting namespace: $($script:AWXNamespace)"
+    try {
+        & kubectl delete namespace $script:AWXNamespace --ignore-not-found 2>&1 | Out-Null
+        Wait-ForCondition -Description "namespace $($script:AWXNamespace) removed" -TimeoutSeconds $script:TimeoutAWXDel -IntervalSeconds 10 -Condition {
+            $out = & kubectl get namespace $script:AWXNamespace 2>&1
+            $LASTEXITCODE -ne 0 -or "$out" -match 'not found'
+        }
+    }
+    catch { Write-Log warn "  Could not delete $($script:AWXNamespace): $_" }
+
+    Write-Log info '====== Cleanup C3b COMPLETE ======'
+}
+
 function Remove-AppProjects {
     <#
     .SYNOPSIS
@@ -1000,6 +1105,25 @@ function Remove-OrphanedResources {
         Write-Log info '  No ECK CRDs found.'
     }
 
+    # Optional AWX CRD removal
+    $awxcrds = @((& kubectl get crd --no-headers -o custom-columns=NAME:.metadata.name 2>&1) -split "`n" | Where-Object { $_ -match 'ansible\.com' })
+    if ($awxcrds.Count -gt 0) {
+        Write-Log info "  AWX CRDs found: $($awxcrds -join ', ')"
+        $answer = Read-Host '  Remove AWX CRDs? (y/N — safe to leave if re-installing soon)'
+        if ($answer -match '^[Yy]$') {
+            foreach ($crd in $awxcrds) {
+                & kubectl delete crd $crd 2>&1 | Out-Null
+                Write-Log info "  Deleted CRD: $crd"
+            }
+        }
+        else {
+            Write-Log info '  Skipping AWX CRD deletion.'
+        }
+    }
+    else {
+        Write-Log info '  No AWX CRDs found.'
+    }
+
     Write-Log info '====== Cleanup C6 COMPLETE ======'
 }
 
@@ -1018,6 +1142,7 @@ function Invoke-FullCleanup {
     Write-Host '║    • Jenkins workloads and jobs                               ║' -ForegroundColor Red
     Write-Host '║    • Prometheus metrics (all history)                         ║' -ForegroundColor Red
     Write-Host '║    • Elasticsearch indexes (all logs)                         ║' -ForegroundColor Red
+    Write-Host '║    • AWX jobs, inventories, and credentials                   ║' -ForegroundColor Red
     Write-Host '║    • ArgoCD Applications and configuration                    ║' -ForegroundColor Red
     Write-Host '║    • All GitOps platform namespaces                           ║' -ForegroundColor Red
     Write-Host '║                                                               ║' -ForegroundColor Red
@@ -1031,12 +1156,16 @@ function Invoke-FullCleanup {
         return
     }
 
+    # Stop any active port-forwards before tearing down services
+    Stop-AllPortForwards
+
     Write-Log info '########## CLEANUP: Full GitOps Stack Teardown ##########'
 
     $steps = @(
         @{ Name = 'Remove Jenkins Pool';         Fn = { Remove-JenkinsPool } },
         @{ Name = 'Remove Tenant App-of-Apps';   Fn = { Remove-TenantsApp } },
         @{ Name = 'Remove Infrastructure App';   Fn = { Remove-InfrastructureApp } },
+        @{ Name = 'Remove AWX App';              Fn = { Remove-AWXApp } },
         @{ Name = 'Remove AppProjects';          Fn = { Remove-AppProjects } },
         @{ Name = 'Uninstall ArgoCD';            Fn = { Remove-ArgoCD } },
         @{ Name = 'Remove Orphaned Resources';   Fn = { Remove-OrphanedResources } }
@@ -1060,7 +1189,7 @@ function Invoke-FullCleanup {
 
     # Final verification
     Write-Log info '--- Final cleanup verification ---'
-    $checkNs = @($script:ArgoCDNamespace, $script:MonitoringNamespace, $script:ElasticSystemNamespace, $script:LoggingNamespace, $script:JenkinsPoolNamespace)
+    $checkNs = @($script:ArgoCDNamespace, $script:MonitoringNamespace, $script:ElasticSystemNamespace, $script:LoggingNamespace, $script:JenkinsPoolNamespace, $script:AWXNamespace)
     foreach ($ns in $checkNs) {
         $out = & kubectl get namespace $ns 2>&1
         if ($LASTEXITCODE -ne 0 -or "$out" -match 'not found') {
@@ -1076,31 +1205,217 @@ function Invoke-FullCleanup {
 # PHASE 5 — ORCHESTRATION AND ENTRY POINT
 # ============================================================================
 
-function Show-StepMenu {
+# ============================================================================
+# PHASE 5a — PORT-FORWARD MANAGEMENT
+# ============================================================================
+
+function Start-PortForwardJob {
     <#
     .SYNOPSIS
-        Sub-menu for running individual deployment steps in isolation.
+        Starts a kubectl port-forward as a PowerShell background job.
+        If a job with the same logical name is already running, it is stopped and
+        replaced. Required on kind + WSL2 where NodePorts are not reachable on
+        Windows localhost.
+    .PARAMETER Name
+        Logical name used as the tracking key (e.g. 'argocd', 'grafana').
+    .PARAMETER Namespace
+        Kubernetes namespace where the target service lives.
+    .PARAMETER Service
+        Service resource string passed to kubectl, e.g. 'svc/argocd-server'.
+    .PARAMETER LocalPort
+        Port to bind on localhost.
+    .PARAMETER RemotePort
+        Port on the service to forward to.
+    .OUTPUTS
+        The PowerShell Job object.
+    #>
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory)] [string] $Name,
+        [Parameter(Mandatory)] [string] $Namespace,
+        [Parameter(Mandatory)] [string] $Service,
+        [Parameter(Mandatory)] [string] $LocalPort,
+        [Parameter(Mandatory)] [string] $RemotePort
+    )
+
+    # Stop and remove any existing job registered under the same name
+    if ($script:PortForwardJobs.Contains($Name)) {
+        $existing = $script:PortForwardJobs[$Name]
+        try {
+            Stop-Job   $existing -ErrorAction SilentlyContinue
+            Remove-Job $existing -ErrorAction SilentlyContinue
+        } catch {}
+        $script:PortForwardJobs.Remove($Name)
+    }
+
+    Write-Log info "  Starting port-forward: $Service -n $Namespace  ${LocalPort}:${RemotePort}"
+
+    $job = Start-Job -ScriptBlock {
+        param($ns, $svc, $lp, $rp)
+        & kubectl port-forward -n $ns $svc "${lp}:${rp}" 2>&1
+    } -ArgumentList $Namespace, $Service, $LocalPort, $RemotePort
+
+    $script:PortForwardJobs[$Name] = $job
+    return $job
+}
+
+function Start-AllPortForwards {
+    <#
+    .SYNOPSIS
+        Starts kubectl port-forward background jobs for every deployed platform
+        service. Services whose namespace or service resource does not yet exist
+        are skipped gracefully.
+        Use on kind + WSL2 where NodePorts are not reachable on Windows localhost.
+    #>
+    Write-Log info '====== Starting port-forwards for all platform services ======'
+
+    $forwards = @(
+        @{ Name = 'argocd';        Namespace = $script:ArgoCDNamespace;     Service = 'svc/argocd-server';                       LocalPort = '30080'; RemotePort = '80'   },
+        @{ Name = 'grafana';       Namespace = $script:MonitoringNamespace; Service = 'svc/kube-prometheus-stack-grafana';        LocalPort = '32300'; RemotePort = '80'   },
+        @{ Name = 'prometheus';    Namespace = $script:MonitoringNamespace; Service = 'svc/kube-prometheus-stack-prometheus';     LocalPort = '9090';  RemotePort = '9090' },
+        @{ Name = 'kibana';        Namespace = $script:LoggingNamespace;    Service = 'svc/kibana-kb-http';                      LocalPort = '32601'; RemotePort = '5601' },
+        @{ Name = 'awx';           Namespace = $script:AWXNamespace;        Service = 'svc/awx-service';                         LocalPort = '32080'; RemotePort = '80'   },
+        @{ Name = 'jenkins-pool';  Namespace = $script:JenkinsPoolNamespace;Service = 'svc/jenkins-pool-1';                      LocalPort = '32000'; RemotePort = '8080' },
+        @{ Name = 'jenkins-basic'; Namespace = $script:JenkinsPoolNamespace;Service = 'svc/jenkins-basic-local';                 LocalPort = '32001'; RemotePort = '8080' }
+    )
+
+    $started = 0
+    foreach ($fwd in $forwards) {
+        # Skip if the namespace does not exist
+        $nsOut = & kubectl get namespace $fwd.Namespace 2>&1
+        if ($LASTEXITCODE -ne 0 -or "$nsOut" -match 'not found') {
+            Write-Log debug "  Skipping '$($fwd.Name)' — namespace '$($fwd.Namespace)' not found"
+            continue
+        }
+        # Skip if the service does not exist
+        $svcName = $fwd.Service -replace '^svc/', ''
+        $svcOut  = & kubectl get svc $svcName -n $fwd.Namespace 2>&1
+        if ($LASTEXITCODE -ne 0 -or "$svcOut" -match 'not found') {
+            Write-Log debug "  Skipping '$($fwd.Name)' — service '$($fwd.Service)' not found in '$($fwd.Namespace)'"
+            continue
+        }
+
+        Start-PortForwardJob -Name $fwd.Name -Namespace $fwd.Namespace `
+            -Service $fwd.Service -LocalPort $fwd.LocalPort -RemotePort $fwd.RemotePort
+        Start-Sleep -Milliseconds 500
+        $started++
+    }
+
+    Write-Log info "  Started $started port-forward job(s)."
+    Write-Log info '  Service URLs (localhost):'
+    Write-Log info '    ArgoCD      : http://localhost:30080'
+    Write-Log info '    Grafana     : http://localhost:32300'
+    Write-Log info '    Prometheus  : http://localhost:9090'
+    Write-Log info '    Kibana      : https://localhost:32601'
+    Write-Log info '    AWX         : http://localhost:32080'
+    Write-Log info '    Jenkins P1  : http://localhost:32000'
+    Write-Log info '    Jenkins Bsc : http://localhost:32001'
+    Write-Log info "  Manage jobs : Get-Job  |  Stop-Job  |  Remove-Job"
+    Write-Log info '====== Port-forwards running ======'
+}
+
+function Stop-AllPortForwards {
+    <#
+    .SYNOPSIS
+        Stops all kubectl port-forward background jobs started by this script session.
+    #>
+    Write-Log info '====== Stopping port-forward jobs ======'
+
+    if ($script:PortForwardJobs.Count -eq 0) {
+        Write-Log info '  No port-forward jobs tracked in this session.'
+        return
+    }
+
+    foreach ($name in @($script:PortForwardJobs.Keys)) {
+        $job = $script:PortForwardJobs[$name]
+        try {
+            Stop-Job   $job -ErrorAction SilentlyContinue
+            Remove-Job $job -ErrorAction SilentlyContinue
+            Write-Log info "  Stopped : $name (Job ID $($job.Id))"
+        }
+        catch {
+            Write-Log warn "  Could not stop job '$name': $_"
+        }
+    }
+    $script:PortForwardJobs.Clear()
+
+    Write-Log info '====== Port-forward jobs stopped ======'
+}
+
+function Show-PortForwardStatus {
+    <#
+    .SYNOPSIS
+        Displays the current state of all port-forward background jobs tracked by
+        this script session.
+    #>
+    Write-Log info '====== Port-forward job status ======'
+
+    if ($script:PortForwardJobs.Count -eq 0) {
+        Write-Log info '  No port-forward jobs active in this session.'
+        return
+    }
+
+    foreach ($name in $script:PortForwardJobs.Keys) {
+        $job = $script:PortForwardJobs[$name]
+        Write-Log info "  $($name.PadRight(15))  Job ID=$($job.Id)  State=$($job.State)"
+    }
+
+    Write-Log info '====== End port-forward status ======'
+}
+
+function Show-PortForwardMenu {
+    <#
+    .SYNOPSIS
+        Sub-menu for managing port-forward background jobs interactively.
     #>
     do {
         Write-Host ''
-        Write-Host '  --- Individual Deployment Steps ---' -ForegroundColor Cyan
-        Write-Host '  [1] Step 1: Install ArgoCD'
-        Write-Host '  [2] Step 2: Apply AppProjects'
-        Write-Host '  [3] Step 3: Deploy Infrastructure (kube-prometheus-stack + ELK)'
-        Write-Host '  [4] Step 4: Deploy Tenant App-of-Apps (Jenkins)'
-        Write-Host '  [5] Step 5: Deploy Jenkins Shared Pool'
+        Write-Host '  --- Port-Forward Management (kind + WSL2) ---' -ForegroundColor Cyan
+        Write-Host '  [1] Start all port-forwards   (skips services not yet deployed)'
+        Write-Host '  [2] Stop all port-forwards'
+        Write-Host '  [3] Show port-forward status'
         Write-Host '  [0] Back to main menu'
         Write-Host ''
 
-        $choice = Read-Host '  Select step'
+        $choice = Read-Host '  Select option'
+        switch ($choice) {
+            '1' { Start-AllPortForwards }
+            '2' { Stop-AllPortForwards }
+            '3' { Show-PortForwardStatus }
+            '0' { return }
+            default { Write-Log warn "  Invalid selection: '$choice'. Enter 0–3." }
+        }
+    } while ($true)
+}
+
+function Show-StepMenu {
+    <#
+    .SYNOPSIS
+        Sub-menu for deploying individual apps in isolation.
+        Apps are independent of each other — ArgoCD must be installed first.
+    #>
+    do {
+        Write-Host ''
+        Write-Host '  --- Individual App Deployment ---' -ForegroundColor Cyan
+        Write-Host '  [1] Install ArgoCD          (prerequisite — deploy this first)'
+        Write-Host '  [2] Apply AppProjects'
+        Write-Host '  [3] Deploy Infrastructure   (kube-prometheus-stack + ELK + AWX)'
+        Write-Host '  [4] Deploy AWX Operator     (standalone — deploy ArgoCD first)'
+        Write-Host '  [5] Deploy Tenant App-of-Apps'
+        Write-Host '  [6] Deploy Jenkins Shared Pool'
+        Write-Host '  [0] Back to main menu'
+        Write-Host ''
+
+        $choice = Read-Host '  Select app'
         switch ($choice) {
             '1' { Install-ArgoCD }
             '2' { Apply-AppProjects }
             '3' { Deploy-Infrastructure }
-            '4' { Deploy-Tenants }
-            '5' { Deploy-JenkinsPool }
+            '4' { Deploy-AWXOperator }
+            '5' { Deploy-Tenants }
+            '6' { Deploy-JenkinsPool }
             '0' { return }
-            default { Write-Log warn "  Invalid selection: '$choice'" }
+            default { Write-Log warn "  Invalid selection: '$choice'. Enter 0–6." }
         }
     } while ($true)
 }
@@ -1120,10 +1435,11 @@ function Show-MainMenu {
         )
         $menuLines = @(
             '  [1] Deploy full stack',
-            '  [2] Deploy individual step',
+            '  [2] Deploy individual app',
             '  [3] Check platform status',
-            '  [4] Cleanup / Teardown',
-            '  [5] Exit'
+            '  [4] Port-forward management',
+            '  [5] Cleanup / Teardown',
+            '  [6] Exit'
         )
 
         # Inner width = longest content + 2 (right-side padding), minimum 56
@@ -1162,14 +1478,17 @@ function Show-MainMenu {
                 Get-PlatformStatus
             }
             '4' {
-                Invoke-FullCleanup
+                Show-PortForwardMenu
             }
             '5' {
+                Invoke-FullCleanup
+            }
+            '6' {
                 Write-Log info "Exiting. Log file: $script:LogFile"
                 return
             }
             default {
-                Write-Log warn "Invalid selection: '$choice'. Enter 1–5."
+                Write-Log warn "Invalid selection: '$choice'. Enter 1–6."
             }
         }
     } while ($true)
