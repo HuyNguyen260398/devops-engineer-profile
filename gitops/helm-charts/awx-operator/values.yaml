@@ -80,6 +80,11 @@ awx-operator:
           cpu: "500m"
           memory: "1Gi"
 
+      # Redis – bundled sidecar (managed by AWX Operator)
+      # Override to avoid docker.io pull failures; quay.io mirror is cluster-reachable.
+      redis_image: quay.io/sclorg/redis-7-c9s
+      redis_image_version: latest
+
       # PostgreSQL – bundled (managed by AWX Operator)
       # Override postgres_storage_class per environment
       postgres_storage_requirements:
