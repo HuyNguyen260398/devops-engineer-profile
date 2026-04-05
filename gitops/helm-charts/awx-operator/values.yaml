@@ -50,7 +50,7 @@ awx-operator:
           type: RuntimeDefault
 
       # Web container security context
-      web_extra_env: []    # Inject additional env vars per environment if needed
+      web_extra_env: ""    # Inject additional env vars per environment if needed (must be a string, not array)
 
       # Resource requirements – overridden per environment
       # local:       100m–500m CPU  | 512Mi–1Gi mem
