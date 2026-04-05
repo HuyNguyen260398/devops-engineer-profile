@@ -28,4 +28,4 @@ patches:
     patch: |-
       - op: replace
         path: /spec/source/targetRevision
-        value: feature/update-gitops-local-bootstrap
+        value: main
