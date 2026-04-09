@@ -1,0 +1,19 @@
+You are a full stack developer and your tasks are:
+- create an admin dashboard
+- this dashboard then deployed and hosted on aws using aws amplify service
+
+Use the create-implementation-plan skill to create plan for the frontend development with following requirements:
+- the frontend must be built in vuejs
+- the frontend theme design must be inspired by github programatic theme, with dark and light mode (refer theme from https://skillsmp.com/)
+- responsive design for all devices
+- the admin dashboard contains many apps
+- the first app is a blog post
+- the source code of the vuejs app must be stored in 'src/vuejs-admin-dashboard/' directory
+- use the ui-ux-pro-max skill for frontend development
+
+Use the create-implementation-plan skill to create plan the for the admin dashboard deployment with following requirements:
+- required aws services must be created using terrform
+- the terraform resources for this app must be stored in 'inf/terraform/vuejs-admin-dashboard/' directory
+- use aws codecommit, codebuild, codedeploy (created by terraform) for the ci/cd of the app
+
+You must create the implementation plans first, do not execute the requirement imediately
