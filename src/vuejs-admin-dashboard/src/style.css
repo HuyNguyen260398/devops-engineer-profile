@@ -48,38 +48,38 @@
    ============================================================ */
 .dark {
   /* Surfaces */
-  --color-surface: #0d1117;
-  --color-surface-secondary: #161b22;
-  --color-surface-tertiary: #21262d;
+  --color-surface: #000000;
+  --color-surface-secondary: #0a0a0a;
+  --color-surface-tertiary: #141414;
 
   /* On-surface text */
-  --color-on-surface: #e6edf3;
-  --color-on-surface-muted: #8d96a0;
+  --color-on-surface: #f0f6fc;
+  --color-on-surface-muted: #8b949e;
   --color-on-surface-subtle: #6e7681;
 
   /* Primary / accent blue */
   --color-primary: #388bfd;
   --color-primary-hover: #58a6ff;
-  --color-primary-muted: #121d2f;
+  --color-primary-muted: #0a1628;
 
   /* Borders */
-  --color-border: #30363d;
-  --color-border-subtle: #21262d;
+  --color-border: #1e1e1e;
+  --color-border-subtle: #141414;
 
   /* Accent green */
   --color-accent-green: #3fb950;
-  --color-accent-green-muted: #12261e;
-  --color-accent-green-subtle: #0e1f1a;
+  --color-accent-green-muted: #0a1a10;
+  --color-accent-green-subtle: #060e09;
 
   /* Accent red */
   --color-accent-red: #f85149;
-  --color-accent-red-muted: #2c1215;
-  --color-accent-red-subtle: #1f0f10;
+  --color-accent-red-muted: #1a0a0a;
+  --color-accent-red-subtle: #0f0606;
 
   /* Accent yellow */
   --color-accent-yellow: #e3b341;
-  --color-accent-yellow-muted: #2d1f0a;
-  --color-accent-yellow-subtle: #1f1508;
+  --color-accent-yellow-muted: #1a1206;
+  --color-accent-yellow-subtle: #0f0b04;
 }
 
 /* ============================================================
