@@ -1,6 +1,6 @@
 # Project Architecture Blueprint
 
-> **Generated:** 2026-03-21 | **Repository:** `devops-engineer-profile`
+> **Generated:** 2026-04-09 | **Repository:** `devops-engineer-profile`
 > **Purpose:** Definitive architectural reference for maintaining consistency and guiding new development.
 
 ---
@@ -28,507 +28,601 @@
 
 ## 1. Architectural Overview
 
-This repository is a **multi-layer DevOps showcase platform** with four distinct subsystems operating cohesively under a single monorepo. It is not a single application but a portfolio of production-grade DevOps solutions demonstrating cloud infrastructure design, GitOps practices, and CI/CD automation.
+This repository is a **multi-layer DevOps showcase platform** built as a production-grade portfolio. It is not a single application but four cohesive subsystems demonstrating cloud infrastructure, GitOps, CI/CD automation, and observability on AWS EKS.
 
 ### Guiding Principles
 
 | Principle | Expression in the Codebase |
 |---|---|
 | **GitOps as single source of truth** | All desired cluster state lives in Git (`gitops/`); ArgoCD reconciles continuously |
-| **Infrastructure as Code everywhere** | Both Terraform (`inf/terraform/`) and CloudFormation (`inf/cloudformation/`) are used; nothing is clickOps |
-| **Security-first, least privilege** | OIDC replaces static credentials; KMS encrypts secrets; IRSA scopes IAM to pods |
+| **Infrastructure as Code everywhere** | Terraform manages all AWS resources; nothing is created via ClickOps |
+| **Security-first, least privilege** | GitHub OIDC replaces static credentials; IRSA scopes IAM to individual pods; Pod Security Standards enforced |
 | **Immutable delivery** | Container images are versioned; S3 deployments use `--delete` for idempotency |
-| **Environment parity** | Local/staging/production environments share the same manifests, differing only in `tfvars`/kustomize overlays |
-| **Progressive delivery** | Wave-based sync ordering and staggered deployment workflows prevent blast-radius across tiers |
+| **Environment parity** | Local/staging/production share the same manifests, differing only in `tfvars` and kustomize overlays |
+| **Progressive delivery** | ArgoCD sync waves prevent blast-radius across infrastructure layers and tenant tiers |
+| **Observability by default** | Prometheus, Grafana, ELK Stack, and CloudWatch are platform-level concerns, not per-app afterthoughts |
 
 ### Subsystem Map
 
 ```
 devops-engineer-profile/
-├── src/          ← Portfolio Website  (HTML/CSS/JS – static site)
-├── inf/          ← Infrastructure as Code  (Terraform + CloudFormation)
-├── gitops/       ← GitOps Platform  (ArgoCD + Helm + Kustomize on EKS)
-├── ops/          ← Operations Scripts  (Python + shell automation)
-├── plan/         ← Feature planning documents
-└── .github/      ← CI/CD Pipelines  (GitHub Actions) + Copilot configuration
+├── src/        ← Portfolio Website  (HTML/CSS/JS — static site on S3/CloudFront)
+├── inf/        ← Infrastructure as Code  (Terraform, 5 independent root modules)
+├── gitops/     ← GitOps Platform  (ArgoCD App-of-Apps on EKS)
+├── ops/        ← Operational Automation  (Python lifecycle scripts)
+└── .github/    ← CI/CD Pipelines  (GitHub Actions workflows + Copilot instructions)
 ```
+
+### Technology Stack Summary
+
+| Layer | Technology |
+|---|---|
+| Cloud Provider | AWS (EKS, S3, CloudFront, IAM, CloudWatch) |
+| IaC | Terraform HCL with TFLint enforcement |
+| Container Orchestration | Kubernetes (EKS managed, k3s/kind for local) |
+| GitOps Engine | ArgoCD (App-of-Apps pattern) |
+| Package Manager | Helm + Kustomize overlays |
+| CI/CD | GitHub Actions with OIDC authentication |
+| Monitoring | kube-prometheus-stack (Prometheus, Grafana, Alertmanager, node-exporter) |
+| Logging | ECK (Elasticsearch, Kibana) + Fluent Bit |
+| Automation | AWX (Ansible Automation Platform) |
+| Scripting | Python 3 (boto3, requests, rich) |
+| Static Hosting | S3 + CloudFront with OAC |
 
 ---
 
 ## 2. Architecture Visualization
 
-### High-Level System Diagram (C4 Context)
+### C4 Level 1 — System Context
 
 ```
-┌───────────────────────────────────────────────────────────────────────────────────┐
-│                                 GitHub Repository                                 │
-│       (Single source of truth for code, infrastructure, and desired state)        │
-│                                                                                   │
-│  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐  ┌────────────────┐   │
-│  │ src/           │  │ inf/           │  │ gitops/        │  │ ops/           │   │
-│  │ Portfolio      │  │ Terraform +    │  │ ArgoCD Apps    │  │ Python/Shell   │   │
-│  │ Website        │  │ CloudFormation │  │ Helm Charts    │  │ Automation     │   │
-│  └────────┬───────┘  └────────┬───────┘  └────────┬───────┘  └────────────────┘   │
-└───────────┼───────────────────┼───────────────────┼───────────────────────────────┘
-            │  push:main        │  PR → tf plan     │  reconcile loop
-            ▼                   ▼                   ▼
-
-┌────────────────────┐  ┌────────────────────┐  ┌──────────────────────────────────────┐
-│ GitHub Actions     │  │ GitHub Actions     │  │  AWS EKS Cluster                     │
-│ (aws-s3-web-sync)  │  │ terraform-plan/    │  │                                      │
-│                    │  │ apply/validate     │  │  ┌────────────────────────────────┐  │
-│ OIDC → IAM Role    │  │ OIDC → IAM Role    │  │  │ ArgoCD  ◄── git pull (gitops/) │  │
-└────────────────────┘  └────────────────────┘  │  └────────────────┬───────────────┘  │
-           │                   │                │                   │ deploys          │
-           │                   │                │                   ▼                  │
-           ▼                   ▼                │  ┌────────────────────────────────┐  │
-                                                │  │ Infrastructure Plane (w: -1..1)│  │
-┌────────────────────┐  ┌────────────────────┐  │  │  kube-prometheus-stack         │  │
-│ AWS S3 Bucket      │  │ AWS Resources      │  │  │  ECK Operator + Elasticsearch  │  │
-│ (Portfolio site)   │  │ EKS, VPC, IAM      │  │  │  Fluent Bit DaemonSet          │  │
-│ CloudFront CDN     │  │ KMS, S3, OAC       │  │  └────────────────────────────────┘  │
-│ (Resume PDF)       │  │                    │  │  ┌────────────────────────────────┐  │
-└────────────────────┘  └────────────────────┘  │  │ Application Plane  (waves 2-5) │  │
-                                                │  │  Jenkins: basic / advanced /   │  │
-                                                │  │  premium                       │  │
-                                                │  └────────────────────────────────┘  │
-                                                └──────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────┐
+│                      DevOps Platform Ecosystem                      │
+│                                                                     │
+│  ┌───────────┐     Git push      ┌──────────────────────────────┐  │
+│  │ Developer │ ──────────────→  │    GitHub Repository          │  │
+│  └───────────┘                  │  (Source of Truth)            │  │
+│        │                        └──────────────┬───────────────┘  │
+│        │ terraform apply                        │ webhook / poll   │
+│        ↓                                        ↓                  │
+│  ┌─────────────┐              ┌─────────────────────────────────┐  │
+│  │  Terraform  │ provisions → │       AWS EKS Cluster          │  │
+│  │  (inf/)     │              │  ┌──────────────────────────┐   │  │
+│  └─────────────┘              │  │  ArgoCD (GitOps Engine)  │   │  │
+│                               │  │  ┌────────┐ ┌─────────┐ │   │  │
+│  ┌──────────────┐             │  │  │Monitor │ │Logging  │ │   │  │
+│  │ GitHub       │ ─ OIDC ──→ │  │  │ing     │ │ELK+     │ │   │  │
+│  │ Actions      │             │  │  │Prometh │ │FluentBit│ │   │  │
+│  │ (CI/CD)      │             │  │  │us+Graf │ └─────────┘ │   │  │
+│  └──────────────┘             │  │  └────────┘             │   │  │
+│                               │  │  ┌────────┐ ┌─────────┐ │   │  │
+│  ┌──────────────┐             │  │  │AWX     │ │Jenkins  │ │   │  │
+│  │ ops/         │ ─ kubectl → │  │  │Ansible │ │Tenants  │ │   │  │
+│  │ Python CLI   │             │  │  └────────┘ └─────────┘ │   │  │
+│  └──────────────┘             │  └──────────────────────────┘   │  │
+│                               └─────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
 ```
 
-### CI/CD Pipeline Flow
+### C4 Level 2 — GitOps Platform Internals
 
 ```
-Developer → git push → GitHub
-                          │
-            ┌─────────────┴──────────────────┐
-            │                                │
-     feature/* branch                     main branch
-            │                                │
-   aws-s3-web-sync-staging.yml      aws-s3-web-sync-prod.yml
-   (OIDC → s3-nghuy-link)           (OIDC → s3.nghuy.link)
-            │                                │
-     Pull Request ──────────────────────────►│
-            │                                │
-   terraform-validation.yml         terraform-apply.yml
-   terraform-plan.yml               (requires PR merge)
-   (matrix: all changed tf dirs)
+gitops/
+│
+├── bootstrap/                        ← Layer 0: ArgoCD self-install
+│   ├── app-of-apps.yaml              ArgoCD root Application
+│   ├── app-of-apps-infrastructure.yaml
+│   └── projects/                     AppProjects (RBAC boundaries)
+│       ├── infrastructure.yaml       → controls infra namespaces
+│       ├── applications.yaml         → controls tenant namespaces
+│       └── tenants.yaml
+│
+├── control-plane/                    ← Layer 1: Cluster operations
+│   ├── rbac/                         Git credentials, workflow RBAC
+│   └── workflows/                    Argo Workflows: onboard/offboard/deploy
+│
+├── application-plane/                ← Layer 2: Deployed applications
+│   ├── local/                        Environment overlay
+│   │   ├── infrastructure/           Sync wave -1 to 0 (operators first)
+│   │   ├── pooled-envs/              Shared namespace pools
+│   │   └── tenants/                  Tier-stratified tenant apps
+│   ├── staging/                      (same structure as local)
+│   └── production/                   (same structure, more tiers)
+│
+├── applicationsets/                  ← Dynamic application generation
+│   ├── jenkins-appset.yaml           Auto-discovers Jenkins configs by tier
+│   └── kube-prometheus-stack-appset.yaml
+│
+└── helm-charts/                      ← Helm values overrides
+    ├── kube-prometheus-stack/
+    ├── eck-operator/
+    ├── eck-stack/
+    ├── fluent-bit/
+    ├── jenkins/
+    └── awx-operator/
 ```
 
-### GitOps Sync Wave Ordering
+### Sync Wave Dependency Graph
 
 ```
-Wave -1 │  ECK Operator (CRDs must exist before stack)
-Wave  0 │  kube-prometheus-stack, ECK Stack (Elasticsearch + Kibana)
-Wave  1 │  Fluent Bit DaemonSet, Jenkins pool-1 (shared)
-Wave  2 │  Jenkins basic tenants
-Wave  3 │  Jenkins advanced tenants
-Wave  5 │  Jenkins premium tenants (manual sync safety gate)
+Wave -1   ┌──────────────────┐
+          │  ECK Operator    │  (CRD prerequisites for Elasticsearch)
+          └────────┬─────────┘
+                   │
+Wave  0   ┌────────┴───────────────────────────────────┐
+          │  kube-prometheus-stack  │  eck-stack        │
+          │  (Prometheus, Grafana,  │  (ES, Kibana)     │
+          │   Alertmanager)         │                   │
+          └────────────────────────┴──────────┬────────┘
+                                              │
+Wave  1   ┌───────────────────────────────────┴──────┐
+          │  fluent-bit   │  awx-operator  │ jenkins  │
+          └───────────────┴────────────────┴──────────┘
+                                              │
+Wave 2-6  ┌───────────────────────────────────┴──────┐
+          │  Tenant Applications (by tier/namespace)  │
+          └───────────────────────────────────────────┘
+```
+
+### Multi-Tenant Tier Architecture
+
+```
+┌────────────────────────────────────────────────────────┐
+│                    EKS Cluster                         │
+│                                                        │
+│  ┌─────────────────────────────────────────────────┐  │
+│  │ Infrastructure Plane (argocd, monitoring, etc.) │  │
+│  └─────────────────────────────────────────────────┘  │
+│                                                        │
+│  ┌──────────────────────────────────────────────────┐ │
+│  │ pool-1 (Basic Tier) — SHARED                     │ │
+│  │  → Jenkins controller + shared workloads         │ │
+│  └──────────────────────────────────────────────────┘ │
+│                                                        │
+│  ┌──────────────┐ ┌──────────────┐ ┌───────────────┐  │
+│  │ tenant-A     │ │ tenant-B     │ │ tenant-C      │  │
+│  │ (Advanced)   │ │ (Advanced)   │ │ (Premium)     │  │
+│  │ Dedicated    │ │ Dedicated    │ │ Full silo     │  │
+│  │ controller   │ │ controller   │ │ + isolation   │  │
+│  └──────────────┘ └──────────────┘ └───────────────┘  │
+└────────────────────────────────────────────────────────┘
 ```
 
 ---
 
 ## 3. Core Architectural Components
 
-### 3.1 Portfolio Website (`src/aws-s3-web/`)
+### 3.1 GitOps Platform (`gitops/`)
 
-**Purpose:** Static personal portfolio served via AWS S3 (and optionally CloudFront).
+**Purpose:** Declarative continuous delivery for all Kubernetes workloads using the App-of-Apps pattern.
 
-**Internal Structure:**
-- `index.html` — single-page portfolio with Bootstrap 5, AOS animations, Typed.js, Swiper, GLightbox
-- `assets/css/main.css` — custom styles layered over Bootstrap
-- `assets/js/main.js` — interactive behavior (scroll, typed text, lightbox, isotope grid)
-- `assets/vendor/` — vendored third-party libraries (no build step required)
-- `forms/contact.php` — PHP contact form stub (static hosting ignores this)
+| Sub-component | Responsibility |
+|---|---|
+| `bootstrap/` | Installs ArgoCD, creates AppProjects and the root Applications that own everything else |
+| `control-plane/` | RBAC, Argo Workflows for tenant lifecycle operations |
+| `application-plane/` | Organized environment/tier manifests consumed by ArgoCD |
+| `applicationsets/` | Dynamic generation of Applications from Git directory structure |
+| `helm-charts/` | Centralized Helm `values.yaml` overrides for all deployed charts |
 
-**Interaction Patterns:**
-- Deployed to S3 via GitHub Actions `aws-s3-web-sync-prod.yml` / `aws-s3-web-sync-staging.yml`
-- No backend; all interactivity is client-side JavaScript
-- CloudFront (optional, configured in `inf/terraform/aws-cloudfront-s3-oac-resume/`) delivers PDF resume securely via OAC
+**Key interactions:**
+- ArgoCD polls Git; any merged change automatically reconciles cluster state
+- AppProjects enforce namespace and resource-type scoping per project class
+- Kustomize overlays compose base manifests with environment-specific patches
 
----
+### 3.2 Infrastructure as Code (`inf/terraform/`)
 
-### 3.2 Infrastructure as Code (`inf/`)
+Five independent Terraform root modules, each with isolated state:
 
-Four independent Terraform root modules, each self-contained:
+| Module | Purpose |
+|---|---|
+| `aws-eks/` | EKS cluster, VPC, node groups, ArgoCD bootstrap, monitoring |
+| `aws-eks-argocd/` | IRSA roles for ArgoCD pods to access AWS services (ECR read) |
+| `aws-s3-web/` | S3 static website bucket (portfolio site) |
+| `aws-github-oidc/` | OIDC provider + IAM role for keyless GitHub Actions auth |
+| `aws-cloudfront-s3-oac-resume/` | CloudFront distribution with Origin Access Control for resume delivery |
 
-| Module | Purpose | Key Resources |
+**State isolation design:** Each module manages its own `terraform.tfstate`. Cross-module references use `terraform_remote_state` data sources or explicit variable passing, preventing blast-radius on plan/apply.
+
+### 3.3 CI/CD Automation (`.github/workflows/`)
+
+| Workflow | Trigger | Role |
 |---|---|---|
-| `aws-s3-web/` | Static website S3 bucket | S3, bucket policy, CORS, versioning, lifecycle |
-| `aws-github-oidc/` | Passwordless CI/CD auth | AWS OIDC provider, IAM role + policy, GitHub Secrets/Variables |
-| `aws-eks/` | Full EKS cluster | VPC (multi-AZ), EKS, node groups, add-ons, KMS, IRSA, Cluster Autoscaler, Metrics Server |
-| `aws-cloudfront-s3-oac-resume/` | Secure PDF CDN | CloudFront OAC, private S3, signed URLs, Route53 alias |
-| `aws-eks-argocd/` | ArgoCD IRSA | IAM role for ArgoCD service accounts to pull from ECR |
+| `terraform-plan.yml` | PR touching `inf/terraform/**` | Auto-discovers changed projects, fans out matrix plan, comments results on PR |
+| `terraform-apply.yml` | Merge to `main` | Applies approved plans per environment |
+| `terraform-validation.yml` | Every push | Syntax validation gate |
+| `aws-s3-web-sync-staging.yml` | Push to main | Syncs `src/` to staging S3 bucket |
+| `aws-s3-web-sync-prod.yml` | Push to main | Syncs `src/` to production S3 bucket |
 
-**CloudFormation (Legacy/Alternative):**
-- `s3_static_web_deployment.yaml` — equivalent to `aws-s3-web/` Terraform
-- `lambda_github_s3_sync_deployment.yaml` — Lambda-based GitHub-to-S3 sync (alternative to GitHub Actions)
+All workflows authenticate to AWS via **GitHub OIDC** — no long-lived secrets stored in GitHub.
 
----
+### 3.4 Operational Automation (`ops/`)
 
-### 3.3 GitOps Platform (`gitops/`)
+| Script | Role |
+|---|---|
+| `deploy_gitops_stacks_local.py` | Full GitOps platform lifecycle on local clusters (minikube/kind/k3s) — interactive menu or `--action deploy|status|cleanup` |
+| `deploy-gitops-stacks-local.ps1` | PowerShell equivalent for Windows environments |
+| `github_s3_sync.py` | Synchronizes GitHub repo content to S3 with MIME detection and integrity checks |
+| `deploy_lambda.py` | Lambda function packaging and deployment |
+| `resume_upload.py` | Resume PDF upload to S3 |
 
-A **multi-tenant SaaS GitOps platform** running on EKS, inspired by the AWS EKS SaaS GitOps Workshop.
+### 3.5 Portfolio Website (`src/`)
 
-**Structural Planes:**
-
-```
-gitops/
-├── bootstrap/          ← ArgoCD installation + App-of-Apps root Applications
-├── applicationsets/    ← Alternative git-file-generator discovery
-├── helm-charts/        ← Wrapper Helm charts (lock upstream versions)
-├── application-plane/  ← Per-environment desired state
-│   ├── local/
-│   ├── staging/
-│   └── production/
-│       ├── infrastructure/   ← Cluster-wide services
-│       ├── pooled-envs/      ← Shared Jenkins pools (basic tier)
-│       ├── tier-templates/   ← Copy-fill tenant blueprints
-│       └── tenants/          ← Active tenant Applications
-│           ├── basic/
-│           ├── advanced/
-│           └── premium/
-└── control-plane/      ← Argo Workflows for lifecycle automation
-    ├── rbac/
-    └── workflows/
-        ├── onboarding-workflow.yaml    ← 4-step tenant onboarding
-        ├── offboarding-workflow.yaml   ← 4-step tenant offboarding
-        └── deployment-workflow.yaml    ← Staggered 4-wave promotion
-```
-
-**Tenant Isolation Tiers:**
-
-| Tier | Isolation | Resources | Storage | Environments |
-|---|---|---|---|---|
-| Basic | Shared namespace | Minimal | Pool PVC | All |
-| Advanced | Dedicated namespace | 500m–2 CPU | 20Gi gp3 | Staging, Production |
-| Premium | Dedicated namespace + HA | 2–8 CPU, 4–8Gi | 100Gi gp3 | Production only |
-
----
-
-### 3.4 Operations Scripts (`ops/`)
-
-| Script | Language | Purpose |
-|---|---|---|
-| `github_s3_sync.py` | Python | Downloads GitHub repo ZIP via API and syncs to S3 with hash-based change detection |
-| `deploy_lambda.py` | Python | Deploys Python functions to AWS Lambda |
-| `deploy_resume.sh` | Bash | Manual resume PDF upload script |
-| `resume_upload.py` | Python | Programmatic resume S3 upload |
-| `deploy-gitops-stacks-local.ps1` | PowerShell | Local cluster bootstrap for development |
-| `requirements.txt` | — | `boto3>=1.26.0`, `requests>=2.28.0` |
-
----
-
-### 3.5 CI/CD Pipelines (`.github/workflows/`)
-
-| Workflow | Trigger | Purpose |
-|---|---|---|
-| `aws-s3-web-sync-prod.yml` | `push:main` on `src/aws-s3-web/**` | Sync portfolio to production S3 |
-| `aws-s3-web-sync-staging.yml` | `push:feature/*` on `src/aws-s3-web/**` | Sync portfolio to staging S3 |
-| `terraform-validation.yml` | PR + push | fmt, validate, tflint, security scan |
-| `terraform-plan.yml` | PR on `inf/terraform/**` | Auto-matrix plan across all changed modules |
-| `terraform-apply.yml` | PR merge to main | Apply Terraform after approval |
+Static site hosted on S3 with optional CloudFront CDN. No build step — raw HTML/CSS/JS deployed via `aws s3 sync`. Vendor libraries (Bootstrap, AOS, Swiper, Typed.js) bundled locally.
 
 ---
 
 ## 4. Architectural Layers and Dependencies
 
-### Dependency Hierarchy
-
 ```
-Layer 0: Security Foundation
-  aws-github-oidc/  ─────────────────────────────────────────┐
-  (OIDC provider + IAM role)                                  │
-         │                                                    │
-         ▼                                                    ▼
-Layer 1: Compute/Network Infrastructure              Layer 1b: Static Web Infrastructure
-  aws-eks/                                             aws-s3-web/
-  (VPC, EKS, node groups, KMS, IRSA)                  (S3 bucket, website config)
-         │                                                    │
-         ▼                                                    ▼
-Layer 2: Platform Services                           Layer 2b: CDN
-  aws-eks-argocd/                                     aws-cloudfront-s3-oac-resume/
-  (ArgoCD IRSA)                                        (CloudFront OAC, private S3)
-         │
-         ▼
-Layer 3: GitOps Workloads (gitops/)
-  bootstrap/ → application-plane/ → control-plane/
+┌──────────────────────────────────────────────────────────┐
+│  Layer 4: Application Plane (tenant workloads)           │
+│           gitops/application-plane/*/tenants/            │
+└──────────────────┬───────────────────────────────────────┘
+                   │ depends on
+┌──────────────────▼───────────────────────────────────────┐
+│  Layer 3: Control Plane (infrastructure services)        │
+│           monitoring, logging, awx, eck-operator          │
+└──────────────────┬───────────────────────────────────────┘
+                   │ depends on
+┌──────────────────▼───────────────────────────────────────┐
+│  Layer 2: GitOps Engine (ArgoCD)                         │
+│           gitops/bootstrap/ + helm-charts/               │
+└──────────────────┬───────────────────────────────────────┘
+                   │ depends on
+┌──────────────────▼───────────────────────────────────────┐
+│  Layer 1: Kubernetes Cluster                             │
+│           inf/terraform/aws-eks/                         │
+└──────────────────┬───────────────────────────────────────┘
+                   │ depends on
+┌──────────────────▼───────────────────────────────────────┐
+│  Layer 0: AWS Infrastructure (VPC, IAM, ECR, S3)         │
+│           inf/terraform/aws-github-oidc/ + aws-s3-web/   │
+└──────────────────────────────────────────────────────────┘
 ```
 
-### Dependency Rules
-
-- Terraform modules are **independent root modules** — no cross-module Terraform dependencies
-- GitOps depends on EKS existing (`aws-eks/` applied first)
-- ArgoCD IRSA (`aws-eks-argocd/`) depends on the EKS OIDC provider ARN from `aws-eks/` outputs
-- GitHub Actions always authenticate through OIDC (`aws-github-oidc/` must be applied before any workflow runs)
-- Sync wave ordering enforces Kubernetes-level ordering within the GitOps plane
+**Dependency rules:**
+- Upper layers MUST NOT have circular references into lower layers
+- Terraform modules reference each other only via `terraform_remote_state` data sources (explicit wiring)
+- ArgoCD Applications reference Helm charts and Git paths; they do not call back into Terraform
+- The `ops/` scripts are **day-2 operations tools** — they orchestrate layers but do not own state
 
 ---
 
 ## 5. Data Architecture
 
-### State Management
+### State Storage
 
-| Artifact | Storage | Locking |
+| State Type | Location | Notes |
 |---|---|---|
-| Terraform state | S3 backend (configured, pending activation) | DynamoDB table |
-| ArgoCD desired state | Git repository (`gitops/`) | Git branch protection |
-| ArgoCD live state | Kubernetes etcd | Kubernetes API |
-| EKS secrets | etcd with KMS envelope encryption (customer-managed key) | — |
+| Terraform state | S3 backend (per module) | DynamoDB lock table; never committed to Git |
+| Kubernetes desired state | Git (`gitops/`) | ArgoCD reconciles live state to this |
+| Kubernetes live state | etcd (EKS managed) | ArgoCD continuously reads to detect drift |
+| Application data | PersistentVolumes (EBS) | Jenkins workspace, Elasticsearch indices, AWX database |
+| Secrets | Kubernetes Secrets / AWS Secrets Manager | Never in Git plaintext |
 
-### Data Flow: Portfolio Update
-
-```
-Developer commits src/aws-s3-web/
-  → GitHub Actions (OIDC auth)
-    → aws s3 sync --delete (idempotent, hash-based)
-      → S3 Bucket (s3.nghuy.link)
-        → End user browser
-```
-
-### Data Flow: Infrastructure Change
+### Configuration Data Flow
 
 ```
-Developer opens PR with inf/terraform/**
-  → terraform-validation (fmt, validate, tflint, security scan)
-  → terraform-plan (matrix: per changed module × per environment)
-    → Plan output posted as PR comment
-PR merged to main
-  → terraform-apply (OIDC auth, workspace per environment)
-    → AWS resources updated
+.tfvars files         → Terraform apply → AWS resources + EKS cluster
+gitops/helm-charts/   → ArgoCD Helm release → Deployed Helm chart instances
+gitops/application-plane/ → ArgoCD Application → Kubernetes manifests applied
 ```
 
-### Data Flow: Tenant Onboarding
+### Helm Values Inheritance
 
 ```
-Operator triggers Argo Workflow (tenant-onboarding)
-  → Step 1: Validate (name, tier, env)
-  → Step 2: Generate manifest from tier-template
-  → Step 3: git commit to gitops/application-plane/{env}/tenants/{tier}/
-  → Step 4: Wait for ArgoCD Application to reach Synced+Healthy
+Chart Default values.yaml
+    ↓ overridden by
+gitops/helm-charts/<chart>/values.yaml  (base org-level overrides)
+    ↓ overridden by
+ArgoCD Application helm.values block    (environment/tier-level overrides)
 ```
 
-### Data Validation Patterns
+### Tenant Data Boundaries
 
-- **Terraform variables**: typed declarations with `validation {}` blocks (e.g., environment must be `staging|production`; CIDR blocks validated to reject `0.0.0.0/0` and RFC-1918 ranges on public endpoint)
-- **GitHub Actions**: `workflow_dispatch` inputs use `type: choice` with explicit `options` enum
-- **Argo Workflows**: `enum` constraints on `tier` and `environment` parameters
+Each tenant tier operates in an isolated namespace:
+- **Basic:** `pool-1` shared namespace — resource quotas enforced
+- **Advanced:** Dedicated `tenant-{name}` namespace — dedicated controllers
+- **Premium:** Full namespace silo with dedicated node selector labels and network policies
 
 ---
 
 ## 6. Cross-Cutting Concerns
 
-### Authentication & Authorization
+### 6.1 Authentication and Authorization
 
-**GitHub → AWS (OIDC):**
-- AWS IAM OIDC identity provider registered for `token.actions.githubusercontent.com`
-- IAM role `github-actions-s3-sync-role` trusted only for this repository's tokens
-- Role scoped to `s3:PutObject`, `s3:GetObject`, `s3:DeleteObject`, `s3:ListBucket` on specific buckets
-- Terraform validation workflow uses a separate OIDC role scoped to read-only plan operations
+| Concern | Implementation |
+|---|---|
+| CI/CD → AWS | GitHub OIDC (`aws-github-oidc` Terraform module) — temporary STS credentials per run |
+| ArgoCD pods → AWS | IRSA (`aws-eks-argocd` module) — `eks.amazonaws.com/role-arn` annotation on service accounts |
+| ArgoCD RBAC | AppProjects define allowed source repos, destination namespaces, and resource kinds |
+| Kubernetes RBAC | `control-plane/rbac/workflow-rbac.yaml` for Argo Workflows service accounts |
+| User → ArgoCD | ArgoCD local users or SSO (configurable in ArgoCD values) |
 
-**Kubernetes (IRSA):**
-- ArgoCD service accounts (server, application-controller, repo-server) use IRSA to assume an IAM role scoped to `AmazonEC2ContainerRegistryReadOnly`
-- EBS CSI driver uses dedicated IRSA with `EBS_CSI_Policy`
-- Cluster Autoscaler uses IRSA with auto-discovery policy
-
-**Kubernetes RBAC:**
-- Argo Workflows uses `gitops-workflow-sa` ServiceAccount with a dedicated ClusterRole (`workflow-rbac.yaml`)
-- ArgoCD AppProjects (`infrastructure`, `applications`, `tenants`) restrict which namespaces each project can deploy to
-
-**EKS Authentication:**
-- `authentication_mode = "API_AND_CONFIG_MAP"` — supports both API-based and legacy ConfigMap access
-- Cluster creator granted admin permissions automatically
-
-### Secret Management
-
-- **No secrets in Git** — enforced by `.gitignore`, git-credentials stored in Kubernetes Secrets (referenced via template `git-credentials-template.yaml`)
-- **GitHub Actions secrets** — injected at runtime from repository/environment secrets
-- **KMS envelope encryption** — all EKS Kubernetes Secrets encrypted at rest with a customer-managed KMS key
-- **EBS volumes** — encrypted at rest via gp3 StorageClass with KMS
-
-### Error Handling & Resilience
-
-- **ArgoCD retry policies**: `limit: 5`, exponential backoff (5s base, factor 2, max 3m)
-- **Terraform**: `continue-on-error: true` on init (graceful handling of lock issues)
-- **GitHub Actions**: `PIPESTATUS[0]` checked for `aws s3 sync` exit codes; logs uploaded as artifacts on failure
-- **Cluster Autoscaler**: scales nodes 0→N based on pending pod pressure
-- **HPA**: Horizontal Pod Autoscaler enabled via Metrics Server deployment
-
-### Logging & Monitoring
-
-**Stack:**
+**Trust boundary model:**
 ```
-Fluent Bit DaemonSet  →  Elasticsearch (3-node HA in production, 1-node local)
-                                │
-                          Kibana (UI)
-
-kube-prometheus-stack:
-  Prometheus  →  Grafana (dashboards, 30d retention in production)
-  Alertmanager  (failure/degradation alerts on premium tier)
+GitHub Actions runner → assumes IAM role via OIDC (no static keys)
+ArgoCD pod           → assumes IAM role via IRSA (no static keys)
+kubectl users        → EKS auth via AWS IAM identity mapping
 ```
 
-**Log Retention:**
-- Production: 30-day Prometheus retention, 100Gi Elasticsearch
-- Staging: 7-day Prometheus retention, 30Gi Elasticsearch
-- Local: 3-day Prometheus retention, 5Gi Elasticsearch
+### 6.2 Secret Management
 
-**CloudWatch:** EKS control plane logs (`api`, `audit`, `authenticator`, `controllerManager`, `scheduler`) retained per `cloudwatch_log_retention_days` variable (default: 7 days).
+- Secrets are **never committed** to Git in plaintext
+- Kubernetes Secrets referenced in ArgoCD Applications are created out-of-band or via `external-secrets-operator` (namespace reserved in AppProject)
+- Git credentials for ArgoCD are mounted via `git-credentials-template.yaml` from a Kubernetes Secret
+- Terraform sensitive outputs (e.g., kubeconfig, role ARNs) use `sensitive = true`
 
-### Configuration Management
+### 6.3 Logging
 
-- **Terraform**: `environments/{env}.tfvars` pattern per module; never committed with secrets
-- **Helm**: wrapper chart `Chart.yaml` + `values.yaml` base defaults; environment overrides in Application manifests
-- **ArgoCD**: `values-base.yaml` + `values-aws.yaml` / `values-local.yaml` overlay pattern
-- **Kustomize**: `kustomization.yaml` aggregates Application manifests per tier per environment
+| Component | Destination |
+|---|---|
+| Kubernetes workloads | Fluent Bit → Elasticsearch (Kibana for query) |
+| EKS control plane | CloudWatch Logs (API, audit, authenticator enabled in `aws-eks`) |
+| VPC network | VPC Flow Logs → CloudWatch |
+| GitHub Actions | GitHub Actions native log viewer |
 
-### Pod Security
+Fluent Bit is deployed in Wave 1 (after Elasticsearch is ready in Wave 0) and configured via `gitops/helm-charts/fluent-bit/values.yaml`.
 
-- **Pod Security Standards**: `Restricted` profile enforced via namespace labels on ArgoCD namespace
-- All Helm charts configured with `runAsNonRoot: true`, `readOnlyRootFilesystem: true`, `allowPrivilegeEscalation: false`, `capabilities.drop: [ALL]`
+### 6.4 Monitoring and Alerting
+
+```
+kube-prometheus-stack (Wave 0):
+  Prometheus      → scrapes all namespaces, stores metrics
+  Alertmanager    → routes alerts (email/Slack/PagerDuty configurable)
+  Grafana         → dashboards (kube-state-metrics, node-exporter)
+  node-exporter   → host-level metrics per node
+  kube-state-metrics → Kubernetes object metrics
+```
+
+Rules disabled for EKS-managed components (etcd, kube-controller-manager, kube-scheduler, kube-proxy) since these are managed by AWS and not scrape-accessible.
+
+### 6.5 Configuration Management
+
+| Scope | Mechanism |
+|---|---|
+| Terraform environment config | `environments/staging.tfvars`, `environments/production.tfvars` |
+| Kubernetes environment config | Kustomize overlays in `application-plane/{env}/` |
+| Helm chart config | Base `values.yaml` in `helm-charts/` + inline `helm.values` in ArgoCD Application |
+| Application config | ConfigMaps per namespace (not stored centrally) |
+
+### 6.6 Pod Security
+
+All infrastructure Helm charts enforce **restricted Pod Security Standards**:
+```yaml
+securityContext:
+  runAsNonRoot: true
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  seccompProfile:
+    type: RuntimeDefault
+```
+Namespace labels `pod-security.kubernetes.io/enforce: restricted` applied where applicable.
+
+### 6.7 Validation
+
+- **Terraform:** `terraform validate` + `tflint --recursive` (enforces snake_case, required tags, module versioning, documented variables)
+- **Kubernetes:** ArgoCD diff on PR; schema validation via kubeconform (CI-ready)
+- **Python:** No formal linting enforced yet (see Governance section)
+- **Helm:** `helm lint` applicable per chart in `helm-charts/`
 
 ---
 
 ## 7. Service Communication Patterns
 
-### External-Facing
+### ArgoCD → Git
 
-| Endpoint | Protocol | Security |
-|---|---|---|
-| `nghuy.link` (portfolio) | HTTPS via S3 website | Public read (bucket policy) |
-| Resume PDF CDN | HTTPS via CloudFront | OAC → private S3, min TLS 1.2 |
-| EKS API server | HTTPS | Private endpoint + optional restricted public CIDR |
+- **Protocol:** HTTPS or SSH Git polling (configurable in ArgoCD bootstrap values)
+- **Frequency:** Default 3-minute polling interval
+- **Credentials:** Stored in Kubernetes Secret, mounted via `git-credentials-template.yaml`
+- **Pattern:** Pull-based (ArgoCD pulls from Git, never pushed to by CI directly)
 
-### Internal Kubernetes
+### ArgoCD → Helm Registry / OCI
 
-| Communication | Pattern | Example |
-|---|---|---|
-| ArgoCD → Git | HTTPS pull (read-only) | Periodic reconcile + webhook push |
-| ArgoCD → Kubernetes | Server-side apply | `kubectl apply --server-side` via ArgoCD |
-| Fluent Bit → Elasticsearch | HTTP (cluster-internal) | DaemonSet → Service → StatefulSet |
-| Prometheus → targets | HTTP scrape | ServiceMonitor CRDs |
-| Argo Workflows → ArgoCD | `argocd app sync` CLI | Exec in workflow pod |
+- ArgoCD fetches Helm charts from public Helm repositories or OCI registries
+- IRSA enables ECR pull for private images without explicit credential configuration
 
-### Deployment Strategy
+### Fluent Bit → Elasticsearch
 
-- **Basic/Advanced tenants**: Auto-sync with prune + self-heal
-- **Premium tenants**: Manual sync (explicit approval required, `syncPolicy: automated` disabled)
-- **Infrastructure**: Auto-sync with `Replace: true` for CRD-heavy components
+- **Protocol:** HTTP (port 9200) within cluster
+- **Authentication:** Basic auth via Kubernetes Secret
+- **Pattern:** Push-based log shipping, batched and buffered
+
+### Prometheus → Scrape Targets
+
+- **Protocol:** HTTP `/metrics` endpoints (pull-based scraping)
+- **Discovery:** `ServiceMonitor` CRDs deployed alongside each stack
+- **Pattern:** Prometheus-operator manages scrape configuration declaratively
+
+### GitHub Actions → AWS
+
+- **Protocol:** AWS STS AssumeRoleWithWebIdentity via OIDC token
+- **Pattern:** Short-lived credential exchange at workflow start
+- **Scope:** Role trust policy scoped to `repo:<org>/<repo>:ref:refs/heads/main`
 
 ---
 
 ## 8. Technology-Specific Patterns
 
-### Terraform
+### 8.1 Terraform Patterns
 
-**Module Structure (per root module):**
+**Module structure (enforced by tflint):**
 ```
-module/
-├── main.tf        ← Resources, data sources, modules
-├── variables.tf   ← Typed variables with validation + description
-├── outputs.tf     ← Exported values
-├── provider.tf    ← Provider and version constraints
-├── locals.tf      ← Derived values and common tags
-├── backend.tf     ← Remote state (S3 + DynamoDB)
-└── environments/  ← {env}.tfvars (no secrets)
+inf/terraform/<project>/
+├── main.tf          # Primary resources
+├── variables.tf     # Input variables (all typed + described)
+├── outputs.tf       # Outputs (all described)
+├── locals.tf        # Local value computations
+├── provider.tf      # Provider versions + backend config
+└── environments/
+    ├── staging.tfvars
+    └── production.tfvars
 ```
 
-**Patterns observed:**
-- `default_tags` in `provider "aws"` block for consistent tagging
-- `count` for optional single resources (e.g., `count = var.enable_ebs_csi_driver ? 1 : 0`)
-- `for_each` with maps for node groups
-- `checkov:skip` inline with justification comments for intentional security exceptions
-- `tfsec:ignore` for false positives with explanatory comments
-- `lifecycle { ignore_changes = [tags_all] }` to prevent tag drift from AWS-managed tags
+**Naming:** All identifiers must use `snake_case`.
 
-**Linting (`.tflint.hcl`):**
-- `aws` plugin v0.30.0 with `aws_resource_missing_tags` enforcing `Environment`, `Project`, `ManagedBy`
-- `terraform` plugin v0.5.0 with `recommended` preset
-- `snake_case` enforced on all names; documented variables/outputs required; typed variables required
+**Required resource tags:**
+```hcl
+tags = {
+  Environment = var.environment
+  Project     = var.project_name
+  ManagedBy   = "terraform"
+}
+```
 
-### GitHub Actions
+**IRSA pattern (used in `aws-eks-argocd`):**
+```hcl
+resource "aws_iam_role" "argocd" {
+  assume_role_policy = data.aws_iam_policy_document.argocd_oidc_trust.json
+}
 
-**Security patterns:**
-- `permissions: id-token: write` scoped to workflows needing OIDC
-- `permissions: contents: read` as default; `pull-requests: write` only where PR comments are posted
-- `concurrency` group prevents parallel terraform plans for the same environment
-- `actions/cache@v5` with `hashFiles(*.lock.hcl)` key for Terraform provider caching
-- `fetch-depth: 1` on all checkouts
-- `retention-days: 30` on uploaded artifacts
+data "aws_iam_policy_document" "argocd_oidc_trust" {
+  statement {
+    principals {
+      type        = "Federated"
+      identifiers = [aws_iam_openid_connect_provider.eks.arn]
+    }
+    condition {
+      test     = "StringEquals"
+      variable = "${local.oidc_issuer}:sub"
+      values   = ["system:serviceaccount:argocd:argocd-application-controller"]
+    }
+  }
+}
+```
 
-**Matrix strategy (terraform-plan.yml):**
-- `setup` job auto-discovers changed Terraform directories and available `.tfvars` environments
-- Matrix dynamically built from discovered directories × environments
-- `fail-fast: false` allows all matrix jobs to complete even if one fails
+### 8.2 Kubernetes / ArgoCD Patterns
 
-### Kubernetes / GitOps
-
-**ArgoCD patterns:**
-- App-of-Apps (directory mode) for environment bootstrapping
-- ApplicationSet (git file generator) as complementary discovery mechanism
-- `argocd.argoproj.io/sync-wave` annotations for ordered deployments
-- `ServerSideApply=true` to avoid field ownership conflicts on CRD-heavy stacks
-- `ignoreDifferences` for operator-managed fields (e.g., `Prometheus.spec.replicas`)
-
-**Helm wrapper chart pattern:**
+**AppProject scoping:**
 ```yaml
-# Chart.yaml
-dependencies:
-  - name: jenkins
-    version: "5.8.139"
-    repository: "https://charts.jenkins.io"
+spec:
+  sourceRepos:
+    - 'https://github.com/<org>/<repo>.git'
+  destinations:
+    - namespace: 'monitoring'
+      server: 'https://kubernetes.default.svc'
+  clusterResourceWhitelist:
+    - group: 'monitoring.coreos.com'
+      kind: 'PrometheusRule'
 ```
-- Pins upstream chart version explicitly
-- `values.yaml` contains security-hardened base configuration
-- Per-tenant overrides passed inline in the ArgoCD Application `helm.values` field
+
+**Sync wave annotation:**
+```yaml
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"   # ECK Operator
+    argocd.argoproj.io/sync-wave: "0"    # kube-prometheus-stack
+    argocd.argoproj.io/sync-wave: "1"    # fluent-bit
+```
+
+**ApplicationSet git-file generator (auto-discovery):**
+```yaml
+generators:
+  - git:
+      repoURL: https://github.com/<org>/<repo>.git
+      revision: HEAD
+      files:
+        - path: "gitops/helm-charts/jenkins/*/config.json"
+```
+
+**Kustomize overlay composition:**
+```
+gitops/application-plane/
+├── base/                    # (if present) shared base
+└── {env}/
+    └── infrastructure/
+        ├── kustomization.yaml   # lists resources + patches
+        └── eck-operator.yaml    # env-specific patch/override
+```
+
+### 8.3 GitHub Actions Patterns
+
+**OIDC authentication block (reused across all AWS workflows):**
+```yaml
+permissions:
+  id-token: write
+  contents: read
+
+steps:
+  - name: Configure AWS credentials
+    uses: aws-actions/configure-aws-credentials@v4
+    with:
+      role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+      aws-region: ${{ vars.AWS_REGION }}
+```
+
+**Matrix fan-out for Terraform (auto-discovery):**
+```yaml
+strategy:
+  matrix:
+    include: ${{ fromJson(needs.setup.outputs.matrix) }}
+```
+The `setup` job scans `inf/terraform/*/environments/*.tfvars` and builds the matrix JSON dynamically.
+
+**Concurrency control:**
+```yaml
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+```
+
+### 8.4 Python Patterns
+
+**CLI interface pattern (`deploy_gitops_stacks_local.py`):**
+```python
+import argparse
+from rich.console import Console
+from rich.table import Table
+
+def parse_args():
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--gitops-path", required=True)
+    parser.add_argument("--repo-url", required=True)
+    parser.add_argument("--action", choices=["deploy", "status", "cleanup", "menu"],
+                        default="menu")
+    return parser.parse_args()
+```
+
+**Dependencies:** `boto3>=1.26.0`, `requests>=2.28.0`, `rich` (CLI UI).
+
+**Script responsibilities are cleanly separated** — no script does both AWS state management and cluster lifecycle.
 
 ---
 
 ## 9. Implementation Patterns
 
-### Adding a New Terraform Module
+### 9.1 Adding a New Infrastructure Service
 
-1. Create `inf/terraform/{module-name}/` directory
-2. Include: `main.tf`, `variables.tf`, `outputs.tf`, `provider.tf`, `locals.tf`
-3. Add `environments/{env}.tfvars` — never commit secrets
-4. Add optional `backend.tf` for remote state (follow the `aws-eks/backend.tf` pattern)
-5. Add `.tflint.hcl` in the module directory if it needs local overrides
-6. `terraform-plan.yml` auto-discovers it via `find inf/terraform -mindepth 1 -maxdepth 1 -type d`
+Follow the sync-wave pattern: operators and CRDs in Wave -1 or 0; their operands and dependent services in Wave 0 or 1.
 
-### Adding a New Tenant
+1. Add Helm values to `gitops/helm-charts/<service>/values.yaml`
+2. Create ArgoCD Application YAML in `gitops/application-plane/<env>/infrastructure/<service>.yaml`
+3. Set `argocd.argoproj.io/sync-wave` annotation based on dependencies
+4. Add entry to `gitops/application-plane/<env>/infrastructure/kustomization.yaml`
+5. Ensure the service's namespace is listed in the `infrastructure` AppProject
 
-```bash
-# 1. Copy the appropriate tier template
-cp gitops/application-plane/production/tier-templates/advanced_tenant_template.yaml \
-   gitops/application-plane/production/tenants/advanced/acme-corp.yaml
+### 9.2 Adding a New Tenant
 
-# 2. Fill in TENANT_NAME placeholder
-sed -i 's/TENANT_NAME/acme-corp/g' \
-   gitops/application-plane/production/tenants/advanced/acme-corp.yaml
+1. Create tenant configuration at `gitops/helm-charts/jenkins/<tier>/<tenant-name>/`
+2. Create Application YAML at `gitops/application-plane/<env>/tenants/<tier>/<tenant-name>.yaml`
+3. Add to `gitops/application-plane/<env>/tenants/<tier>/kustomization.yaml`
+4. Tenant's namespace must match AppProject `applications` or `tenants` allow-list
 
-# 3. Add to kustomization
-echo "  - acme-corp.yaml" >> \
-   gitops/application-plane/production/tenants/advanced/kustomization.yaml
+### 9.3 Adding a New Terraform Module
 
-# 4. Commit → ArgoCD auto-syncs
-git add . && git commit -m "feat: onboard acme-corp as advanced tenant"
-git push
-```
+1. Create `inf/terraform/<module-name>/` with the standard file set: `main.tf`, `variables.tf`, `outputs.tf`, `locals.tf`, `provider.tf`
+2. Add `environments/staging.tfvars` and `environments/production.tfvars`
+3. Confirm all variables are typed and described (tflint enforces this)
+4. Apply required tags to all resources
+5. Pin all module and provider versions
+6. The CI `terraform-plan.yml` auto-discovers new directories — no workflow changes needed
 
-Or use the automated Argo Workflow:
-```bash
-argo submit -n argo-workflows --from workflowtemplate/tenant-onboarding \
-  -p tenant-name=acme-corp \
-  -p tier=advanced \
-  -p environment=production \
-  --serviceaccount gitops-workflow-sa
-```
+### 9.4 Adding a New GitHub Actions Workflow
 
-### Adding a New Infrastructure Service to GitOps
-
-1. Add a Helm wrapper chart under `gitops/helm-charts/{service}/`
-2. Create an Application YAML in `gitops/application-plane/{env}/infrastructure/{service}.yaml`
-3. Set appropriate `argocd.argoproj.io/sync-wave` annotation
-4. Add to `gitops/application-plane/{env}/infrastructure/kustomization.yaml`
-5. ArgoCD's `app-of-apps-infrastructure.yaml` auto-discovers it
+1. Use OIDC authentication pattern — never `aws-access-key-id` + `aws-secret-access-key`
+2. Include `concurrency` block to prevent parallel runs on the same branch
+3. Follow the existing workflow naming convention: `<cloud>-<service>-<action>-<env>.yml`
+4. Reference `.github/instructions/github-actions-ci-cd-best-practices.instructions.md`
 
 ---
 
@@ -536,375 +630,327 @@ argo submit -n argo-workflows --from workflowtemplate/tenant-onboarding \
 
 ### Infrastructure Testing
 
-| Layer | Tool | Trigger |
+| Level | Tool | When |
 |---|---|---|
-| Terraform syntax | `terraform validate` | PR (terraform-validation.yml) |
-| Terraform formatting | `terraform fmt -check` | PR (terraform-validation.yml) |
-| Terraform linting | `tflint` with AWS + Terraform plugins | PR |
-| Security scanning | `tfsec` / `checkov` (configured inline) | PR |
-| Dry-run planning | `terraform plan -var-file=env.tfvars` | PR (terraform-plan.yml) |
-| Plan comment | Posted to PR by GitHub Actions | PR |
+| Syntax validation | `terraform validate` | Every push (CI) |
+| Lint/convention check | `tflint --recursive` | Every push (CI) |
+| Plan review | `terraform plan` in CI | Every PR |
+| Integration | Manual `terraform apply` to staging | Pre-production |
 
-### GitOps Validation
+### GitOps/Kubernetes Testing
 
-| Layer | Tool | Trigger |
-|---|---|---|
-| Kubernetes schema | `kubeconform` (recommended, not yet wired) | Manual |
-| ArgoCD dry-run | `argocd app diff` | Manual |
-| Kustomize build | `kubectl kustomize` | Manual |
+| Level | Approach |
+|---|---|
+| Local cluster smoke test | `deploy_gitops_stacks_local.py --action deploy` on minikube/kind/k3s |
+| ArgoCD diff | View `OutOfSync` diff before syncing |
+| Schema validation | `kubeconform` (can be added to CI) |
+| Manual acceptance | ArgoCD UI — all Applications show `Healthy` + `Synced` |
 
-### Application Testing
+### Python Script Testing
 
-- No automated test suite for the static website
-- Browser validation is manual
-- S3 sync logs uploaded as workflow artifacts for audit
+No formal automated tests currently. Scripts use `boto3` dry-run modes and `--dry-run` flags where possible. Future: pytest with mocked `boto3` via `moto`.
+
+### Test Strategy by Layer
+
+```
+Layer 0 (AWS Infra)    → tflint + terraform validate + plan in CI
+Layer 1 (EKS Cluster)  → manual staging apply + node readiness check
+Layer 2 (ArgoCD)       → local cluster bootstrap via deploy_gitops_stacks_local.py
+Layer 3 (Control Plane)→ ArgoCD Healthy/Synced status per Application
+Layer 4 (Tenants)      → Pod running + service endpoint reachable
+```
 
 ---
 
 ## 11. Deployment Architecture
 
-### Environments
+### AWS Environment Topology
 
-| Environment | Website S3 | EKS | Cluster Autoscaler | NAT Gateway |
-|---|---|---|---|---|
-| Local | — | minikube/kind | — | — |
-| Staging | `s3-nghuy-link` | EKS (single NAT) | Enabled | 1 gateway |
-| Production | `s3.nghuy.link` | EKS (per-AZ NAT) | Enabled | 1 per AZ |
+| Environment | EKS Nodes | Networking | Notes |
+|---|---|---|---|
+| staging | 2x t3.medium SPOT | Single NAT Gateway | Cost-optimized |
+| production | 3x t3.small ON_DEMAND | Multi-AZ NAT Gateways | HA, higher availability |
 
-### Deployment Triggers
-
-```
-Source Change               Trigger                   Deployment
-──────────────────────────────────────────────────────────────────
-src/aws-s3-web/** + push:main     → GitHub Actions → S3 prod sync
-src/aws-s3-web/** + push:feature/* → GitHub Actions → S3 staging sync
-inf/terraform/**  + PR              → TF plan (no deploy)
-inf/terraform/**  + PR merge        → TF apply (deploy)
-gitops/**         + git push        → ArgoCD reconcile (auto-sync enabled)
-```
-
-### Containerization
-
-- No custom Dockerfiles in this repository
-- Jenkins, Prometheus, Elasticsearch, Kibana, Fluent Bit are all deployed as upstream Helm charts
-- ECR is available for tenant workloads (ArgoCD IRSA grants read access)
-
-### Cloud Infrastructure (AWS ap-southeast-1)
+### Deployment Sequence (New Cluster)
 
 ```
-VPC (10.0.0.0/16)
-├── Public Subnets  (tagged kubernetes.io/role/elb)
-│   └── NAT Gateway(s) → Internet
-├── Private Subnets (tagged kubernetes.io/role/internal-elb)
-│   └── EKS Node Groups
-│       ├── addon: coredns, kube-proxy, vpc-cni, aws-ebs-csi-driver
-│       ├── cluster-autoscaler (IRSA)
-│       ├── metrics-server
-│       └── ArgoCD → gitops workloads
-└── CloudWatch Log Group (control plane logs, 7d default retention)
+1. terraform apply (aws-github-oidc)     → OIDC trust + IAM role
+2. terraform apply (aws-s3-web)          → S3 bucket for website
+3. terraform apply (aws-eks)             → EKS cluster + VPC + ArgoCD bootstrap
+4. terraform apply (aws-eks-argocd)      → IRSA for ArgoCD
+5. kubectl apply -k gitops/bootstrap/    → ArgoCD self-manages everything else
+   └→ ArgoCD syncs infrastructure plane  (waves -1, 0, 1)
+   └→ ArgoCD syncs tenant plane          (waves 2-6)
+```
 
-S3 Buckets
-├── s3.nghuy.link      (public static website, production)
-├── s3-nghuy-link      (staging static website)
-└── resume bucket      (private, CloudFront OAC access only)
+### Static Site Deployment
 
-CloudFront Distribution
-└── OAC → private S3 resume bucket (TLSv1.2+, redirect-to-https)
+```
+Push to main
+  → GitHub Actions: aws-s3-web-sync-{staging,prod}.yml
+  → aws s3 sync src/aws-s3-web/ s3://<bucket>/ --delete
+  → CloudFront invalidation (if CloudFront module deployed)
+```
+
+### Local Development Deployment
+
+```
+python ops/deploy_gitops_stacks_local.py \
+  --gitops-path . \
+  --repo-url https://github.com/<org>/<repo>.git \
+  --action deploy
+```
+
+Deploys the full stack to a local cluster in the correct wave order with status polling.
+
+### Environment-Specific Configuration Strategy
+
+Kubernetes — Kustomize overlays per environment directory:
+```
+gitops/application-plane/
+├── local/       ← lightweight (reduced replicas, NodePort, minimal storage)
+├── staging/     ← intermediate (adds advanced/premium tiers)
+└── production/  ← full production (all tiers, persistent storage, HA)
+```
+
+Terraform — tfvars only; no separate branches:
+```
+environments/
+├── staging.tfvars     ← spot instances, single NAT, smaller EBS
+└── production.tfvars  ← on-demand, multi-AZ NAT, larger EBS
 ```
 
 ---
 
 ## 12. Extension and Evolution Patterns
 
-### Feature Addition Patterns
+### Adding a New Monitoring Integration
 
-**New AWS infrastructure:**
-- Add a new Terraform root module under `inf/terraform/`
-- Follow the 5-file standard structure
-- Workflow auto-discovers it; no workflow changes needed
+1. Define `ServiceMonitor` CRD for the target service in the appropriate namespace
+2. Ensure the namespace is in the `infrastructure` AppProject destination list
+3. Add alert rules via `PrometheusRule` CRD (YAML in the service's Application)
+4. Import Grafana dashboard via ConfigMap with label `grafana_dashboard: "1"`
 
-**New GitOps application:**
-- Create a Helm wrapper chart if upstream chart needs customization
-- Add an Application YAML to the appropriate `application-plane/{env}/` directory
-- Register in `kustomization.yaml`
+### Adding a New Tenant Tier
 
-**New tenant tier:**
-- Create tier templates in `tier-templates/`
-- Create `tenants/{new-tier}/kustomization.yaml`
-- Update `tenants/kustomization.yaml` to include new tier directory
-- Update `jenkins-appset.yaml` generators to watch new tier directories
+1. Create tier template at `gitops/application-plane/<env>/tier-templates/<tier>_tenant_template.yaml`
+2. Define a new AppProject in `gitops/bootstrap/projects/<tier>.yaml` with namespace scope
+3. Add ApplicationSet generator entry in `gitops/applicationsets/` to auto-discover tier configs
+4. Create Helm values template in `gitops/helm-charts/jenkins/<tier>/`
 
-**New CI/CD workflow:**
-- Add `.github/workflows/{name}.yml`
-- Use `permissions: id-token: write` + `aws-actions/configure-aws-credentials` for AWS access
-- Use `concurrency` group to prevent parallel runs
+### Migrating to a New Cloud Region
 
-### Modification Patterns
+1. Add new tfvars files: `environments/<region>-staging.tfvars`
+2. Update provider region in `provider.tf` or pass as variable
+3. Create environment overlay in `gitops/application-plane/<region>-<env>/`
+4. No Helm chart changes needed (region-agnostic by design)
 
-- **Kubernetes version bump**: update `cluster_version` variable default in `aws-eks/variables.tf`
-- **Helm chart version bump**: update `version:` in wrapper `Chart.yaml`
-- **Environment-specific overrides**: modify `environments/{env}.tfvars` or ArgoCD Application `helm.values`
-- **Add a new Terraform variable**: add to `variables.tf` with type + description + validation, then reference in `.tfvars` files
+### Upgrading a Helm Chart Version
 
-### Integration Patterns
-
-**New external service integration:**
-1. Add Terraform resources to an existing or new module (IAM, service endpoints)
-2. Create Kubernetes secrets via sealed secrets or External Secrets Operator
-3. Reference secrets in Helm values via Application manifest
-4. Add monitoring via ServiceMonitor CRD for Prometheus scraping
+1. Update the chart version in the ArgoCD Application YAML (`helm.chart` + `targetRevision`)
+2. Review release notes for breaking changes
+3. Update `helm-charts/<chart>/values.yaml` if new keys are required
+4. Test on local cluster first via `deploy_gitops_stacks_local.py`
+5. Merge to trigger staging sync, then production after validation
 
 ---
 
 ## 13. Architectural Pattern Examples
 
-### Pattern: OIDC-Based AWS Authentication
+### App-of-Apps Bootstrap
 
 ```yaml
-# .github/workflows/aws-s3-web-sync-prod.yml
-permissions:
-  id-token: write  # Required for OIDC
-
-steps:
-  - name: Configure AWS Credentials
-    uses: aws-actions/configure-aws-credentials@main
-    with:
-      role-to-assume: arn:aws:iam::010382427026:role/github-actions-s3-sync-role
-      aws-region: ap-southeast-1
-```
-
-```hcl
-# inf/terraform/aws-github-oidc/main.tf
-resource "aws_iam_role" "github_actions_oidc" {
-  assume_role_policy = jsonencode({
-    Statement = [{
-      Effect    = "Allow"
-      Principal = { Federated = local.github_oidc_provider_arn }
-      Action    = "sts:AssumeRoleWithWebIdentity"
-      Condition = {
-        StringEquals = { "token.actions.githubusercontent.com:aud" = "sts.amazonaws.com" }
-        StringLike   = { "token.actions.githubusercontent.com:sub" = "repo:${var.github_owner}/${var.github_repository}:*" }
-      }
-    }]
-  })
-}
-```
-
-### Pattern: Terraform Variable Validation
-
-```hcl
-# inf/terraform/aws-eks/variables.tf
-variable "cluster_endpoint_public_access_cidrs" {
-  type = list(string)
-
-  validation {
-    condition = alltrue([
-      for cidr in var.cluster_endpoint_public_access_cidrs :
-      cidr != "0.0.0.0/0" && cidr != "::/0"
-    ])
-    error_message = "Must not contain '0.0.0.0/0' — restrict to your organisation's IP ranges."
-  }
-}
-```
-
-### Pattern: App-of-Apps Bootstrap
-
-```yaml
-# gitops/bootstrap/app-of-apps-infrastructure.yaml
+# gitops/bootstrap/app-of-apps.yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: app-of-apps-infrastructure
+  name: app-of-apps
   namespace: argocd
 spec:
+  project: infrastructure
   source:
-    path: gitops/application-plane/production/infrastructure  # Watches this directory
-    directory:
-      recurse: false
+    repoURL: https://github.com/<org>/<repo>.git
+    targetRevision: HEAD
+    path: gitops/application-plane/production/tenants
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: argocd
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
 ```
 
-### Pattern: Sync Wave Dependency Ordering
+This single Application, applied manually once, causes ArgoCD to recursively discover and manage every other Application in the repository.
+
+### Sync Wave Ordering
 
 ```yaml
-# gitops/application-plane/production/infrastructure/eck-operator.yaml
+# ECK Operator — must be ready before Elasticsearch
 metadata:
   annotations:
-    argocd.argoproj.io/sync-wave: "-1"  # Must deploy before eck-stack
+    argocd.argoproj.io/sync-wave: "-1"
 
-# gitops/application-plane/production/infrastructure/eck-stack.yaml
+# kube-prometheus-stack — infrastructure observability
 metadata:
   annotations:
-    argocd.argoproj.io/sync-wave: "0"  # Depends on ECK CRDs from wave -1
+    argocd.argoproj.io/sync-wave: "0"
+
+# Fluent Bit — log shipping requires ES to be up
+metadata:
+  annotations:
+    argocd.argoproj.io/sync-wave: "1"
 ```
 
-### Pattern: Conditional Resource Creation (Terraform)
+### ApplicationSet Git-File Generator
+
+```yaml
+# gitops/applicationsets/jenkins-appset.yaml
+apiVersion: argoproj.io/v1alpha1
+kind: ApplicationSet
+metadata:
+  name: jenkins
+spec:
+  generators:
+    - git:
+        repoURL: https://github.com/<org>/<repo>.git
+        revision: HEAD
+        files:
+          - path: "gitops/helm-charts/jenkins/*/config.json"
+  template:
+    metadata:
+      name: 'jenkins-{{path.basename}}'
+      annotations:
+        argocd.argoproj.io/sync-wave: "2"
+    spec:
+      source:
+        repoURL: https://charts.jenkins.io
+        chart: jenkins
+        targetRevision: 5.x.x
+        helm:
+          valueFiles:
+            - '{{path}}/values.yaml'
+```
+
+### Terraform OIDC Authentication for CI
 
 ```hcl
-# Optional: only create KMS key if secret encryption is enabled
-resource "aws_kms_key" "eks_secrets" {
-  count = var.enable_secret_encryption ? 1 : 0
-  # ...
+# inf/terraform/aws-github-oidc/main.tf
+resource "aws_iam_openid_connect_provider" "github" {
+  url             = "https://token.actions.githubusercontent.com"
+  client_id_list  = ["sts.amazonaws.com"]
+  thumbprint_list = [data.tls_certificate.github.certificates[0].sha1_fingerprint]
 }
 
-module "ebs_csi_irsa" {
-  count = var.enable_ebs_csi_driver ? 1 : 0
-  # ...
+resource "aws_iam_role" "github_actions_s3_sync" {
+  name               = "github-actions-s3-sync-role"
+  assume_role_policy = data.aws_iam_policy_document.github_oidc_trust.json
 }
-```
-
-### Pattern: Dynamic Terraform Plan Matrix
-
-```yaml
-# .github/workflows/terraform-plan.yml
-- name: Set up planning matrix
-  run: |
-    # Auto-discover all Terraform project directories
-    while IFS= read -r dir; do
-      project_name="$(basename "$dir")"
-      TERRAFORM_DIRS+=("$project_name")
-    done < <(find inf/terraform -mindepth 1 -maxdepth 1 -type d | sort -u)
-
-    # Build matrix: changed_dir × available_envs
-    for dir in "${TERRAFORM_DIRS[@]}"; do
-      if echo "$CHANGED_FILES" | grep -q "^inf/terraform/$dir/"; then
-        for tfvars in inf/terraform/$dir/environments/*.tfvars; do
-          env_name=$(basename "$tfvars" .tfvars)
-          MATRIX=$(echo $MATRIX | jq -c --arg dir "$dir" --arg env "$env_name" \
-            '. + [{"environment":$env,"directory":$dir}]')
-        done
-      fi
-    done
 ```
 
 ---
 
 ## 14. Architectural Decision Records
 
-### ADR-001: GitOps over Push-Based Deployment
+### ADR-001: App-of-Apps Pattern for GitOps
 
-**Context:** Needed a deployment model for multi-tenant workloads on EKS that scales without tight CI/CD coupling.
+**Context:** Need a scalable way to manage many Kubernetes Applications across multiple environments and tenants without manually applying each manifest.
 
-**Decision:** ArgoCD pull-based GitOps. Git is the single source of truth; ArgoCD continuously reconciles desired vs. live state.
-
-**Consequences:**
-- ✅ Automatic drift detection and self-healing
-- ✅ Full audit trail via Git history
-- ✅ Decoupled CI (builds) from CD (deployments)
-- ❌ Adds ArgoCD as a required platform component
-- ❌ Slightly slower initial change propagation vs. direct `kubectl apply`
-
----
-
-### ADR-002: OIDC over Static AWS Credentials
-
-**Context:** GitHub Actions needed AWS access. Storing `AWS_ACCESS_KEY_ID` and `AWS_SECRET_ACCESS_KEY` in GitHub Secrets is a security liability.
-
-**Decision:** AWS IAM OIDC federation. GitHub Actions exchanges a short-lived JWT for temporary AWS credentials.
+**Decision:** Use ArgoCD's App-of-Apps pattern where a single root Application points to a directory containing other Application manifests.
 
 **Consequences:**
-- ✅ No long-lived credentials stored anywhere
-- ✅ Credentials expire with the workflow run
-- ✅ Scoped per-repository via OIDC `sub` claim conditions
-- ❌ Requires one-time Terraform apply of `aws-github-oidc/` module
+- (+) Single `kubectl apply` bootstraps the entire platform
+- (+) New environments added by creating a new directory — no Terraform changes
+- (-) Debugging requires understanding recursive Application traversal
+- (-) Initial bootstrap requires ArgoCD to already be running (chicken-and-egg solved by Terraform deploying ArgoCD first)
 
----
+### ADR-002: Sync Waves for Dependency Ordering
 
-### ADR-003: Three-Tier Tenant Model (Basic/Advanced/Premium)
+**Context:** Infrastructure components have strict deployment ordering requirements (CRDs before CRs, Elasticsearch before Fluent Bit).
 
-**Context:** A SaaS platform must balance resource sharing (cost) against isolation (security/noisy-neighbor).
-
-**Decision:** Three tiers — pooled namespace (basic), dedicated controller (advanced), full silo (premium) — with templates for each.
+**Decision:** Use ArgoCD sync wave annotations rather than manual ordering or separate Applications with explicit dependencies.
 
 **Consequences:**
-- ✅ Progressive isolation matched to tenant criticality
-- ✅ Clear upgrade path between tiers
-- ✅ Cost optimization by pooling non-critical tenants
-- ❌ Operational complexity of managing three tier configurations
-- ❌ Premium tier requires manual sync approval, slowing deployments
+- (+) Ordering enforced declaratively in Git without external orchestration
+- (+) Waves visible in ArgoCD UI for debugging
+- (-) Wave numbers must be managed carefully as new components are added
+- (-) All components in the same sync attempt, increasing rollout time
 
----
+### ADR-003: Independent Terraform State Per Module
 
-### ADR-004: Wrapper Helm Charts for Upstream Dependencies
+**Context:** A single Terraform state for all AWS resources creates risk (full state lock, large blast radius).
 
-**Context:** Deploying upstream Helm charts directly makes version management difficult across environments.
-
-**Decision:** Wrapper charts in `gitops/helm-charts/` that pin upstream versions and set secure defaults in `values.yaml`.
+**Decision:** Each Terraform project (`aws-eks`, `aws-s3-web`, etc.) has an independent state stored in its own S3 path.
 
 **Consequences:**
-- ✅ Single place to pin upstream chart version
-- ✅ Security defaults (PSS, non-root) applied once, inherited everywhere
-- ✅ ArgoCD path stays stable; only `Chart.yaml` version changes trigger upgrades
-- ❌ Requires maintaining wrapper chart `Chart.yaml` when upgrading upstream
+- (+) Plan/apply one module without affecting others
+- (+) Different teams/pipelines can manage different modules
+- (-) Cross-module references require `terraform_remote_state` data sources
+- (-) Bootstrap ordering must be documented (OIDC before EKS)
 
----
+### ADR-004: GitHub OIDC Over Static Access Keys
 
-### ADR-005: Monorepo Structure
+**Context:** GitHub Actions needs AWS access for Terraform and S3 sync operations.
 
-**Context:** Related DevOps components could be split into separate repositories.
-
-**Decision:** Single monorepo containing `src/`, `inf/`, `gitops/`, `ops/`, and `.github/`.
+**Decision:** Use GitHub OIDC → AWS STS to exchange short-lived tokens rather than storing `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY` in GitHub Secrets.
 
 **Consequences:**
-- ✅ Atomic commits across infrastructure + application code
-- ✅ Unified CI/CD with path-based workflow triggers
-- ✅ Simpler cross-component refactoring
-- ❌ `terraform-plan.yml` must discover changed modules dynamically
-- ❌ Copilot instructions cover multiple technology domains
+- (+) No long-lived credentials stored anywhere
+- (+) Trust policy scoped to specific repo + branch
+- (+) Credential rotation is automatic
+- (-) Initial setup requires deploying the OIDC provider via Terraform first
 
----
+### ADR-005: Multi-Environment via Directory Overlays, Not Branches
 
-### ADR-006: KMS Envelope Encryption for EKS Secrets
+**Context:** Need to support local, staging, and production environments with minimal configuration divergence.
 
-**Context:** Kubernetes Secrets are base64-encoded in etcd by default — not encrypted.
-
-**Decision:** Customer-managed KMS key with `enable_key_rotation = true` for envelope encryption of all EKS Secrets.
+**Decision:** Single `main` branch; environment differences encoded in directory structure (`application-plane/<env>/`) and Terraform `environments/<env>.tfvars`.
 
 **Consequences:**
-- ✅ Secrets encrypted at rest with customer-controlled key
-- ✅ Full key rotation and audit trail in CloudTrail
-- ✅ Key deletion window (7 days) prevents accidental loss
-- ❌ KMS API calls add slight latency to Secret operations
+- (+) Single PR review covers all environments simultaneously
+- (+) No branch merge conflicts between environments
+- (-) Environment-specific hotfixes must be applied through normal Git flow
+- (-) Directory structure grows with each new environment
 
 ---
 
 ## 15. Architecture Governance
 
-### Automated Compliance
+### Automated Enforcement
 
-| Check | Tool | Enforcement |
-|---|---|---|
-| Terraform formatting | `terraform fmt -check` | CI blocks PR merge |
-| Terraform linting | `tflint` (aws + terraform plugins) | CI |
-| Required tags | `tflint` `aws_resource_missing_tags` | CI |
-| Security misconfigurations | `tfsec` / `checkov` | CI |
-| Variable documentation | `tflint` `terraform_documented_variables` | CI |
-| Typed variables | `tflint` `terraform_typed_variables` | CI |
-| Standard module structure | `tflint` `terraform_standard_module_structure` | CI |
-| Kubernetes schema validation | `kubeconform` (recommended addition) | — |
-| Pod Security Standards | Namespace admission controller | Runtime |
+| Rule | Enforcement Mechanism |
+|---|---|
+| Terraform naming (snake_case) | `.tflint.hcl` — fails CI on violations |
+| Required resource tags | `.tflint.hcl` AWS plugin — tag enforcement rules |
+| Documented variables/outputs | `.tflint.hcl` — `terraform_documented_*` rules |
+| Module version pinning | `.tflint.hcl` — `terraform_module_version` rule |
+| No static AWS credentials in CI | GitHub Actions OIDC-only policy (enforced by IAM trust condition) |
+| Pod security | AppProject resource whitelists + namespace Pod Security labels |
 
 ### Copilot Instructions (`.github/instructions/`)
 
-Domain-specific coding instructions enforced via GitHub Copilot:
-- `terraform-sap-btp.instructions.md` — Terraform conventions
-- `kubernetes-manifests.instructions.md` — K8s manifest standards
-- `github-actions-ci-cd-best-practices.instructions.md` — CI/CD patterns
-- `devops-core-principles.instructions.md` — CALMS + DORA framing
-- `containerization-docker-best-practices.instructions.md` — Docker standards
-- `ansible.instructions.md` — Ansible conventions
-- `python.instructions.md` — Python coding standards
-- `markdown.instructions.md` — Documentation formatting
+Domain-specific guidelines for AI-assisted development:
+- `terraform-sap-btp.instructions.md` — IaC conventions
+- `kubernetes-manifests.instructions.md` — Manifest patterns
+- `github-actions-ci-cd-best-practices.instructions.md` — Workflow standards
+- `devops-core-principles.instructions.md` — Platform-wide principles
+- `python.instructions.md` — Script quality standards
 
-### Branch Protection (Implied)
+These files govern both human PRs and AI-generated code suggestions.
 
-- Terraform apply only runs after PR merge to `main`
-- Staging workflows trigger on `feature/*` branches
-- Production workflows trigger on `main`
-- GitOps manifest changes are protected by ArgoCD's reconcile loop (unintended deletions trigger alerts)
+### Review Process
+
+1. All changes via Pull Request — no direct pushes to `main`
+2. Terraform plan output auto-commented on PR by CI
+3. ArgoCD sync preview (`--dry-run`) available via `kubectl`
+4. AppProject restrictions prevent ArgoCD from syncing outside authorized namespaces/resources
+
+### Documentation Practices
+
+- Architecture changes must update `docs/Project_Architecture_Blueprint.md` (this file)
+- Implementation plans go in `plan/` before development begins
+- Operational guides go in `docs/` after implementation
+- All `docs/` files use the `update-docs-on-code-change.instructions.md` standard
 
 ---
 
@@ -912,151 +958,103 @@ Domain-specific coding instructions enforced via GitHub Copilot:
 
 ### Development Workflow by Feature Type
 
-#### A. Static Website Change (`src/aws-s3-web/`)
+#### New AWS Infrastructure
 
 ```
-1. Create feature branch: git checkout -b feature/my-change
-2. Edit HTML/CSS/JS in src/aws-s3-web/
-3. Push → aws-s3-web-sync-staging.yml auto-deploys to s3-nghuy-link
-4. Preview at staging URL
-5. Open PR → staging still live for review
-6. Merge PR → aws-s3-web-sync-prod.yml deploys to s3.nghuy.link
+1. plan/   → create implementation plan document
+2. inf/terraform/<new-module>/
+   ├── main.tf (resources with required tags)
+   ├── variables.tf (all typed + described)
+   ├── outputs.tf (all described)
+   ├── locals.tf
+   ├── provider.tf (pinned versions)
+   └── environments/staging.tfvars + production.tfvars
+3. Push PR → CI auto-discovers and runs terraform plan
+4. Review plan comment on PR → merge → terraform apply runs
 ```
 
-#### B. Infrastructure Change (`inf/terraform/`)
+#### New Kubernetes Workload / Tool
 
 ```
-1. Create feature branch
-2. Edit Terraform in inf/terraform/{module}/
-3. Add/update environments/{env}.tfvars if needed
-4. Push → CI runs validation + plan (auto-matrix per changed module)
-5. Review plan output in PR comment
-6. Merge → terraform-apply.yml applies changes
+1. gitops/helm-charts/<tool>/values.yaml   (base Helm overrides)
+2. gitops/application-plane/local/infrastructure/<tool>.yaml
+   (ArgoCD Application with sync-wave annotation)
+3. gitops/application-plane/local/infrastructure/kustomization.yaml
+   (add new resource entry)
+4. Repeat for staging/ and production/ overlays
+5. Test locally: python ops/deploy_gitops_stacks_local.py --action deploy
+6. Merge → ArgoCD auto-syncs in correct wave order
 ```
 
-#### C. New GitOps Tenant
+#### New Tenant Onboarding
 
 ```
-1. Choose tier (basic/advanced/premium) based on requirements
-2. Copy tier template from application-plane/{env}/tier-templates/
-3. Fill TENANT_NAME placeholder
-4. Add to kustomization.yaml
-5. Commit → ArgoCD auto-syncs (basic/advanced) or waits for manual sync (premium)
+1. gitops/helm-charts/jenkins/<tier>/<tenant>/values.yaml
+2. gitops/application-plane/<env>/tenants/<tier>/<tenant>.yaml
+3. gitops/application-plane/<env>/tenants/<tier>/kustomization.yaml
+4. (Optional) Trigger onboarding-workflow.yaml Argo Workflow for RBAC setup
 ```
 
-#### D. New GitOps Infrastructure Component
+#### New CI/CD Workflow
 
 ```
-1. Create Helm wrapper chart in gitops/helm-charts/{service}/
-2. Create Application YAML in application-plane/{env}/infrastructure/{service}.yaml
-3. Set sync-wave annotation appropriate to dependencies
-4. Add to kustomization.yaml
-5. Commit → ArgoCD auto-discovers and deploys
+1. .github/workflows/<cloud>-<service>-<action>-<env>.yml
+2. Must use OIDC auth pattern (id-token: write permission)
+3. Include concurrency block
+4. Follow .github/instructions/github-actions-ci-cd-best-practices.instructions.md
 ```
 
 ### Implementation Templates
 
-#### New Terraform Variable (Standard)
-
+**Terraform variable template:**
 ```hcl
-variable "my_feature_enabled" {
-  description = "Enable my feature. Set to false to skip creation."
-  type        = bool
-  default     = true
+variable "environment" {
+  description = "Deployment environment (staging or production)"
+  type        = string
 }
 ```
 
-#### New ArgoCD Application (Infrastructure)
-
+**ArgoCD Application template:**
 ```yaml
 apiVersion: argoproj.io/v1alpha1
 kind: Application
 metadata:
-  name: my-service-production
+  name: <service-name>
   namespace: argocd
   annotations:
-    argocd.argoproj.io/sync-wave: "1"
-  labels:
-    environment: production
-    app.kubernetes.io/part-of: gitops-platform
+    argocd.argoproj.io/sync-wave: "<wave-number>"
 spec:
-  project: infrastructure
+  project: infrastructure        # or applications / tenants
   source:
-    repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git
-    targetRevision: main
-    path: gitops/helm-charts/my-service
+    repoURL: https://charts.example.com
+    chart: <chart-name>
+    targetRevision: X.Y.Z
     helm:
-      releaseName: my-service
-      values: |
-        replicaCount: 1
+      valueFiles:
+        - gitops/helm-charts/<service>/values.yaml
   destination:
     server: https://kubernetes.default.svc
-    namespace: my-service
+    namespace: <service-namespace>
   syncPolicy:
     automated:
       prune: true
       selfHeal: true
     syncOptions:
       - CreateNamespace=true
-      - ServerSideApply=true
-```
-
-#### New GitHub Actions Workflow (AWS-integrated)
-
-```yaml
-name: My New Workflow
-
-on:
-  push:
-    branches: [main]
-    paths: ["my-path/**"]
-
-permissions:
-  id-token: write
-  contents: read
-
-concurrency:
-  group: my-workflow-${{ github.ref }}
-  cancel-in-progress: true
-
-jobs:
-  deploy:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 1
-
-      - name: Configure AWS Credentials
-        uses: aws-actions/configure-aws-credentials@main
-        with:
-          role-to-assume: ${{ secrets.AWS_ROLE_TO_ASSUME }}
-          aws-region: ap-southeast-1
-
-      - name: Deploy
-        run: |
-          # Your deployment commands here
 ```
 
 ### Common Pitfalls
 
 | Pitfall | Prevention |
 |---|---|
-| Committing `.tfstate` files | `.gitignore` includes `*.tfstate*`; use remote backend |
-| Using `0.0.0.0/0` in EKS public endpoint CIDRs | Variable validation blocks it at `terraform plan` |
-| Forgetting sync-wave on new infra components | ECK stack will fail to deploy if CRDs aren't ready |
-| Applying both ApplicationSet and App-of-Apps for same Apps | Choose one per set of Application names; docs warn of conflict |
-| Deploying premium tier tenants without manual approval | `syncPolicy.automated` is intentionally absent on premium tier |
-| Missing `Environment`, `Project`, `ManagedBy` tags | `tflint` enforces these; CI will fail |
-| Hardcoding AWS account IDs | Use `data.aws_caller_identity.current.account_id` |
-| Skipping `checkov` suppressions justification | All skips have inline comments explaining the exception |
+| Deploying CRs before CRDs are established | Always assign operators a lower (earlier) sync wave than their operands |
+| Hardcoding AWS account IDs or region | Use `data "aws_caller_identity"` and `data "aws_region"` |
+| Committing secrets to Git | Use `external-secrets-operator` or create secrets out-of-band |
+| Using `latest` Helm chart version | Pin `targetRevision` to a specific semver |
+| Missing resource tags | tflint will catch this in CI — fix before merge |
+| Cross-namespace secret access | Each namespace needs its own ExternalSecret or mounted Kubernetes Secret |
+| Skipping sync-wave annotations | Results in race conditions (ECK CR applied before ECK Operator is ready) |
 
 ---
 
-> **Maintenance Note:** This blueprint was generated from the repository state as of 2026-03-21.
-> Update this document when:
-> - New Terraform modules are added to `inf/terraform/`
-> - New tenant tiers are introduced in `gitops/`
-> - GitHub Actions workflow trigger patterns change
-> - New security mechanisms (e.g., Sealed Secrets, External Secrets Operator) are adopted
-> - The Kubernetes version or major Helm chart versions are upgraded
+*This blueprint was last updated on 2026-04-09. Review and update when significant architectural changes are made — especially new Terraform modules, new GitOps layers, or changes to the multi-tenant tier model.*
