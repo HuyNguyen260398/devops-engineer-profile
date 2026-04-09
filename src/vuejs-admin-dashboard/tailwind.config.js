@@ -52,6 +52,16 @@ export default {
       spacing: {
         // 8dp base rhythm is already Tailwind default (1 unit = 4px, 2 = 8px)
       },
+      keyframes: {
+        'progress-bar': {
+          '0%':   { transform: 'scaleX(0)',    transformOrigin: 'left' },
+          '60%':  { transform: 'scaleX(0.75)', transformOrigin: 'left' },
+          '100%': { transform: 'scaleX(0.9)',  transformOrigin: 'left' },
+        },
+      },
+      animation: {
+        'progress-bar': 'progress-bar 2s cubic-bezier(0.4, 0, 0.2, 1) forwards',
+      },
       boxShadow: {
         card: '0 1px 3px rgba(0,0,0,0.12), 0 1px 2px rgba(0,0,0,0.08)',
         'card-hover': '0 4px 12px rgba(0,0,0,0.15), 0 2px 4px rgba(0,0,0,0.10)',
