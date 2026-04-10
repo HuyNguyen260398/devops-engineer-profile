@@ -1,88 +1,97 @@
 <script setup>
-import { computed } from 'vue'
-import { useRouter } from 'vue-router'
-import { BookOpen, CheckCircle2, FileText, PenSquare } from 'lucide-vue-next'
-import { useBlogStore } from '@/stores/blog.js'
+import { ref, computed } from 'vue'
+import { BookOpen, FileCode, DollarSign, Server, Search } from 'lucide-vue-next'
 import PageHeader from '@components/ui/PageHeader.vue'
-import StatCard from '@components/dashboard/StatCard.vue'
-import BaseButton from '@components/ui/BaseButton.vue'
+import EmptyState from '@components/ui/EmptyState.vue'
+import AppCard from '@components/dashboard/AppCard.vue'
 
-const store = useBlogStore()
-const router = useRouter()
+const apps = [
+  {
+    name: 'Blog',
+    description: 'Create and manage blog posts',
+    icon: BookOpen,
+    iconClass: 'text-primary',
+    iconBgClass: 'bg-primary-muted',
+    to: { name: 'blog-list' },
+    badge: '',
+  },
+  {
+    name: 'HTML to Markdown',
+    description: 'Convert HTML pages to clean Markdown',
+    icon: FileCode,
+    iconClass: 'text-accent-green',
+    iconBgClass: 'bg-accent-green-subtle',
+    to: { name: 'html-to-markdown' },
+    badge: 'Coming Soon',
+  },
+  {
+    name: 'AWS Cost Dashboard',
+    description: 'Monitor and analyse your AWS spend',
+    icon: DollarSign,
+    iconClass: 'text-accent-yellow',
+    iconBgClass: 'bg-accent-yellow-subtle',
+    to: { name: 'aws-cost' },
+    badge: 'Coming Soon',
+  },
+  {
+    name: 'AWS Resources Dashboard',
+    description: 'Browse and audit your AWS resources',
+    icon: Server,
+    iconClass: 'text-on-surface-muted',
+    iconBgClass: 'bg-surface-secondary',
+    to: { name: 'aws-resources' },
+    badge: 'Coming Soon',
+  },
+]
 
-const totalPosts = computed(() => store.posts.length)
-const published = computed(() => store.posts.filter((p) => p.status === 'published').length)
-const drafts = computed(() => store.posts.filter((p) => p.status === 'draft').length)
+const query = ref('')
+
+const filteredApps = computed(() =>
+  apps.filter(
+    (a) =>
+      a.name.toLowerCase().includes(query.value.toLowerCase()) ||
+      a.description.toLowerCase().includes(query.value.toLowerCase()),
+  ),
+)
 </script>
 
 <template>
   <div>
     <PageHeader
-      title="Dashboard"
-      subtitle="Welcome back — here's an overview of your content."
+      title="Apps"
+      subtitle="Browse and launch your tools."
     />
 
-    <!-- Stat cards -->
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-      <StatCard
-        label="Total Posts"
-        :value="totalPosts"
-        :icon="BookOpen"
-        icon-class="text-primary"
-        icon-bg-class="bg-primary-muted"
+    <!-- Search bar -->
+    <div class="relative mb-6">
+      <Search
+        :size="16"
+        class="absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-muted pointer-events-none"
+        aria-hidden="true"
       />
-      <StatCard
-        label="Published"
-        :value="published"
-        :icon="CheckCircle2"
-        icon-class="text-accent-green"
-        icon-bg-class="bg-accent-green-subtle"
-      />
-      <StatCard
-        label="Drafts"
-        :value="drafts"
-        :icon="FileText"
-        icon-class="text-accent-yellow"
-        icon-bg-class="bg-accent-yellow-subtle"
+      <input
+        v-model="query"
+        type="search"
+        placeholder="Search apps…"
+        aria-label="Search apps"
+        class="w-full pl-9 pr-3 py-2 text-sm rounded-md bg-surface text-on-surface border border-border placeholder:text-on-surface-subtle transition-colors focus:outline-none focus:ring-2 focus:ring-primary focus:border-primary"
       />
     </div>
 
-    <!-- Quick actions -->
-    <div class="mb-2">
-      <h2 class="text-sm font-semibold text-on-surface-muted uppercase tracking-widest mb-3 font-mono">
-        Quick Actions
-      </h2>
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        <!-- New post card -->
-        <button
-          type="button"
-          class="group flex items-start gap-4 bg-surface border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-card text-left transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none cursor-pointer"
-          @click="router.push({ name: 'blog-new' })"
-        >
-          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-primary-muted shrink-0">
-            <PenSquare :size="20" class="text-primary" aria-hidden="true" />
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">New Blog Post</p>
-            <p class="text-xs text-on-surface-muted mt-0.5">Create and publish a new post</p>
-          </div>
-        </button>
-
-        <!-- View all posts card -->
-        <button
-          type="button"
-          class="group flex items-start gap-4 bg-surface border border-border rounded-xl p-5 hover:border-primary/50 hover:shadow-card text-left transition-all duration-200 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none cursor-pointer"
-          @click="router.push({ name: 'blog-list' })"
-        >
-          <div class="flex items-center justify-center w-10 h-10 rounded-lg bg-surface-secondary shrink-0">
-            <BookOpen :size="20" class="text-on-surface-muted" aria-hidden="true" />
-          </div>
-          <div>
-            <p class="text-sm font-semibold text-on-surface group-hover:text-primary transition-colors">All Posts</p>
-            <p class="text-xs text-on-surface-muted mt-0.5">Browse and manage your posts</p>
-          </div>
-        </button>
-      </div>
+    <!-- App grid -->
+    <div v-if="filteredApps.length" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <AppCard
+        v-for="app in filteredApps"
+        :key="app.name"
+        v-bind="app"
+      />
     </div>
+
+    <!-- No results -->
+    <EmptyState
+      v-else
+      title="No apps found"
+      description="Try a different search term."
+    />
   </div>
 </template>

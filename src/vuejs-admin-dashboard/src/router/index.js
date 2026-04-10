@@ -34,6 +34,21 @@ const router = createRouter({
           name: 'blog-edit',
           component: () => import('@views/blog/BlogFormView.vue'),
         },
+        {
+          path: 'html-to-markdown',
+          name: 'html-to-markdown',
+          component: () => import('@views/html-to-markdown/HtmlToMarkdownView.vue'),
+        },
+        {
+          path: 'aws/cost',
+          name: 'aws-cost',
+          component: () => import('@views/aws/AwsCostDashboardView.vue'),
+        },
+        {
+          path: 'aws/resources',
+          name: 'aws-resources',
+          component: () => import('@views/aws/AwsResourcesDashboardView.vue'),
+        },
       ],
     },
   ],
