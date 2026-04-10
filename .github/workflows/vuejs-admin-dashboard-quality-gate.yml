@@ -1,0 +1,138 @@
+name: Vue.js Admin Dashboard — Quality Gate
+
+# Triggered when a PR targets main and touches app source.
+# Acts as the merge gate: install → lint → type-check → build.
+# Posts a result table as a PR comment.
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "src/vuejs-admin-dashboard/**"
+      - ".github/workflows/vuejs-admin-dashboard-quality-gate.yml"
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: vuejs-admin-dashboard-quality-gate-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+  WORKING_DIR: "src/vuejs-admin-dashboard"
+
+jobs:
+  quality-gate:
+    name: Quality Gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: ${{ env.WORKING_DIR }}/pnpm-lock.yaml
+
+      - name: Install dependencies
+        id: install
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        id: lint
+        run: pnpm lint
+
+      - name: Type-check
+        id: type-check
+        run: pnpm type-check
+
+      - name: Build
+        id: build
+        run: pnpm build
+
+      - name: Upload build artifact
+        if: steps.build.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-pr-${{ github.event.pull_request.number }}-${{ github.sha }}
+          path: ${{ env.WORKING_DIR }}/dist
+          retention-days: 7
+
+      - name: Comment quality gate result on PR
+        if: always()
+        uses: actions/github-script@v7
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          script: |
+            const icon = (outcome) => {
+              if (outcome === 'success') return '✅'
+              if (outcome === 'failure') return '❌'
+              return '⏭️'
+            }
+
+            const rows = [
+              ['Install dependencies', '${{ steps.install.outcome }}'],
+              ['Lint',                 '${{ steps.lint.outcome }}'],
+              ['Type-check',           '${{ steps.type-check.outcome }}'],
+              ['Build',                '${{ steps.build.outcome }}'],
+            ]
+
+            const table = rows
+              .map(([step, outcome]) => `| ${step} | ${icon(outcome)} \`${outcome}\` |`)
+              .join('\n')
+
+            const overall = rows.every(([, o]) => o === 'success') ? '✅ All checks passed' : '❌ One or more checks failed'
+
+            const body = [
+              '### Vue.js Admin Dashboard — Quality Gate',
+              '',
+              overall,
+              '',
+              '| Step | Result |',
+              '|------|--------|',
+              table,
+              '',
+              `**Commit:** \`${{ github.sha }}\``,
+              `**Run:** [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`,
+            ].join('\n')
+
+            // Find and update an existing bot comment if present, otherwise create
+            const { data: comments } = await github.rest.issues.listComments({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+            })
+            const existing = comments.find(
+              (c) => c.user.type === 'Bot' && c.body.includes('Vue.js Admin Dashboard — Quality Gate')
+            )
+            if (existing) {
+              await github.rest.issues.updateComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                comment_id: existing.id,
+                body,
+              })
+            } else {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: context.issue.number,
+                body,
+              })
+            }

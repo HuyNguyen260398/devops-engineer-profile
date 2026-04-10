@@ -1,0 +1,79 @@
+name: Vue.js Admin Dashboard — CI
+
+# Triggered on every push to feature branches when app source changes.
+# Runs the full quality suite: install → lint → type-check → build.
+
+on:
+  push:
+    branches-ignore:
+      - main
+    paths:
+      - "src/vuejs-admin-dashboard/**"
+      - ".github/workflows/vuejs-admin-dashboard-ci.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: vuejs-admin-dashboard-ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: "20"
+  PNPM_VERSION: "9"
+  WORKING_DIR: "src/vuejs-admin-dashboard"
+
+jobs:
+  ci:
+    name: Install / Lint / Type-check / Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: ${{ env.WORKING_DIR }}/pnpm-lock.yaml
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type-check
+        run: pnpm type-check
+
+      - name: Build
+        run: pnpm build
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-${{ github.sha }}
+          path: ${{ env.WORKING_DIR }}/dist
+          retention-days: 3
+
+      - name: CI Summary
+        if: always()
+        run: |
+          echo "# Vue.js Admin Dashboard — CI" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Branch | \`${{ github.ref_name }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Actor | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY
