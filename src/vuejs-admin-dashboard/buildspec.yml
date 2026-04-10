@@ -1,0 +1,42 @@
+version: 0.2
+
+# ============================================================================
+# CodeBuild build specification for the Vue.js Admin Dashboard
+# ============================================================================
+# Phases:
+#   install   — restore npm cache and install production + dev dependencies
+#   build     — compile the Vite/Vue.js SPA to dist/
+#   post_build — emit a build summary for the logs
+#
+# Artifacts:
+#   The dist/ directory is uploaded as the pipeline build artifact and passed
+#   to the Deploy stage where it is pushed to AWS Amplify.
+# ============================================================================
+
+phases:
+  install:
+    runtime-versions:
+      nodejs: 20
+    commands:
+      - echo "--- Installing dependencies ---"
+      - npm ci
+
+  build:
+    commands:
+      - echo "--- Building Vue.js Admin Dashboard ---"
+      - npm run build
+
+  post_build:
+    commands:
+      - echo "--- Build complete ---"
+      - ls -la dist/
+
+cache:
+  paths:
+    - node_modules/**/*
+
+artifacts:
+  base-directory: dist
+  files:
+    - "**/*"
+  discard-paths: no

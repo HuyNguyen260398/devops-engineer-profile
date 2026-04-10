@@ -39,7 +39,7 @@ All Terraform resources are stored under `inf/terraform/vuejs-admin-dashboard/`.
 - **SEC-003**: CodeBuild environment variables containing sensitive values must be stored in **AWS SSM Parameter Store** (SecureString) and referenced via `parameter-store` in the buildspec.
 - **SEC-004**: Amplify app must have HTTPS enforced; HTTP must redirect to HTTPS.
 - **CON-001**: Terraform root module at `inf/terraform/vuejs-admin-dashboard/` must be independently initializable (`terraform init`) without dependencies on other modules in the repo.
-- **CON-002**: AWS region must be parameterised via `var.aws_region`; default `us-east-1`.
+- **CON-002**: AWS region must be parameterised via `var.aws_region`; default `ap-southeast-1`.
 - **GUD-001**: Use `terraform fmt` and `tflint --recursive` before every plan/apply.
 - **GUD-002**: Separate resource definitions into logical files: `main.tf`, `variables.tf`, `outputs.tf`, `iam.tf`, `amplify.tf`, `pipeline.tf`, `backend.tf`.
 - **PAT-001**: Use a `terraform.tfvars` file for environment-specific values; never commit secrets to `terraform.tfvars`.
@@ -64,7 +64,7 @@ All Terraform resources are stored under `inf/terraform/vuejs-admin-dashboard/`.
 
 | Task | Description | Completed | Date |
 |------|-------------|-----------|------|
-| TASK-004 | Create `inf/terraform/vuejs-admin-dashboard/variables.tf` with the following variables: `aws_region` (string, default `us-east-1`), `project_name` (string, default `vuejs-admin-dashboard`), `environment` (string), `codecommit_repo_name` (string), `codecommit_branch_main` (string, default `main`), `codecommit_branch_develop` (string, default `develop`), `amplify_app_name` (string), `codebuild_compute_type` (string, default `BUILD_GENERAL1_SMALL`), `codebuild_image` (string, default `aws/codebuild/standard:7.0`) | | |
+| TASK-004 | Create `inf/terraform/vuejs-admin-dashboard/variables.tf` with the following variables: `aws_region` (string, default `ap-southeast-1`), `project_name` (string, default `vuejs-admin-dashboard`), `environment` (string), `codecommit_repo_name` (string), `codecommit_branch_main` (string, default `main`), `codecommit_branch_develop` (string, default `develop`), `amplify_app_name` (string), `codebuild_compute_type` (string, default `BUILD_GENERAL1_SMALL`), `codebuild_image` (string, default `aws/codebuild/standard:7.0`) | | |
 | TASK-005 | Create `inf/terraform/vuejs-admin-dashboard/outputs.tf` with outputs: `codecommit_clone_url_http`, `codecommit_clone_url_ssh`, `amplify_app_id`, `amplify_default_domain`, `codepipeline_name`, `codebuild_project_name` | | |
 | TASK-006 | Create `inf/terraform/vuejs-admin-dashboard/terraform.tfvars` (gitignored) with concrete values for all required variables; create `terraform.tfvars.example` committed to the repo showing the expected structure with placeholder values | | |
 

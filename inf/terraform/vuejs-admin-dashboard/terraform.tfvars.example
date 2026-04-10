@@ -1,0 +1,30 @@
+# ============================================================================
+# terraform.tfvars.example
+# ============================================================================
+# Copy to one of the environment-specific locations and fill in real values:
+#
+#   environments/production/terraform.tfvars
+#   environments/staging/terraform.tfvars
+#
+# NEVER commit terraform.tfvars — it is listed in .gitignore.
+# ============================================================================
+
+aws_region   = "ap-southeast-1"
+project_name = "vuejs-admin-dashboard"
+environment  = "production" # or "staging"
+
+# CodeCommit (shared repository)
+# production: create_codecommit_repo = true
+# staging:    create_codecommit_repo = false  (references repo created by production)
+codecommit_repo_name   = "vuejs-admin-dashboard"
+create_codecommit_repo = true
+pipeline_branch        = "main" # "develop" for staging
+
+# Amplify
+amplify_app_name     = "vuejs-admin-dashboard-production" # use "-staging" suffix for staging
+amplify_branch_stage = "PRODUCTION"                       # "DEVELOPMENT" for staging
+custom_domain        = ""                                  # e.g. "dashboard.example.com"
+
+# CodeBuild
+codebuild_compute_type = "BUILD_GENERAL1_SMALL"
+codebuild_image        = "aws/codebuild/standard:7.0"
