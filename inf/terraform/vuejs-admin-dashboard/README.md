@@ -63,6 +63,11 @@ terraform init
 terraform apply
 ```
 
+> **CI / Static analysis note:** The `backend.tf` declares a partial S3 backend (`backend "s3" {}`). Without a `-backend-config` flag, `terraform init` will interactively prompt for the S3 bucket name and block any non-interactive pipeline. All validation and security-scanning steps in CI (tfsec, `terraform validate`) must therefore pass `-backend=false -input=false` to skip backend initialisation:
+> ```
+> terraform init -backend=false -input=false
+> ```
+
 ---
 
 ## Deploying Production
