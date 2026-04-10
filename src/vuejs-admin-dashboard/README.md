@@ -13,6 +13,7 @@ A GitHub Primer-inspired admin dashboard built with Vue 3, Tailwind CSS, Pinia, 
 | Vue Router | ^4.3 |
 | Lucide Vue Next | ^0.378 |
 | marked | ^12 |
+| turndown | ^7 |
 | @vueuse/core | ^10.9 |
 
 ## Local Development
@@ -42,7 +43,8 @@ src/
 ├── composables/
 │   ├── useTheme.js             # Dark/light mode toggle + localStorage persistence
 │   ├── useToast.js             # Toast notification composable
-│   └── useMotion.js            # Respects prefers-reduced-motion
+│   ├── useMotion.js            # Respects prefers-reduced-motion
+│   └── useHtmlToMarkdown.js    # Fetch URL via CORS proxy, convert HTML→MD, download
 ├── stores/
 │   └── blog.js                 # Pinia store — blog posts, localStorage persistence
 ├── layouts/
@@ -67,10 +69,14 @@ src/
 │   │   └── Toast.vue           # Auto-dismiss toast (aria-live)
 │   ├── blog/
 │   │   └── PostCard.vue        # Blog post summary card
+│   ├── html-to-markdown/
+│   │   └── MarkdownPreview.vue # Rendered/Raw tab view for converted Markdown
 │   └── dashboard/
 │       └── StatCard.vue        # Metric card with icon
 ├── views/
-│   ├── DashboardHomeView.vue   # Dashboard home with stat cards
+│   ├── DashboardHomeView.vue   # Dashboard home / app launcher
+│   ├── html-to-markdown/
+│   │   └── HtmlToMarkdownView.vue  # URL input, conversion, preview, download
 │   └── blog/
 │       ├── BlogListView.vue    # Post grid + empty state
 │       ├── BlogDetailView.vue  # Full post + edit/delete actions
@@ -85,8 +91,19 @@ All colors are defined as CSS custom properties under `.light` and `.dark` selec
 
 Dark mode is toggled by adding/removing the `dark` class on `<html>`, persisted in `localStorage` under the key `theme`.
 
+## Apps
+
+| App | Route | Description |
+|-----|-------|-------------|
+| Dashboard Home | `/` | App launcher with links to all tools |
+| Blog | `/blog` | Create, edit, and publish Markdown blog posts stored in `localStorage` |
+| HTML to Markdown | `/html-to-markdown` | Paste a public URL and convert the page HTML to clean Markdown, with live preview and `.md` download |
+| AWS Cost Dashboard | `/aws/cost` | Placeholder for AWS cost visualisation |
+| AWS Resources Dashboard | `/aws/resources` | Placeholder for AWS resource inventory |
+
 ## Notes
 
 - All data is stored in `localStorage` — no backend required.
 - Blog content supports Markdown (rendered via `marked`).
+- The HTML-to-Markdown tool fetches remote pages via the [`allorigins.win`](https://allorigins.win/) public CORS proxy — no backend required. Markdown conversion is performed client-side by `turndown`.
 - Router history mode is used — a rewrite rule is needed on the hosting layer (configured in the Amplify deployment plan).
