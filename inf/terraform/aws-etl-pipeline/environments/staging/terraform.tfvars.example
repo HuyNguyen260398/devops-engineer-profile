@@ -1,0 +1,24 @@
+# ============================================================================
+# Staging environment — copy to terraform.tfvars and fill in values
+# ============================================================================
+
+aws_region   = "ap-southeast-1"
+environment  = "staging"
+project      = "aws-etl-pipeline"
+
+# S3 bucket names must be globally unique — customise for your account
+raw_bucket_name   = "YOUR_ACCOUNT_ID-aws-etl-pipeline-staging-raw"
+clean_bucket_name = "YOUR_ACCOUNT_ID-aws-etl-pipeline-staging-clean"
+
+bedrock_model_id = "anthropic.claude-haiku-3-5-v1:0"
+
+# VPC: verify CIDR doesn't overlap with existing account VPCs before apply
+# Run: aws ec2 describe-vpcs --query 'Vpcs[*].CidrBlock'
+vpc_cidr             = "10.10.0.0/24"
+private_subnet_cidrs = ["10.10.0.0/26", "10.10.0.64/26"]
+availability_zones   = ["ap-southeast-1a", "ap-southeast-1b"]
+
+interface_endpoint_multi_az       = false
+orchestrator_timeout_seconds      = 300
+loader_timeout_seconds            = 15
+orchestrator_reserved_concurrency = 5

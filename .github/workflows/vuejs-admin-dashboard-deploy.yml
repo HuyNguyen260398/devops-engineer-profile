@@ -1,0 +1,185 @@
+name: Vue.js Admin Dashboard — Deploy
+
+# Triggered when a PR is merged to main and touched app source.
+# Runs the full quality suite, then builds, zips, and deploys
+# the artifact directly to AWS Amplify via the Amplify manual-deploy API.
+#
+# Required GitHub secrets:
+#   VUEJS_ADMIN_DASHBOARD_DEPLOY_ROLE_ARN   — IAM role ARN (OIDC assumable by this repo)
+#   VUEJS_ADMIN_DASHBOARD_ARTIFACT_BUCKET  — S3 bucket for build artifacts
+#   VUEJS_ADMIN_DASHBOARD_AMPLIFY_APP_ID   — Amplify app ID (e.g. d1a2b3c4xyz)
+#   VUEJS_ADMIN_DASHBOARD_AMPLIFY_BRANCH   — Amplify branch to deploy (default: main)
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "src/vuejs-admin-dashboard/**"
+      - ".github/workflows/vuejs-admin-dashboard-deploy.yml"
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: vuejs-admin-dashboard-deploy
+  cancel-in-progress: false  # Never cancel an in-progress deployment
+
+env:
+  NODE_VERSION: "22"
+  PNPM_VERSION: "9"
+  WORKING_DIR: "src/vuejs-admin-dashboard"
+  AWS_REGION: "ap-southeast-1"
+
+jobs:
+  deploy:
+    name: Build & Deploy to AWS Amplify
+    runs-on: ubuntu-latest
+    environment: production
+    defaults:
+      run:
+        working-directory: ${{ env.WORKING_DIR }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v5
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: "pnpm"
+          cache-dependency-path: ${{ env.WORKING_DIR }}/pnpm-lock.yaml
+
+      # -------------------------------------------------------------------------
+      # Quality gate (same steps as quality-gate workflow — must pass before deploy)
+      # -------------------------------------------------------------------------
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Type-check
+        run: pnpm type-check
+
+      - name: Build
+        run: pnpm build
+
+      # -------------------------------------------------------------------------
+      # Package artifact
+      # -------------------------------------------------------------------------
+
+      - name: Create deployment zip
+        run: |
+          cd dist
+          zip -r ../deploy.zip .
+          cd ..
+          ARTIFACT_SIZE=$(du -sh deploy.zip | cut -f1)
+          echo "ARTIFACT_SIZE=${ARTIFACT_SIZE}" >> $GITHUB_ENV
+          echo "Artifact created: ${ARTIFACT_SIZE}"
+
+      # -------------------------------------------------------------------------
+      # AWS — authenticate via OIDC, no long-lived credentials stored
+      # -------------------------------------------------------------------------
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.VUEJS_ADMIN_DASHBOARD_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      # -------------------------------------------------------------------------
+      # Upload artifact to S3 (retained for audit / rollback)
+      # -------------------------------------------------------------------------
+
+      - name: Upload artifact to S3
+        id: s3-upload
+        run: |
+          ARTIFACT_KEY="vuejs-admin-dashboard/github-actions/${{ github.sha }}.zip"
+          aws s3 cp deploy.zip "s3://${{ secrets.VUEJS_ADMIN_DASHBOARD_ARTIFACT_BUCKET }}/${ARTIFACT_KEY}"
+          echo "artifact_key=${ARTIFACT_KEY}" >> $GITHUB_OUTPUT
+          echo "Uploaded to s3://${{ secrets.VUEJS_ADMIN_DASHBOARD_ARTIFACT_BUCKET }}/${ARTIFACT_KEY}"
+
+      # -------------------------------------------------------------------------
+      # Deploy to Amplify — mirrors what the CodePipeline Lambda does:
+      #   1. create_deployment  → obtain job ID + pre-signed upload URL
+      #   2. PUT the zip to the pre-signed URL
+      #   3. start_deployment
+      # -------------------------------------------------------------------------
+
+      - name: Deploy to AWS Amplify
+        id: amplify-deploy
+        run: |
+          AMPLIFY_APP_ID="${{ secrets.VUEJS_ADMIN_DASHBOARD_AMPLIFY_APP_ID }}"
+          AMPLIFY_BRANCH="${{ secrets.VUEJS_ADMIN_DASHBOARD_AMPLIFY_BRANCH || 'main' }}"
+
+          echo "Creating Amplify deployment for app ${AMPLIFY_APP_ID} branch ${AMPLIFY_BRANCH}..."
+
+          DEPLOY_RESPONSE=$(aws amplify create-deployment \
+            --app-id "${AMPLIFY_APP_ID}" \
+            --branch-name "${AMPLIFY_BRANCH}" \
+            --output json)
+
+          JOB_ID=$(echo "${DEPLOY_RESPONSE}" | jq -r '.jobId')
+          UPLOAD_URL=$(echo "${DEPLOY_RESPONSE}" | jq -r '.zipUploadUrl')
+
+          echo "Uploading artifact to Amplify (job ID: ${JOB_ID})..."
+          HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+            -X PUT \
+            -H "Content-Type: application/zip" \
+            --data-binary @deploy.zip \
+            "${UPLOAD_URL}")
+
+          if [ "${HTTP_STATUS}" != "200" ] && [ "${HTTP_STATUS}" != "201" ]; then
+            echo "Failed to upload artifact to Amplify: HTTP ${HTTP_STATUS}"
+            exit 1
+          fi
+
+          echo "Starting Amplify deployment..."
+          aws amplify start-deployment \
+            --app-id "${AMPLIFY_APP_ID}" \
+            --branch-name "${AMPLIFY_BRANCH}" \
+            --job-id "${JOB_ID}"
+
+          echo "job_id=${JOB_ID}" >> $GITHUB_OUTPUT
+          echo "amplify_branch=${AMPLIFY_BRANCH}" >> $GITHUB_OUTPUT
+          echo "Amplify deployment started — job ID: ${JOB_ID}"
+
+      # -------------------------------------------------------------------------
+      # Preserve artifact reference in GitHub Actions
+      # -------------------------------------------------------------------------
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: dist-${{ github.sha }}
+          path: ${{ env.WORKING_DIR }}/dist
+          retention-days: 30
+
+      # -------------------------------------------------------------------------
+      # Summary
+      # -------------------------------------------------------------------------
+
+      - name: Deployment summary
+        if: always()
+        run: |
+          echo "# Vue.js Admin Dashboard — Deployment" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "| Field | Value |" >> $GITHUB_STEP_SUMMARY
+          echo "|-------|-------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Status | ${{ job.status == 'success' && '✅ Deployed' || '❌ Failed' }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Amplify Job ID | \`${{ steps.amplify-deploy.outputs.job_id }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Amplify Branch | \`${{ steps.amplify-deploy.outputs.amplify_branch }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Artifact Size | \`${{ env.ARTIFACT_SIZE }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| S3 Key | \`${{ steps.s3-upload.outputs.artifact_key }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Commit | \`${{ github.sha }}\` |" >> $GITHUB_STEP_SUMMARY
+          echo "| Actor | @${{ github.actor }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Run | [#${{ github.run_number }}](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}) |" >> $GITHUB_STEP_SUMMARY

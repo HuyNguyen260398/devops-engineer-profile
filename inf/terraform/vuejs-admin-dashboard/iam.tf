@@ -1,0 +1,362 @@
+# ============================================================================
+# Data sources + shared locals
+# ============================================================================
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+locals {
+  account_id  = data.aws_caller_identity.current.account_id
+  region      = data.aws_region.current.name
+  name_prefix = "${var.project_name}-${var.environment}"
+}
+
+# ============================================================================
+# CodeBuild IAM Role
+# ============================================================================
+
+data "aws_iam_policy_document" "codebuild_assume_role" {
+  statement {
+    sid     = "CodeBuildAssumeRole"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["codebuild.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "codebuild_role" {
+  name               = "${local.name_prefix}-codebuild-role"
+  assume_role_policy = data.aws_iam_policy_document.codebuild_assume_role.json
+
+  tags = {
+    Name = "${local.name_prefix}-codebuild-role"
+  }
+}
+
+data "aws_iam_policy_document" "codebuild_policy" {
+  statement {
+    sid    = "CloudWatchLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = [
+      "arn:aws:logs:${local.region}:${local.account_id}:log-group:/codebuild/${local.name_prefix}",
+      "arn:aws:logs:${local.region}:${local.account_id}:log-group:/codebuild/${local.name_prefix}:*",
+    ]
+  }
+
+  statement {
+    sid    = "ArtifactBucketAccess"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:PutObject",
+    ]
+    resources = [
+      aws_s3_bucket.pipeline_artifacts.arn,
+      "${aws_s3_bucket.pipeline_artifacts.arn}/*",
+    ]
+  }
+
+  statement {
+    sid    = "SSMParameterAccess"
+    effect = "Allow"
+    actions = [
+      "ssm:GetParameters",
+      "ssm:GetParameter",
+    ]
+    resources = [
+      "arn:aws:ssm:${local.region}:${local.account_id}:parameter/${var.project_name}/${var.environment}/*",
+    ]
+  }
+
+  statement {
+    sid    = "CodeCommitPull"
+    effect = "Allow"
+    actions = [
+      "codecommit:GitPull",
+    ]
+    resources = [local.codecommit_repo_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "codebuild_policy" {
+  name   = "${local.name_prefix}-codebuild-policy"
+  role   = aws_iam_role.codebuild_role.id
+  policy = data.aws_iam_policy_document.codebuild_policy.json
+}
+
+# ============================================================================
+# CodePipeline IAM Role
+# ============================================================================
+
+data "aws_iam_policy_document" "codepipeline_assume_role" {
+  statement {
+    sid     = "CodePipelineAssumeRole"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["codepipeline.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "codepipeline_role" {
+  name               = "${local.name_prefix}-codepipeline-role"
+  assume_role_policy = data.aws_iam_policy_document.codepipeline_assume_role.json
+
+  tags = {
+    Name = "${local.name_prefix}-codepipeline-role"
+  }
+}
+
+data "aws_iam_policy_document" "codepipeline_policy" {
+  statement {
+    sid    = "CodeCommitSource"
+    effect = "Allow"
+    actions = [
+      "codecommit:GetBranch",
+      "codecommit:GetCommit",
+      "codecommit:GetUploadArchiveStatus",
+      "codecommit:UploadArchive",
+    ]
+    resources = [local.codecommit_repo_arn]
+  }
+
+  statement {
+    sid    = "CodeBuildAccess"
+    effect = "Allow"
+    actions = [
+      "codebuild:BatchGetBuilds",
+      "codebuild:StartBuild",
+    ]
+    resources = ["arn:aws:codebuild:${local.region}:${local.account_id}:project/${local.name_prefix}"]
+  }
+
+  statement {
+    sid    = "ArtifactBucketAccess"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:PutObject",
+      "s3:GetBucketVersioning",
+    ]
+    resources = [
+      aws_s3_bucket.pipeline_artifacts.arn,
+      "${aws_s3_bucket.pipeline_artifacts.arn}/*",
+    ]
+  }
+
+  statement {
+    sid    = "LambdaInvoke"
+    effect = "Allow"
+    actions = [
+      "lambda:InvokeFunction",
+      "lambda:ListFunctions",
+    ]
+    resources = [
+      "arn:aws:lambda:${local.region}:${local.account_id}:function:${local.name_prefix}-amplify-deploy",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "codepipeline_policy" {
+  name   = "${local.name_prefix}-codepipeline-policy"
+  role   = aws_iam_role.codepipeline_role.id
+  policy = data.aws_iam_policy_document.codepipeline_policy.json
+}
+
+# ============================================================================
+# Amplify Service Role
+# ============================================================================
+
+data "aws_iam_policy_document" "amplify_assume_role" {
+  statement {
+    sid     = "AmplifyAssumeRole"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["amplify.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "amplify_service_role" {
+  name               = "${local.name_prefix}-amplify-service-role"
+  assume_role_policy = data.aws_iam_policy_document.amplify_assume_role.json
+
+  tags = {
+    Name = "${local.name_prefix}-amplify-service-role"
+  }
+}
+
+data "aws_iam_policy_document" "amplify_policy" {
+  statement {
+    sid    = "AmplifyDeployAccess"
+    effect = "Allow"
+    actions = [
+      "amplify:CreateDeployment",
+      "amplify:StartDeployment",
+      "amplify:GetDeployment",
+    ]
+    resources = [
+      "arn:aws:amplify:${local.region}:${local.account_id}:apps/*",
+    ]
+  }
+
+  statement {
+    sid    = "ArtifactBucketRead"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = [
+      "${aws_s3_bucket.pipeline_artifacts.arn}/*",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "amplify_policy" {
+  name   = "${local.name_prefix}-amplify-policy"
+  role   = aws_iam_role.amplify_service_role.id
+  policy = data.aws_iam_policy_document.amplify_policy.json
+}
+
+# ============================================================================
+# Lambda Amplify Deploy Trigger IAM Role
+# ============================================================================
+
+data "aws_iam_policy_document" "lambda_assume_role" {
+  statement {
+    sid     = "LambdaAssumeRole"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["lambda.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "amplify_deploy_lambda_role" {
+  name               = "${local.name_prefix}-amplify-deploy-lambda-role"
+  assume_role_policy = data.aws_iam_policy_document.lambda_assume_role.json
+
+  tags = {
+    Name = "${local.name_prefix}-amplify-deploy-lambda-role"
+  }
+}
+
+data "aws_iam_policy_document" "lambda_policy" {
+  statement {
+    sid    = "CloudWatchLogs"
+    effect = "Allow"
+    actions = [
+      "logs:CreateLogGroup",
+      "logs:CreateLogStream",
+      "logs:PutLogEvents",
+    ]
+    resources = [
+      "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/${local.name_prefix}-amplify-deploy",
+      "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/${local.name_prefix}-amplify-deploy:*",
+    ]
+  }
+
+  statement {
+    sid    = "AmplifyDeploy"
+    effect = "Allow"
+    actions = [
+      "amplify:CreateDeployment",
+      "amplify:StartDeployment",
+    ]
+    resources = [
+      "arn:aws:amplify:${local.region}:${local.account_id}:apps/*",
+    ]
+  }
+
+  statement {
+    sid    = "ArtifactBucketRead"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+    ]
+    resources = [
+      "${aws_s3_bucket.pipeline_artifacts.arn}/*",
+    ]
+  }
+
+  statement {
+    sid    = "CodePipelineJobResults"
+    effect = "Allow"
+    actions = [
+      "codepipeline:PutJobSuccessResult",
+      "codepipeline:PutJobFailureResult",
+    ]
+    resources = ["*"]
+  }
+}
+
+resource "aws_iam_role_policy" "lambda_policy" {
+  name   = "${local.name_prefix}-amplify-deploy-lambda-policy"
+  role   = aws_iam_role.amplify_deploy_lambda_role.id
+  policy = data.aws_iam_policy_document.lambda_policy.json
+}
+
+# ============================================================================
+# EventBridge CodePipeline Trigger Role
+# ============================================================================
+
+data "aws_iam_policy_document" "events_assume_role" {
+  statement {
+    sid     = "EventsAssumeRole"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["events.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "events_pipeline_trigger_role" {
+  name               = "${local.name_prefix}-events-pipeline-trigger-role"
+  assume_role_policy = data.aws_iam_policy_document.events_assume_role.json
+
+  tags = {
+    Name = "${local.name_prefix}-events-pipeline-trigger-role"
+  }
+}
+
+data "aws_iam_policy_document" "events_pipeline_trigger_policy" {
+  statement {
+    sid    = "StartPipeline"
+    effect = "Allow"
+    actions = [
+      "codepipeline:StartPipelineExecution",
+    ]
+    resources = [
+      "arn:aws:codepipeline:${local.region}:${local.account_id}:${local.name_prefix}-pipeline",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "events_pipeline_trigger_policy" {
+  name   = "${local.name_prefix}-events-pipeline-trigger-policy"
+  role   = aws_iam_role.events_pipeline_trigger_role.id
+  policy = data.aws_iam_policy_document.events_pipeline_trigger_policy.json
+}

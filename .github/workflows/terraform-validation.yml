@@ -253,7 +253,7 @@ jobs:
         working-directory: inf/terraform/${{ matrix.directory }}
         run: |
           echo "🔧 Initializing Terraform for tfsec..."
-          terraform init
+          terraform init -backend=false -input=false
 
       - name: Run tfsec
         uses: aquasecurity/tfsec-action@v1.0.3
