@@ -1,0 +1,23 @@
+# ============================================================================
+# Production environment — copy to terraform.tfvars and fill in values
+# ============================================================================
+
+aws_region   = "ap-southeast-1"
+environment  = "production"
+project      = "aws-etl-pipeline"
+
+raw_bucket_name   = "YOUR_ACCOUNT_ID-aws-etl-pipeline-production-raw"
+clean_bucket_name = "YOUR_ACCOUNT_ID-aws-etl-pipeline-production-clean"
+
+bedrock_model_id = "anthropic.claude-haiku-3-5-v1:0"
+
+# Use a separate CIDR block from staging (avoids overlap if both VPCs exist in same account)
+vpc_cidr             = "10.11.0.0/24"
+private_subnet_cidrs = ["10.11.0.0/26", "10.11.0.64/26"]
+availability_zones   = ["ap-southeast-1a", "ap-southeast-1b"]
+
+# Multi-AZ endpoints for production HA (REC-022)
+interface_endpoint_multi_az       = true
+orchestrator_timeout_seconds      = 300
+loader_timeout_seconds            = 15
+orchestrator_reserved_concurrency = 5
