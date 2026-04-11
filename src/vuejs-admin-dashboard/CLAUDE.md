@@ -118,9 +118,10 @@ Blog posts are persisted to `localStorage` under the key `admin-hub:blog-posts`.
 ## CI/CD
 
 `buildspec.yml` is consumed by AWS CodeBuild:
-1. Install: `npm ci` (Node 20)
-2. Build: `npm run build`
-3. Artifact: `dist/**/*` — passed to the Amplify deploy Lambda
+1. Enable pnpm: `corepack enable && corepack prepare pnpm@9.15.0 --activate` (Node 20)
+2. Install: `pnpm install --frozen-lockfile`
+3. Build: `pnpm run build`
+4. Artifact: `dist/**/*` — passed to the Amplify deploy Lambda
 
 ## Conventions
 
