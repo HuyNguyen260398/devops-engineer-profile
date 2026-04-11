@@ -122,7 +122,30 @@ Staging sets `create_codecommit_repo = false` so it reads the existing repositor
 
 ## CodeCommit Setup and Authentication
 
-### Initial Commit
+> **Automated mirror (default flow):** the GitHub Actions workflow
+> `.github/workflows/vuejs-admin-dashboard-codecommit-sync.yml` mirrors
+> the `src/vuejs-admin-dashboard/` subtree of the monorepo into this
+> CodeCommit repository on every PR merge to `main`. It assumes an IAM
+> role via GitHub OIDC (`codecommit_sync_role_arn` output of this module)
+> and force-pushes an orphan snapshot — CodeCommit is therefore a
+> **read-only mirror**, with GitHub as the source of truth.
+>
+> The push triggers the existing EventBridge → CodePipeline → CodeBuild →
+> Amplify deployment chain automatically. The manual steps below are
+> retained as a **break-glass procedure** only (e.g. first-time bootstrap
+> before the workflow runs, or when OIDC/role access is unavailable).
+
+### One-Time Setup for the Automated Mirror
+
+1. Apply the production Terraform workspace with
+   `create_codecommit_sync_role = true` so the IAM role is created.
+2. Copy the value of the Terraform output
+   `codecommit_sync_role_arn` into a new GitHub repository secret named
+   `VUEJS_ADMIN_DASHBOARD_CODECOMMIT_SYNC_ROLE_ARN`.
+3. Merge any PR touching `src/vuejs-admin-dashboard/**` — the workflow
+   runs automatically.
+
+### Initial Commit (break-glass)
 
 The `src/vuejs-admin-dashboard/` directory contains its own git repository. Before pushing to CodeCommit you must create an initial commit if one does not exist yet:
 

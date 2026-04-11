@@ -81,3 +81,29 @@ variable "codebuild_image" {
   type        = string
   default     = "aws/codebuild/standard:7.0"
 }
+
+# ============================================================================
+# GitHub — OIDC-based CodeCommit sync role
+# ============================================================================
+
+variable "github_owner" {
+  description = "GitHub organisation or user that owns the source repository (used to scope the OIDC trust policy for the CodeCommit sync role)"
+  type        = string
+}
+
+variable "github_repository" {
+  description = "GitHub repository name that hosts the Vue.js Admin Dashboard source (used to scope the OIDC trust policy for the CodeCommit sync role)"
+  type        = string
+}
+
+variable "codecommit_sync_branch" {
+  description = "Git branch in the GitHub source repository whose merges are allowed to assume the CodeCommit sync role (default: main)"
+  type        = string
+  default     = "main"
+}
+
+variable "create_codecommit_sync_role" {
+  description = "Create the IAM role that GitHub Actions assumes via OIDC to push to CodeCommit. Only the environment that creates the CodeCommit repo should create this role (typically production)."
+  type        = bool
+  default     = false
+}
