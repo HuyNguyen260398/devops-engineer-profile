@@ -13,13 +13,6 @@ name: Vue.js Admin Dashboard — Deploy
 #   branch: main
 
 on:
-  pull_request:
-    branches:
-      - main
-    paths:
-      - "src/vuejs-admin-dashboard/**"
-      - ".github/workflows/vuejs-admin-dashboard-quality-gate.yml"
-    types: [opened, synchronize, reopened]
   push:
     branches:
       - main
@@ -40,7 +33,6 @@ env:
   PNPM_VERSION: "9"
   WORKING_DIR: "src/vuejs-admin-dashboard"
   AWS_REGION: "ap-southeast-1"
-  VUEJS_ADMIN_DASHBOARD_CODECOMMIT_SYNC_ROLE_ARN: arn:aws:iam::010382427026:role/github-actions-s3-sync-role
   CODECOMMIT_REPO_NAME: "vuejs-admin-dashboard"
   CODECOMMIT_BRANCH: "main"
   CODECOMMIT_REMOTE_URL: "https://git-codecommit.ap-southeast-1.amazonaws.com/v1/repos/vuejs-admin-dashboard"
@@ -94,7 +86,7 @@ jobs:
       - name: Configure AWS credentials (OIDC)
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: ${{ env.VUEJS_ADMIN_DASHBOARD_CODECOMMIT_SYNC_ROLE_ARN }}
+          role-to-assume: ${{ secrets.VUEJS_ADMIN_DASHBOARD_CODECOMMIT_SYNC_ROLE_ARN }}
           aws-region: ${{ env.AWS_REGION }}
 
       # -----------------------------------------------------------------------
