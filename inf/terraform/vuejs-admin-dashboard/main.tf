@@ -32,9 +32,13 @@ locals {
 # CodePipeline Artifact Bucket (per-environment)
 # ============================================================================
 
+#tfsec:ignore:aws-s3-enable-bucket-logging
+#tfsec:ignore:aws-s3-encryption-customer-key
 resource "aws_s3_bucket" "pipeline_artifacts" {
   #checkov:skip=CKV_AWS_144: Cross-region replication not required for a short-lived pipeline artifact bucket.
   #checkov:skip=CKV2_AWS_62: Event notifications not required for a pipeline artifact bucket.
+  #checkov:skip=CKV_AWS_18:  Access logging not required for a short-lived CI/CD artifact bucket.
+  #checkov:skip=CKV_AWS_145: CMK encryption is disproportionate for short-lived pipeline artifacts; SSE-S3 (AES256) is sufficient.
   bucket = "${local.name_prefix}-artifacts"
 
   tags = {
@@ -50,7 +54,9 @@ resource "aws_s3_bucket_versioning" "pipeline_artifacts" {
   }
 }
 
+#tfsec:ignore:aws-s3-encryption-customer-key
 resource "aws_s3_bucket_server_side_encryption_configuration" "pipeline_artifacts" {
+  #checkov:skip=CKV_AWS_145: CMK is disproportionate for short-lived CI/CD artifacts; SSE-S3 (AES256) is sufficient.
   bucket = aws_s3_bucket.pipeline_artifacts.id
 
   rule {
@@ -76,6 +82,8 @@ resource "aws_s3_bucket_lifecycle_configuration" "pipeline_artifacts" {
   rule {
     id     = "expire-artifacts"
     status = "Enabled"
+
+    filter {}
 
     expiration {
       days = 30

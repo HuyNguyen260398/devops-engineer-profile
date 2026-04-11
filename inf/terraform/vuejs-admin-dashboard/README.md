@@ -120,6 +120,107 @@ Staging sets `create_codecommit_repo = false` so it reads the existing repositor
 
 ---
 
+## CodeCommit Setup and Authentication
+
+### Initial Commit
+
+The `src/vuejs-admin-dashboard/` directory contains its own git repository. Before pushing to CodeCommit you must create an initial commit if one does not exist yet:
+
+```bash
+cd src/vuejs-admin-dashboard
+
+# Create .gitignore if it does not exist
+cat > .gitignore << 'EOF'
+node_modules/
+dist/
+.env
+.env.local
+.env.*.local
+*.log
+.DS_Store
+EOF
+
+# Stage and commit
+git add .
+git commit -m "feat: initial vuejs admin dashboard source"
+```
+
+### Add the CodeCommit Remote
+
+```bash
+cd src/vuejs-admin-dashboard
+
+git remote add codecommit https://git-codecommit.ap-southeast-1.amazonaws.com/v1/repos/vuejs-admin-dashboard
+```
+
+Verify the remote was added:
+
+```bash
+git remote -v
+```
+
+### Authentication Options
+
+#### Option 1 — AWS CLI Credential Helper (Recommended)
+
+Requires AWS CLI configured with valid credentials (`aws configure` or an assumed role).
+
+```bash
+git config --global credential.helper '!aws codecommit credential-helper $@'
+git config --global credential.UseHttpPath true
+
+# Verify your AWS identity before pushing
+aws sts get-caller-identity
+```
+
+#### Option 2 — IAM User HTTPS Git Credentials
+
+Generate CodeCommit-specific credentials for an IAM user.
+
+Via AWS Console:
+> IAM → Users → `<your-user>` → Security credentials → **HTTPS Git credentials for AWS CodeCommit** → Generate credentials
+
+Via AWS CLI:
+
+```bash
+aws iam create-service-specific-credential \
+  --user-name <your-iam-username> \
+  --service-name codecommit.amazonaws.com
+```
+
+Use the returned `ServiceUserName` and `ServicePassword` when git prompts for credentials, or embed them in the remote URL:
+
+```bash
+git remote set-url codecommit \
+  https://<GIT_USERNAME>:<GIT_PASSWORD>@git-codecommit.ap-southeast-1.amazonaws.com/v1/repos/vuejs-admin-dashboard
+```
+
+#### Option 3 — SSH Key
+
+```bash
+# Upload your public key to IAM
+aws iam upload-ssh-public-key \
+  --user-name <your-iam-username> \
+  --ssh-public-key-body file://~/.ssh/id_rsa.pub
+```
+
+Add to `~/.ssh/config` (replace `<SSH_KEY_ID>` with the `SSHPublicKeyId` from the output above):
+
+```
+Host git-codecommit.ap-southeast-1.amazonaws.com
+  User <SSH_KEY_ID>
+  IdentityFile ~/.ssh/id_rsa
+```
+
+Switch the remote to SSH:
+
+```bash
+git remote set-url codecommit \
+  ssh://git-codecommit.ap-southeast-1.amazonaws.com/v1/repos/vuejs-admin-dashboard
+```
+
+---
+
 ## Triggering Deployments
 
 After apply, push to the relevant branch to trigger the environment's pipeline:

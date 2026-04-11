@@ -60,7 +60,10 @@ data "aws_iam_policy_document" "codebuild_policy" {
       "s3:GetObjectVersion",
       "s3:PutObject",
     ]
+    #tfsec:ignore:aws-iam-no-policy-wildcards
     resources = [
+      # bucket-level ARN required for s3:GetBucketVersioning; object-level /* required for object operations.
+      # Both ARNs are scoped to this specific bucket — not a true wildcard.
       aws_s3_bucket.pipeline_artifacts.arn,
       "${aws_s3_bucket.pipeline_artifacts.arn}/*",
     ]
@@ -152,7 +155,10 @@ data "aws_iam_policy_document" "codepipeline_policy" {
       "s3:PutObject",
       "s3:GetBucketVersioning",
     ]
+    #tfsec:ignore:aws-iam-no-policy-wildcards
     resources = [
+      # bucket-level ARN required for s3:GetBucketVersioning; object-level /* required for object operations.
+      # Both ARNs are scoped to this specific bucket — not a true wildcard.
       aws_s3_bucket.pipeline_artifacts.arn,
       "${aws_s3_bucket.pipeline_artifacts.arn}/*",
     ]
@@ -223,7 +229,9 @@ data "aws_iam_policy_document" "amplify_policy" {
     actions = [
       "s3:GetObject",
     ]
+    #tfsec:ignore:aws-iam-no-policy-wildcards
     resources = [
+      # /* is required to grant object-level access; scoped to this specific artifact bucket — not a true wildcard.
       "${aws_s3_bucket.pipeline_artifacts.arn}/*",
     ]
   }
@@ -294,7 +302,9 @@ data "aws_iam_policy_document" "lambda_policy" {
     actions = [
       "s3:GetObject",
     ]
+    #tfsec:ignore:aws-iam-no-policy-wildcards
     resources = [
+      # /* is required to grant object-level access; scoped to this specific artifact bucket — not a true wildcard.
       "${aws_s3_bucket.pipeline_artifacts.arn}/*",
     ]
   }
