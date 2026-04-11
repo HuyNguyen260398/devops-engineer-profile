@@ -16,12 +16,8 @@ resource "aws_amplify_app" "app" {
     status = "200"
   }
 
-  # HTTPS redirect (SEC-004)
-  custom_rule {
-    source = "http://<*>"
-    target = "https://<*>"
-    status = "302"
-  }
+  # Note: Amplify enforces HTTPS automatically for all hosted apps.
+  # An explicit HTTP→HTTPS redirect custom rule is not supported and not needed.
 
   tags = {
     Name = var.amplify_app_name

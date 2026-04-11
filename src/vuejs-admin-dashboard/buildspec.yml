@@ -4,7 +4,7 @@ version: 0.2
 # CodeBuild build specification for the Vue.js Admin Dashboard
 # ============================================================================
 # Phases:
-#   install   — restore npm cache and install production + dev dependencies
+#   install   — enable corepack, activate pnpm, install dependencies
 #   build     — compile the Vite/Vue.js SPA to dist/
 #   post_build — emit a build summary for the logs
 #
@@ -18,13 +18,16 @@ phases:
     runtime-versions:
       nodejs: 20
     commands:
+      - echo "--- Enabling corepack and activating pnpm ---"
+      - corepack enable
+      - corepack prepare pnpm@9.15.0 --activate
       - echo "--- Installing dependencies ---"
-      - npm ci
+      - pnpm install --frozen-lockfile
 
   build:
     commands:
       - echo "--- Building Vue.js Admin Dashboard ---"
-      - npm run build
+      - pnpm run build
 
   post_build:
     commands:
@@ -33,7 +36,7 @@ phases:
 
 cache:
   paths:
-    - node_modules/**/*
+    - /root/.local/share/pnpm/store/**/*
 
 artifacts:
   base-directory: dist

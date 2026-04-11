@@ -26,6 +26,7 @@ provider "aws" {
 
   default_tags {
     tags = {
+      Application = "vuejs-admin-dashboard"
       Project     = "vuejs-admin-dashboard"
       ManagedBy   = "Terraform"
       Environment = "bootstrap"
