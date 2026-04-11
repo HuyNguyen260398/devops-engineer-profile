@@ -23,15 +23,15 @@ resource "aws_glue_catalog_table" "clean_articles" {
 
   parameters = {
     # REC-005: Partition projection — Athena auto-discovers partitions without MSCK REPAIR
-    "projection.enabled"       = "true"
-    "projection.year.type"     = "integer"
-    "projection.year.range"    = "2025,2099"
-    "projection.year.digits"   = "4"
-    "projection.month.type"    = "integer"
-    "projection.month.range"   = "01,12"
-    "projection.month.digits"  = "2"
+    "projection.enabled"        = "true"
+    "projection.year.type"      = "integer"
+    "projection.year.range"     = "2025,2099"
+    "projection.year.digits"    = "4"
+    "projection.month.type"     = "integer"
+    "projection.month.range"    = "01,12"
+    "projection.month.digits"   = "2"
     "storage.location.template" = "s3://${var.clean_bucket_name}/metadata/$${year}/$${month}"
-    "classification"           = "json"
+    "classification"            = "json"
   }
 
   storage_descriptor {
@@ -43,7 +43,7 @@ resource "aws_glue_catalog_table" "clean_articles" {
       # REC-003: JsonSerDe for line-delimited JSON objects (one article per file)
       serialization_library = "org.openx.data.jsonserde.JsonSerDe"
       parameters = {
-        "serialization.format" = "1"
+        "serialization.format"  = "1"
         "ignore.malformed.json" = "FALSE"
       }
     }

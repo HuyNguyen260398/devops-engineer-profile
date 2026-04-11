@@ -5,6 +5,7 @@
 # GSI with INCLUDE projection avoids N+1 on Blog list page (REC-012).
 # ============================================================================
 
+#tfsec:ignore:AVD-AWS-0025 -- AWS-owned KMS key (no extra cost) provides encryption at rest; a CMK adds key management overhead disproportionate to a portfolio project (SEC-004).
 resource "aws_dynamodb_table" "article_metadata" {
   name         = "${local.name_prefix}-article-metadata"
   billing_mode = "PAY_PER_REQUEST"

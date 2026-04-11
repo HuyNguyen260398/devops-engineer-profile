@@ -9,7 +9,7 @@
 
 resource "aws_iam_role" "lambda_etl_orchestrator" {
   name        = "${local.name_prefix}-orchestrator-role"
-  description = "Execution role for the ETL orchestrator Lambda — reads raw S3 and invokes Bedrock Agent"
+  description = "Execution role for the ETL orchestrator Lambda - reads raw S3 and invokes Bedrock Agent"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -35,9 +35,9 @@ resource "aws_iam_role_policy" "orchestrator_policy" {
         Resource = "${aws_s3_bucket.etl_raw.arn}/*"
       },
       {
-        Sid    = "InvokeBedrockAgent"
-        Effect = "Allow"
-        Action = ["bedrock:InvokeAgent"]
+        Sid      = "InvokeBedrockAgent"
+        Effect   = "Allow"
+        Action   = ["bedrock:InvokeAgent"]
         Resource = "arn:aws:bedrock:${var.aws_region}:${data.aws_caller_identity.current.account_id}:agent-alias/*"
       },
       {
@@ -62,7 +62,6 @@ resource "aws_iam_role_policy" "orchestrator_policy" {
         Sid    = "CloudWatchLogs"
         Effect = "Allow"
         Action = [
-          "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
         ]
@@ -87,7 +86,7 @@ resource "aws_iam_role_policy" "orchestrator_policy" {
 
 resource "aws_iam_role" "lambda_etl_loader" {
   name        = "${local.name_prefix}-loader-role"
-  description = "Execution role for the ETL loader Lambda — writes clean S3 and DynamoDB"
+  description = "Execution role for the ETL loader Lambda - writes clean S3 and DynamoDB"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -138,7 +137,6 @@ resource "aws_iam_role_policy" "loader_policy" {
         Sid    = "CloudWatchLogs"
         Effect = "Allow"
         Action = [
-          "logs:CreateLogGroup",
           "logs:CreateLogStream",
           "logs:PutLogEvents",
         ]
@@ -213,6 +211,7 @@ resource "aws_iam_role" "vpc_flow_log" {
   })
 }
 
+#tfsec:ignore:AVD-AWS-0057 -- Resource arn:*:log-group:name:* is the minimum scope required for log stream operations (CreateLogStream, PutLogEvents); the log group itself is pre-created by Terraform.
 resource "aws_iam_role_policy" "vpc_flow_log_policy" {
   name = "vpc-flow-log-policy"
   role = aws_iam_role.vpc_flow_log.id
@@ -222,7 +221,6 @@ resource "aws_iam_role_policy" "vpc_flow_log_policy" {
     Statement = [{
       Effect = "Allow"
       Action = [
-        "logs:CreateLogGroup",
         "logs:CreateLogStream",
         "logs:PutLogEvents",
         "logs:DescribeLogGroups",

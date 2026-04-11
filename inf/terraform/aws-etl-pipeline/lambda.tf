@@ -11,7 +11,8 @@
 
 resource "aws_sqs_queue" "orchestrator_dlq" {
   name                      = "${local.name_prefix}-orchestrator-dlq"
-  message_retention_seconds = 1209600  # 14 days
+  message_retention_seconds = 1209600 # 14 days
+  sqs_managed_sse_enabled   = true    # SSE with SQS-managed keys (SEC-DLQ-001)
 
   tags = {
     Name = "${local.name_prefix}-orchestrator-dlq"
@@ -20,7 +21,8 @@ resource "aws_sqs_queue" "orchestrator_dlq" {
 
 resource "aws_sqs_queue" "loader_dlq" {
   name                      = "${local.name_prefix}-loader-dlq"
-  message_retention_seconds = 1209600  # 14 days
+  message_retention_seconds = 1209600 # 14 days
+  sqs_managed_sse_enabled   = true    # SSE with SQS-managed keys (SEC-DLQ-001)
 
   tags = {
     Name = "${local.name_prefix}-loader-dlq"
@@ -71,6 +73,7 @@ data "archive_file" "loader_zip" {
 # CloudWatch Log Groups (7-day retention)
 # ---------------------------------------------------------------------------
 
+#tfsec:ignore:AVD-AWS-0017 -- CMK for CWL requires a dedicated KMS key with an explicit CloudWatch Logs service principal in the key policy; AWS default encryption is sufficient for this 7-day retention window.
 resource "aws_cloudwatch_log_group" "orchestrator" {
   name              = "/aws/lambda/${local.name_prefix}-orchestrator"
   retention_in_days = 7
@@ -80,6 +83,7 @@ resource "aws_cloudwatch_log_group" "orchestrator" {
   }
 }
 
+#tfsec:ignore:AVD-AWS-0017 -- see note on orchestrator log group above.
 resource "aws_cloudwatch_log_group" "loader" {
   name              = "/aws/lambda/${local.name_prefix}-loader"
   retention_in_days = 7
@@ -107,6 +111,10 @@ resource "aws_lambda_function" "etl_orchestrator" {
   # REC-006: cap concurrent Bedrock invocations to control cost and throttle risk
   reserved_concurrent_executions = var.orchestrator_reserved_concurrency
 
+  tracing_config {
+    mode = "Active" # Active sampling for full X-Ray trace visibility (SEC-TRACE-001)
+  }
+
   vpc_config {
     subnet_ids         = [aws_subnet.etl_private_a.id, aws_subnet.etl_private_b.id]
     security_group_ids = [aws_security_group.lambda_etl.id]
@@ -122,7 +130,7 @@ resource "aws_lambda_function" "etl_orchestrator" {
       BEDROCK_AGENT_ALIAS_ID = aws_bedrockagent_agent_alias.live.agent_alias_id
       BEDROCK_MODEL_ID       = var.bedrock_model_id
       LOADER_FUNCTION_NAME   = aws_lambda_function.etl_loader.function_name
-      MAX_FILE_BYTES         = "204800"  # 200 KB
+      MAX_FILE_BYTES         = "204800" # 200 KB
     }
   }
 
@@ -154,8 +162,12 @@ resource "aws_lambda_function" "etl_loader" {
   handler          = "handler.handler"
   filename         = data.archive_file.loader_zip.output_path
   source_code_hash = data.archive_file.loader_zip.output_base64sha256
-  timeout          = var.loader_timeout_seconds  # 15s — fails fast on silent hangs (REC-018)
+  timeout          = var.loader_timeout_seconds # 15s — fails fast on silent hangs (REC-018)
   memory_size      = 256
+
+  tracing_config {
+    mode = "Active" # Active sampling for full X-Ray trace visibility (SEC-TRACE-001)
+  }
 
   vpc_config {
     subnet_ids         = [aws_subnet.etl_private_a.id, aws_subnet.etl_private_b.id]
@@ -193,8 +205,10 @@ resource "aws_lambda_function_event_invoke_config" "loader" {
 # CloudWatch Alarms (REC-014)
 # ---------------------------------------------------------------------------
 
+#tfsec:ignore:AVD-AWS-0136 -- alias/aws/sns (AWS-managed SNS key) provides SSE; a CMK would require cross-service key policy grants for CloudWatch Alarms and adds rotation overhead for a portfolio pipeline.
 resource "aws_sns_topic" "etl_alerts" {
-  name = "${local.name_prefix}-alerts"
+  name              = "${local.name_prefix}-alerts"
+  kms_master_key_id = "alias/aws/sns" # SSE using AWS-managed SNS key (SEC-SNS-001)
 
   tags = {
     Name = "${local.name_prefix}-alerts"
@@ -258,7 +272,7 @@ resource "aws_cloudwatch_metric_alarm" "orchestrator_duration_p99" {
   metric_name         = "Duration"
   namespace           = "AWS/Lambda"
   period              = 300
-  threshold           = (var.orchestrator_timeout_seconds - 60) * 1000  # 60s headroom
+  threshold           = (var.orchestrator_timeout_seconds - 60) * 1000 # 60s headroom
   treat_missing_data  = "notBreaching"
 
   dimensions = {

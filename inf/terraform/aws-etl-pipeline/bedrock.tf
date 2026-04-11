@@ -7,10 +7,10 @@
 # ============================================================================
 
 resource "aws_bedrockagent_agent" "content_extractor" {
-  agent_name              = "${local.name_prefix}-content-extractor"
-  description             = "Extracts clean main-body Markdown from raw web-scraped .md files"
-  agent_resource_role_arn = aws_iam_role.bedrock_agent_execution.arn
-  foundation_model        = var.bedrock_model_id
+  agent_name                  = "${local.name_prefix}-content-extractor"
+  description                 = "Extracts clean main-body Markdown from raw web-scraped .md files"
+  agent_resource_role_arn     = aws_iam_role.bedrock_agent_execution.arn
+  foundation_model            = var.bedrock_model_id
   idle_session_ttl_in_seconds = 600
 
   # REC-007: prepare agent during apply so the alias can reference a stable version

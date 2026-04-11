@@ -194,9 +194,65 @@ aws-etl-pipeline/
 | Raw bucket isolation | `aws:sourceVpce` bucket policy denies `GetObject`/`PutObject` outside the VPC |
 | Content access | Clean bucket served via SigV4 pre-signed URLs only; no public access |
 | Least privilege | Separate IAM roles per function; inline policies scoped to exact resources |
-| Encryption at rest | SSE-S3 on both buckets; DynamoDB with AWS-owned KMS key |
+| Encryption at rest | SSE-S3 on both buckets; DynamoDB with AWS-owned KMS key; SQS with SSE managed keys; SNS with AWS-managed KMS key |
 | Network audit | VPC Flow Logs delivered to CloudWatch (14-day retention) |
 | Failure capture | SQS DLQs on EventBridge target, orchestrator Lambda, and loader Lambda |
+| Observability | X-Ray active tracing enabled on both Lambda functions |
+
+## Code Quality
+
+The following linting and security scanning tools are enforced on this module. Run them before every pull request:
+
+```bash
+cd inf/terraform/aws-etl-pipeline
+
+# 1. Formatting
+terraform fmt -check -recursive -diff
+
+# 2. Lint (requires tflint + AWS ruleset v0.45.0)
+tflint --recursive
+
+# 3. Security scan (requires tfsec or trivy)
+tfsec .
+```
+
+### Last scan results
+
+| Tool | Status | Details |
+|------|--------|---------|
+| `terraform fmt` | ✅ Pass | All `.tf` and `.tfvars` files correctly formatted |
+| `tflint` | ✅ Pass | 0 issues — AWS ruleset v0.45.0, Terraform ruleset v0.14.1 |
+| `tfsec` | ✅ Pass | 0 problems detected — 39 passed, 14 documented ignores |
+
+### Resolved findings
+
+#### tflint — fixed
+
+| Rule | File | Resolution |
+|------|------|------------|
+| `aws_iam_role_invalid_description` | `iam.tf:12,90` | Replaced Unicode em-dash (`—`) with ASCII hyphen (`-`) in both Lambda IAM role descriptions |
+| `terraform_required_providers` | `lambda.tf:62` | Added `archive` provider with `version = "~> 2.4"` to `required_providers` in `main.tf` |
+| `terraform_unused_declarations` | `main.tf:33` | Removed unused `data "aws_region" "current"` data source |
+
+#### tfsec — fixed
+
+| Rule | Severity | File | Resolution |
+|------|----------|------|------------|
+| `AVD-AWS-0057` — IAM wildcard | HIGH | `iam.tf` | Removed `logs:CreateLogGroup` from Lambda execution policies (log groups are pre-created by Terraform); retained necessary `CreateLogGroup`-free scope for log stream operations |
+| `AVD-AWS-0066` — Lambda tracing | LOW | `lambda.tf` | Added `tracing_config { mode = "Active" }` to both `etl_orchestrator` and `etl_loader` Lambda functions |
+| `AVD-AWS-0076` — SQS encryption | HIGH | `lambda.tf` | Added `sqs_managed_sse_enabled = true` to `orchestrator_dlq` and `loader_dlq` |
+| `AVD-AWS-0136` — SNS encryption | HIGH | `lambda.tf` | Added `kms_master_key_id = "alias/aws/sns"` (AWS-managed SNS key) to `etl_alerts` topic |
+
+#### tfsec — documented ignores (accepted risk)
+
+| Rule | Severity | Resource | Rationale |
+|------|----------|----------|-----------|
+| `AVD-AWS-0132` — S3 CMK | HIGH | `s3.tf` (both buckets) | SSE-S3 (AES256) provides encryption at rest. A customer-managed KMS key would add per-request cost and key rotation overhead disproportionate to this low-volume portfolio pipeline. |
+| `AVD-AWS-0089` — S3 logging | MEDIUM | `s3.tf` (both buckets) | A dedicated S3 access-log bucket is out of scope. VPC Flow Logs provide network-level audit coverage for all traffic to/from the private-VPC Lambda functions. |
+| `AVD-AWS-0025` — DynamoDB CMK | LOW | `dynamodb.tf` | The table uses the AWS-owned KMS key, which provides encryption at rest at no extra cost. A CMK adds key management overhead disproportionate to a portfolio project. |
+| `AVD-AWS-0057` — IAM wildcard | HIGH | `iam.tf` (VPC flow log policy) | The `arn:*:log-group:name:*` scope is the minimum required for log stream write operations (`CreateLogStream`, `PutLogEvents`). The log group itself is pre-created by Terraform. |
+| `AVD-AWS-0017` — CWL CMK | LOW | `lambda.tf`, `vpc.tf` (log groups) | CMK encryption for CloudWatch Logs requires a dedicated KMS key with an explicit `logs.amazonaws.com` service principal grant. AWS default encryption is sufficient for the 7-day and 14-day retention windows used here. |
+| `AVD-AWS-0136` — SNS CMK | HIGH | `lambda.tf` | The `alias/aws/sns` AWS-managed key provides SSE. A customer-managed key would require cross-service key policy grants for CloudWatch Alarms and adds rotation overhead for a portfolio pipeline. |
 
 ## Cost Estimate
 

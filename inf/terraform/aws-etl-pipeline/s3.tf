@@ -7,6 +7,7 @@
 # Access restricted to VPC Endpoint (aws:sourceVpce condition in bucket policy)
 # ---------------------------------------------------------------------------
 
+#tfsec:ignore:AVD-AWS-0089 -- S3 access logging to a dedicated log bucket is out of scope; VPC Flow Logs provide network-level audit coverage for this private-VPC pipeline.
 resource "aws_s3_bucket" "etl_raw" {
   #checkov:skip=CKV_AWS_144: Cross-region replication is not required for this low-volume async pipeline.
   #checkov:skip=CKV2_AWS_61: Lifecycle rules are managed separately in aws_s3_bucket_lifecycle_configuration.
@@ -35,6 +36,7 @@ resource "aws_s3_bucket_versioning" "etl_raw" {
   }
 }
 
+#tfsec:ignore:AVD-AWS-0132 -- SSE-S3 (AES256) provides encryption at rest; a CMK would add KMS key cost and rotation overhead disproportionate to this portfolio pipeline's risk profile.
 resource "aws_s3_bucket_server_side_encryption_configuration" "etl_raw" {
   bucket = aws_s3_bucket.etl_raw.id
 
@@ -118,6 +120,7 @@ resource "aws_s3_bucket_policy" "etl_raw" {
 # Accessed by Blog app via pre-signed URLs (SigV4 auth enforced, no public access)
 # ---------------------------------------------------------------------------
 
+#tfsec:ignore:AVD-AWS-0089 -- see raw bucket note above.
 resource "aws_s3_bucket" "etl_clean" {
   #checkov:skip=CKV_AWS_144: Cross-region replication is not required for this low-volume portfolio pipeline.
   #checkov:skip=CKV2_AWS_61: Lifecycle rules are managed separately in aws_s3_bucket_lifecycle_configuration.
@@ -146,6 +149,7 @@ resource "aws_s3_bucket_versioning" "etl_clean" {
   }
 }
 
+#tfsec:ignore:AVD-AWS-0132 -- same rationale as raw bucket SSE configuration above.
 resource "aws_s3_bucket_server_side_encryption_configuration" "etl_clean" {
   bucket = aws_s3_bucket.etl_clean.id
 

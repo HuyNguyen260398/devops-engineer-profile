@@ -9,7 +9,7 @@ resource "aws_cloudwatch_event_rule" "s3_raw_upload" {
   description = "Fires when a .md file is uploaded to the ETL raw S3 bucket"
 
   event_pattern = jsonencode({
-    source      = ["aws.s3"]
+    source        = ["aws.s3"]
     "detail-type" = ["Object Created"]
     detail = {
       bucket = {
