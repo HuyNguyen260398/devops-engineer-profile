@@ -1,17 +1,24 @@
 # DevOps Engineer Profile - Project TODO
 
-**Last Updated:** February 8, 2026
+**Last Updated:** April 12, 2026
 **Project:** DevOps Engineer Profile
 
 ---
 
 ## ♾️ .github/ - GitHub Actions Workflows
 
-### Workflows
+### S3 Web Workflows
 - ✅ **Create workflow for AWS S3 web sync**
+
+### Terraform Workflows
 - ✅ **Create workflow for Terraform validation and plan**
 - ✅ **Create workflow for Terraform apply only run on workflow_dispatch**
 - [ ] **Move aws account id to env / vars**
+
+### Vue.js Admin Dashboard Workflows
+- ✅ **Create CI workflow** (`vuejs-admin-dashboard-ci.yml`) — runs on feature branches: install → lint → type-check → build
+- ✅ **Create quality gate workflow** (`vuejs-admin-dashboard-quality-gate.yml`) — PR merge gate, posts result table as PR comment
+- ✅ **Create deploy workflow** (`vuejs-admin-dashboard-deploy.yml`) — syncs app subtree to AWS CodeCommit on merge to main, triggering CodePipeline → Amplify
 
 ---
 
@@ -32,9 +39,23 @@
 - ✅ **Add Terraform configuration for AWS EKS deployment**
 - ✅ **Add Terraform configuration for Jenkins deployment to AWS EKS**
 - ✅ **Add Terraform configuration for ArgoCD deployment to AWS EKS**
-- [ ] **Add Terraform configuration for Prometheus and Grafana monitoring AWS EKS**
-  > Note: GitOps deployment (ArgoCD + Helm) is complete. This item tracks Terraform provisioning of supporting AWS infra (e.g., IRSA roles, EBS storage class, Ingress ALB for Grafana).
+- ✅ **Add Terraform configuration for Prometheus and Grafana monitoring AWS EKS**
 - [ ] **Add HorizontalPodAutoscalers for AWS EKS**
+
+### Vue.js Admin Dashboard Infrastructure
+- ✅ **Add Terraform configuration for AWS Amplify hosting** (`inf/terraform/vuejs-admin-dashboard/amplify.tf`)
+- ✅ **Add Terraform configuration for AWS CodePipeline CI/CD** (`inf/terraform/vuejs-admin-dashboard/pipeline.tf`) — CodeCommit → CodeBuild → Amplify
+- ✅ **Add Terraform configuration for AWS CodeArtifact** (`inf/terraform/vuejs-admin-dashboard/codeartifact.tf`) — private npm registry for dependency caching
+- ✅ **Add Terraform configuration for AWS CodeDeploy** (`inf/terraform/vuejs-admin-dashboard/codedeploy.tf`) — deployment group targeting Amplify
+- ✅ **Add IAM roles and policies for Vue.js Admin Dashboard CI/CD** (`inf/terraform/vuejs-admin-dashboard/iam.tf`)
+
+### AWS ETL Pipeline Infrastructure
+- ✅ **Scaffold Terraform configuration for AWS ETL Pipeline** (`inf/terraform/aws-etl-pipeline/`) — VPC, S3, Lambda, Bedrock Agent, DynamoDB, Athena, EventBridge
+- [ ] **Implement data extraction from public APIs** (Lambda functions)
+- [ ] **Implement data transformation with AWS Glue**
+- [ ] **Implement data loading into AWS Redshift**
+- [ ] **Add Airflow DAGs for orchestration**
+- [ ] **Add monitoring with CloudWatch and Prometheus**
 
 ---
 
@@ -115,10 +136,6 @@
 - ✅ **Add News/Feeds Section**
 - ✅ **Add GitHub Activities/Projects Showcase**
 - ✅ **Add downloadable PDF CV option**
-- [ ] **Update UI with GitHub Themes**
-- [ ] **Add Blog Page**
-- [ ] **Update Markdown file as blog content**
-- [ ] **Save blog content in S3 and pull dynamically into website**
 
 ### aws-etl-pipeline (Data Engineering Project)
 - [ ] **Add data extraction from public APIs**
@@ -126,6 +143,14 @@
 - [ ] **Add data loading into AWS Redshift**
 - [ ] **Add Airflow DAGs for orchestration**
 - [ ] **Add monitoring with CloudWatch and Prometheus**
+
+### vuejs-admin-dashboard (Vue.js Application)
+- ✅ **Scaffold Vue.js admin dashboard application** (`src/vuejs-admin-dashboard/`) — Vite + Vue 3 + TypeScript + Tailwind CSS
+- ✅ **Configure build spec for AWS CodeBuild** (`src/vuejs-admin-dashboard/buildspec.yml`)
+- [ ] **Update UI with GitHub Themes**
+- [ ] **Add Blog Page**
+- [ ] **Update Markdown file as blog content**
+- [ ] **Save blog content in S3 and pull dynamically into website**
 
 ---
 
