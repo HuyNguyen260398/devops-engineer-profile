@@ -370,3 +370,90 @@ resource "aws_iam_role_policy" "events_pipeline_trigger_policy" {
   role   = aws_iam_role.events_pipeline_trigger_role.id
   policy = data.aws_iam_policy_document.events_pipeline_trigger_policy.json
 }
+
+# ============================================================================
+# GitHub Actions → CodeCommit Sync Role (OIDC federated)
+# ============================================================================
+# IAM role assumed by a GitHub Actions workflow via OIDC to mirror the
+# src/vuejs-admin-dashboard/ subtree of the monorepo into the CodeCommit
+# repository on every merged PR. The trust policy is scoped to merges on a
+# single branch of a single GitHub repository. The inline policy grants
+# only the CodeCommit actions required to push to the single shared repo.
+#
+# Only the environment that owns the CodeCommit repository should create
+# this role (set create_codecommit_sync_role = true in production).
+#
+# Prerequisite: the GitHub OIDC identity provider
+# (token.actions.githubusercontent.com) must already exist in the AWS
+# account. It is provisioned by inf/terraform/aws-github-oidc/.
+
+data "aws_iam_openid_connect_provider" "github" {
+  count = var.create_codecommit_sync_role ? 1 : 0
+  url   = "https://token.actions.githubusercontent.com"
+}
+
+data "aws_iam_policy_document" "codecommit_sync_assume_role" {
+  count = var.create_codecommit_sync_role ? 1 : 0
+
+  statement {
+    sid     = "GitHubOIDCAssumeRole"
+    effect  = "Allow"
+    actions = ["sts:AssumeRoleWithWebIdentity"]
+
+    principals {
+      type        = "Federated"
+      identifiers = [data.aws_iam_openid_connect_provider.github[0].arn]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:aud"
+      values   = ["sts.amazonaws.com"]
+    }
+
+    condition {
+      test     = "StringEquals"
+      variable = "token.actions.githubusercontent.com:sub"
+      values = [
+        "repo:${var.github_owner}/${var.github_repository}:ref:refs/heads/${var.codecommit_sync_branch}",
+      ]
+    }
+  }
+}
+
+resource "aws_iam_role" "codecommit_sync_role" {
+  count = var.create_codecommit_sync_role ? 1 : 0
+
+  name               = "${local.name_prefix}-codecommit-sync-role"
+  description        = "Assumed via GitHub OIDC by the vuejs-admin-dashboard-codecommit-sync workflow to mirror the app subtree into CodeCommit"
+  assume_role_policy = data.aws_iam_policy_document.codecommit_sync_assume_role[0].json
+
+  tags = {
+    Name = "${local.name_prefix}-codecommit-sync-role"
+  }
+}
+
+data "aws_iam_policy_document" "codecommit_sync_policy" {
+  count = var.create_codecommit_sync_role ? 1 : 0
+
+  statement {
+    sid    = "CodeCommitPushAccess"
+    effect = "Allow"
+    actions = [
+      "codecommit:GitPush",
+      "codecommit:GitPull",
+      "codecommit:GetRepository",
+      "codecommit:GetBranch",
+      "codecommit:BatchGetRepositories",
+    ]
+    resources = [local.codecommit_repo_arn]
+  }
+}
+
+resource "aws_iam_role_policy" "codecommit_sync_policy" {
+  count = var.create_codecommit_sync_role ? 1 : 0
+
+  name   = "${local.name_prefix}-codecommit-sync-policy"
+  role   = aws_iam_role.codecommit_sync_role[0].id
+  policy = data.aws_iam_policy_document.codecommit_sync_policy[0].json
+}

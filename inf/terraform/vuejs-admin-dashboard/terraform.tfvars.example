@@ -28,3 +28,11 @@ custom_domain        = ""                                  # e.g. "dashboard.exa
 # CodeBuild
 codebuild_compute_type = "BUILD_GENERAL1_SMALL"
 codebuild_image        = "aws/codebuild/standard:7.0"
+
+# GitHub → CodeCommit sync (OIDC)
+# Only the environment that owns the CodeCommit repo should create the role
+# (set create_codecommit_sync_role = true alongside create_codecommit_repo = true).
+github_owner                = "your-github-owner"
+github_repository           = "your-github-repository"
+codecommit_sync_branch      = "main"
+create_codecommit_sync_role = true # false for non-owning environments
