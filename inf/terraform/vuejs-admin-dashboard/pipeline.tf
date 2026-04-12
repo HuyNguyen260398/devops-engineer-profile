@@ -37,6 +37,23 @@ resource "aws_codebuild_project" "app" {
       name  = "ENVIRONMENT"
       value = var.environment
     }
+
+    # CodeArtifact — used by buildspec.yml to configure npm to pull packages
+    # from the private proxy instead of registry.npmjs.org directly.
+    environment_variable {
+      name  = "CODEARTIFACT_DOMAIN"
+      value = aws_codeartifact_domain.app.domain
+    }
+
+    environment_variable {
+      name  = "CODEARTIFACT_DOMAIN_OWNER"
+      value = local.account_id
+    }
+
+    environment_variable {
+      name  = "CODEARTIFACT_REPO"
+      value = aws_codeartifact_repository.npm.repository
+    }
   }
 
   source {
@@ -112,8 +129,26 @@ resource "aws_cloudwatch_log_group" "amplify_deploy_lambda" {
 # ============================================================================
 # CodePipeline — Source → Build → Deploy
 # ============================================================================
+# Two mutually exclusive pipeline resources selected by enable_codedeploy_deploy:
+#   amplify   (count=1 when false) — Deploy stage invokes Lambda → Amplify
+#   codedeploy (count=1 when true) — Deploy stage uses CodeDeploy → S3 + CF
+#
+# IMPORTANT: If you are changing enable_codedeploy_deploy on an existing state,
+# run the following before terraform apply to avoid resource recreation:
+#   terraform state mv aws_codepipeline.app aws_codepipeline.amplify[0]
 
-resource "aws_codepipeline" "app" {
+locals {
+  active_pipeline_arn = (
+    var.enable_codedeploy_deploy
+    ? aws_codepipeline.codedeploy[0].arn
+    : aws_codepipeline.amplify[0].arn
+  )
+}
+
+# --- Path A: Lambda → Amplify (default) ------------------------------------
+
+resource "aws_codepipeline" "amplify" {
+  count    = var.enable_codedeploy_deploy ? 0 : 1
   name     = "${local.name_prefix}-pipeline"
   role_arn = aws_iam_role.codepipeline_role.arn
 
@@ -183,6 +218,79 @@ resource "aws_codepipeline" "app" {
   }
 }
 
+# --- Path B: CodeDeploy → S3 + CloudFront (opt-in) -------------------------
+
+resource "aws_codepipeline" "codedeploy" {
+  count    = var.enable_codedeploy_deploy ? 1 : 0
+  name     = "${local.name_prefix}-pipeline"
+  role_arn = aws_iam_role.codepipeline_role.arn
+
+  artifact_store {
+    location = aws_s3_bucket.pipeline_artifacts.bucket
+    type     = "S3"
+  }
+
+  stage {
+    name = "Source"
+
+    action {
+      name             = "Source"
+      category         = "Source"
+      owner            = "AWS"
+      provider         = "CodeCommit"
+      version          = "1"
+      output_artifacts = ["SourceArtifact"]
+
+      configuration = {
+        RepositoryName       = local.codecommit_repo_name
+        BranchName           = var.pipeline_branch
+        OutputArtifactFormat = "CODE_ZIP"
+        PollForSourceChanges = "false"
+      }
+    }
+  }
+
+  stage {
+    name = "Build"
+
+    action {
+      name             = "Build"
+      category         = "Build"
+      owner            = "AWS"
+      provider         = "CodeBuild"
+      version          = "1"
+      input_artifacts  = ["SourceArtifact"]
+      output_artifacts = ["BuildArtifact"]
+
+      configuration = {
+        ProjectName = aws_codebuild_project.app.name
+      }
+    }
+  }
+
+  stage {
+    name = "Deploy"
+
+    action {
+      name            = "DeployToS3ViaCodeDeploy"
+      category        = "Deploy"
+      owner           = "AWS"
+      provider        = "CodeDeploy"
+      version         = "1"
+      input_artifacts = ["BuildArtifact"]
+
+      configuration = {
+        ApplicationName     = aws_codedeploy_app.app[0].name
+        DeploymentGroupName = aws_codedeploy_deployment_group.app[0].deployment_group_name
+      }
+    }
+  }
+
+  tags = {
+    Name = "${local.name_prefix}-pipeline"
+  }
+}
+
 # ============================================================================
 # EventBridge — Trigger pipeline on CodeCommit branch push
 # ============================================================================
@@ -209,6 +317,6 @@ resource "aws_cloudwatch_event_rule" "codecommit_branch_push" {
 
 resource "aws_cloudwatch_event_target" "pipeline_trigger" {
   rule     = aws_cloudwatch_event_rule.codecommit_branch_push.name
-  arn      = aws_codepipeline.app.arn
+  arn      = local.active_pipeline_arn
   role_arn = aws_iam_role.events_pipeline_trigger_role.arn
 }

@@ -107,3 +107,24 @@ variable "create_codecommit_sync_role" {
   type        = bool
   default     = false
 }
+
+# ============================================================================
+# CodeDeploy (optional)
+# ============================================================================
+
+variable "enable_codedeploy_deploy" {
+  description = "When true, the CodePipeline Deploy stage uses CodeDeploy to deploy the built SPA artifact to an S3 static-website bucket fronted by CloudFront, instead of invoking the Lambda→Amplify path. Amplify resources are always provisioned regardless of this flag."
+  type        = bool
+  default     = false
+}
+
+variable "cloudfront_price_class" {
+  description = "CloudFront price class for the web distribution (only used when enable_codedeploy_deploy = true). PriceClass_100 covers US, Canada, and Europe edge locations and is the most cost-effective option."
+  type        = string
+  default     = "PriceClass_100"
+
+  validation {
+    condition     = contains(["PriceClass_All", "PriceClass_200", "PriceClass_100"], var.cloudfront_price_class)
+    error_message = "cloudfront_price_class must be one of: PriceClass_All, PriceClass_200, PriceClass_100."
+  }
+}
