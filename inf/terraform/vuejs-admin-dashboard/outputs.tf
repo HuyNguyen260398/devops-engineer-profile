@@ -45,7 +45,7 @@ output "amplify_branch_url" {
 
 output "codepipeline_name" {
   description = "Name of the CodePipeline pipeline"
-  value       = aws_codepipeline.app.name
+  value       = var.enable_codedeploy_deploy ? aws_codepipeline.codedeploy[0].name : aws_codepipeline.amplify[0].name
 }
 
 output "codebuild_project_name" {
@@ -69,4 +69,32 @@ output "codecommit_sync_role_arn" {
     ? aws_iam_role.codecommit_sync_role[0].arn
     : null
   )
+}
+
+# ============================================================================
+# CodeArtifact
+# ============================================================================
+
+output "codeartifact_repository_endpoint" {
+  description = "CodeArtifact npm repository endpoint URL. Use this in buildspec.yml to configure npm: aws codeartifact get-authorization-token ... && npm config set registry <this_url>"
+  value       = "https://${aws_codeartifact_domain.app.domain}-${local.account_id}.d.codeartifact.${local.region}.amazonaws.com/npm/${aws_codeartifact_repository.npm.repository}/"
+}
+
+# ============================================================================
+# CodeDeploy / S3 + CloudFront (conditional)
+# ============================================================================
+
+output "codedeploy_app_name" {
+  description = "CodeDeploy application name. Null when enable_codedeploy_deploy = false."
+  value       = var.enable_codedeploy_deploy ? aws_codedeploy_app.app[0].name : null
+}
+
+output "web_bucket_name" {
+  description = "S3 web bucket used as the CodeDeploy deployment target. Null when enable_codedeploy_deploy = false."
+  value       = var.enable_codedeploy_deploy ? aws_s3_bucket.web[0].bucket : null
+}
+
+output "cloudfront_distribution_domain" {
+  description = "CloudFront distribution domain name fronting the S3 web bucket. Null when enable_codedeploy_deploy = false."
+  value       = var.enable_codedeploy_deploy ? aws_cloudfront_distribution.web[0].domain_name : null
 }

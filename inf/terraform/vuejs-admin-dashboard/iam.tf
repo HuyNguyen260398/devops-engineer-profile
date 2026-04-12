@@ -457,3 +457,185 @@ resource "aws_iam_role_policy" "codecommit_sync_policy" {
   role   = aws_iam_role.codecommit_sync_role[0].id
   policy = data.aws_iam_policy_document.codecommit_sync_policy[0].json
 }
+
+# ============================================================================
+# CodeBuild → CodeArtifact Policy
+# ============================================================================
+# Allows CodeBuild to obtain a short-lived CodeArtifact authorization token
+# and read npm packages from the private repository.
+
+data "aws_iam_policy_document" "codebuild_codeartifact_policy" {
+  statement {
+    sid    = "CodeArtifactToken"
+    effect = "Allow"
+    actions = [
+      "sts:GetServiceBearerToken",
+    ]
+    # STS bearer token is not resource-scoped; condition narrows to CodeArtifact only.
+    #tfsec:ignore:aws-iam-no-policy-wildcards
+    resources = ["*"]
+
+    condition {
+      test     = "StringEquals"
+      variable = "sts:AWSServiceName"
+      values   = ["codeartifact.amazonaws.com"]
+    }
+  }
+
+  statement {
+    sid    = "CodeArtifactDomainRead"
+    effect = "Allow"
+    actions = [
+      "codeartifact:GetAuthorizationToken",
+      "codeartifact:GetRepositoryEndpoint",
+    ]
+    resources = [aws_codeartifact_domain.app.arn]
+  }
+
+  statement {
+    sid    = "CodeArtifactPackageRead"
+    effect = "Allow"
+    actions = [
+      "codeartifact:ReadFromRepository",
+      "codeartifact:GetPackageVersionAsset",
+      "codeartifact:GetPackageVersionReadme",
+      "codeartifact:ListPackages",
+      "codeartifact:ListPackageVersions",
+      "codeartifact:ListPackageVersionAssets",
+      "codeartifact:DescribePackageVersion",
+    ]
+    resources = [aws_codeartifact_repository.npm.arn]
+  }
+}
+
+resource "aws_iam_role_policy" "codebuild_codeartifact_policy" {
+  name   = "${local.name_prefix}-codebuild-codeartifact-policy"
+  role   = aws_iam_role.codebuild_role.id
+  policy = data.aws_iam_policy_document.codebuild_codeartifact_policy.json
+}
+
+# ============================================================================
+# CodeDeploy Service Role (conditional)
+# ============================================================================
+
+data "aws_iam_policy_document" "codedeploy_assume_role" {
+  statement {
+    sid     = "CodeDeployAssumeRole"
+    effect  = "Allow"
+    actions = ["sts:AssumeRole"]
+
+    principals {
+      type        = "Service"
+      identifiers = ["codedeploy.amazonaws.com"]
+    }
+  }
+}
+
+resource "aws_iam_role" "codedeploy_role" {
+  count = var.enable_codedeploy_deploy ? 1 : 0
+
+  name               = "${local.name_prefix}-codedeploy-role"
+  assume_role_policy = data.aws_iam_policy_document.codedeploy_assume_role.json
+
+  tags = {
+    Name = "${local.name_prefix}-codedeploy-role"
+  }
+}
+
+# AWS managed policy granting CodeDeploy permissions to describe/manage EC2
+# instances, Auto Scaling groups, ELBs, and SNS notifications.
+resource "aws_iam_role_policy_attachment" "codedeploy_managed_policy" {
+  count = var.enable_codedeploy_deploy ? 1 : 0
+
+  role       = aws_iam_role.codedeploy_role[0].name
+  policy_arn = "arn:aws:iam::aws:policy/service-role/AWSCodeDeployRole"
+}
+
+data "aws_iam_policy_document" "codedeploy_s3_cloudfront_policy" {
+  count = var.enable_codedeploy_deploy ? 1 : 0
+
+  statement {
+    sid    = "ArtifactBucketRead"
+    effect = "Allow"
+    actions = [
+      "s3:GetObject",
+      "s3:GetObjectVersion",
+      "s3:ListBucket",
+    ]
+    #tfsec:ignore:aws-iam-no-policy-wildcards
+    resources = [
+      # bucket-level ARN for s3:ListBucket; object-level /* for object access.
+      # Both are scoped to the specific artifact bucket — not a true wildcard.
+      aws_s3_bucket.pipeline_artifacts.arn,
+      "${aws_s3_bucket.pipeline_artifacts.arn}/*",
+    ]
+  }
+
+  statement {
+    sid    = "WebBucketWrite"
+    effect = "Allow"
+    actions = [
+      "s3:PutObject",
+      "s3:GetObject",
+      "s3:DeleteObject",
+      "s3:ListBucket",
+    ]
+    #tfsec:ignore:aws-iam-no-policy-wildcards
+    resources = [
+      # bucket-level ARN for s3:ListBucket; object-level /* for object access.
+      # Both are scoped to the specific web bucket — not a true wildcard.
+      aws_s3_bucket.web[0].arn,
+      "${aws_s3_bucket.web[0].arn}/*",
+    ]
+  }
+
+  statement {
+    sid    = "CloudFrontInvalidation"
+    effect = "Allow"
+    actions = [
+      "cloudfront:CreateInvalidation",
+    ]
+    resources = [aws_cloudfront_distribution.web[0].arn]
+  }
+}
+
+resource "aws_iam_role_policy" "codedeploy_s3_cloudfront_policy" {
+  count = var.enable_codedeploy_deploy ? 1 : 0
+
+  name   = "${local.name_prefix}-codedeploy-s3-cloudfront-policy"
+  role   = aws_iam_role.codedeploy_role[0].id
+  policy = data.aws_iam_policy_document.codedeploy_s3_cloudfront_policy[0].json
+}
+
+# ============================================================================
+# CodePipeline → CodeDeploy Policy (conditional)
+# ============================================================================
+
+data "aws_iam_policy_document" "codepipeline_codedeploy_policy" {
+  count = var.enable_codedeploy_deploy ? 1 : 0
+
+  statement {
+    sid    = "CodeDeployAccess"
+    effect = "Allow"
+    actions = [
+      "codedeploy:CreateDeployment",
+      "codedeploy:GetDeployment",
+      "codedeploy:GetDeploymentConfig",
+      "codedeploy:RegisterApplicationRevision",
+      "codedeploy:GetApplicationRevision",
+    ]
+    resources = [
+      aws_codedeploy_app.app[0].arn,
+      "arn:aws:codedeploy:${local.region}:${local.account_id}:deploymentgroup:${local.name_prefix}/${local.name_prefix}",
+      "arn:aws:codedeploy:${local.region}:${local.account_id}:deploymentconfig:CodeDeployDefault.AllAtOnce",
+    ]
+  }
+}
+
+resource "aws_iam_role_policy" "codepipeline_codedeploy_policy" {
+  count = var.enable_codedeploy_deploy ? 1 : 0
+
+  name   = "${local.name_prefix}-codepipeline-codedeploy-policy"
+  role   = aws_iam_role.codepipeline_role.id
+  policy = data.aws_iam_policy_document.codepipeline_codedeploy_policy[0].json
+}

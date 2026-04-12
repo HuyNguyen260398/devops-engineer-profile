@@ -1,12 +1,17 @@
 # Vue.js Admin Dashboard — AWS Infrastructure
 
-Provisions all AWS infrastructure required to host and continuously deploy the Vue.js Admin Dashboard SPA on **AWS Amplify** via a **CodeCommit → CodeBuild → Amplify** pipeline managed by **AWS CodePipeline**.
+Provisions all AWS infrastructure required to host and continuously deploy the Vue.js Admin Dashboard SPA. The pipeline is built on **CodeCommit → CodeBuild → CodePipeline** and supports two mutually exclusive deploy targets:
+
+- **Path A (default):** Lambda trigger → **AWS Amplify** hosting  
+- **Path B (opt-in):** **AWS CodeDeploy** → S3 static-website bucket → **CloudFront CDN**
 
 All resources are created and managed with **Terraform** (`>= 1.6`). State is stored in S3 with DynamoDB locking. Each environment (production, staging) has its own isolated Terraform state and its own set of AWS resources.
 
 ---
 
 ## Architecture
+
+### Path A — Lambda → Amplify (default: `enable_codedeploy_deploy = false`)
 
 ```
 Git push (CodeCommit)
@@ -19,6 +24,8 @@ Git push (CodeCommit)
   CodePipeline (staging)        CodePipeline (production)      │  │
   ├── Source: develop branch    ├── Source: main branch         │  │
   ├── Build:  CodeBuild         ├── Build:  CodeBuild           │  │
+  │          (npm via           │          (npm via             │  │
+  │           CodeArtifact)     │           CodeArtifact)       │  │
   └── Deploy: Lambda trigger    └── Deploy: Lambda trigger      │  │
        │                                  │                     │  │
        ▼                                  ▼                     │  │
@@ -27,10 +34,45 @@ Git push (CodeCommit)
                                                     <──────────────┘
 ```
 
+### Path B — CodeDeploy → EC2 → S3 + CloudFront (opt-in: `enable_codedeploy_deploy = true`)
+
+> **Important:** CodeDeploy deploys to **EC2 instances**, not directly to Amplify or S3.
+> The EC2 instances act as deployment agents — the CodeDeploy agent on each instance
+> downloads the build artifact and runs `appspec.yml` lifecycle hooks that sync `dist/`
+> to the S3 web bucket and issue a CloudFront cache invalidation.
+> Without EC2 instances tagged `CodeDeployTarget = vuejs-admin-dashboard-<env>`,
+> every deployment will fail with "No instances found".
+
+```
+Git push (CodeCommit)
+  │
+  ▼  EventBridge (per-env rule)
+  │
+  CodePipeline
+  ├── Source: CodeCommit branch
+  ├── Build:  CodeBuild  (npm via CodeArtifact proxy)
+  └── Deploy: CodeDeploy
+                │
+                ▼  finds EC2 instances tagged:
+                │  CodeDeployTarget = vuejs-admin-dashboard-<env>
+                │
+                ▼  CodeDeploy agent on EC2 runs appspec.yml hooks
+                │
+                ├── AfterInstall: aws s3 sync dist/ → S3 Web Bucket
+                └── ValidateService: CloudFront CreateInvalidation
+                                           │
+                                           ▼
+                                   CloudFront CDN  (HTTPS, Vue Router SPA fallback)
+                                           │
+                                           ▼
+                                   End users access the SPA
+```
+
 **Shared resources** (created once by production):
 - AWS CodeCommit repository
 
-**Per-environment resources** (isolated state per env):
+**Per-environment resources — always provisioned** (isolated state per env):
+- CodeArtifact domain + npm repository (`vuejs-admin-dashboard-<env>` / `...-npm`)
 - S3 artifact bucket (`vuejs-admin-dashboard-<env>-artifacts`)
 - CodeBuild project (`vuejs-admin-dashboard-<env>`)
 - CodePipeline (`vuejs-admin-dashboard-<env>-pipeline`)
@@ -38,6 +80,11 @@ Git push (CodeCommit)
 - Amplify app (`vuejs-admin-dashboard-<env>`)
 - IAM roles (all scoped with `<env>` suffix)
 - EventBridge rule (watches the env's branch)
+
+**Per-environment resources — only when `enable_codedeploy_deploy = true`**:
+- S3 web bucket (`vuejs-admin-dashboard-<env>-web`)
+- CloudFront distribution (OAC-backed, HTTPS-only)
+- CodeDeploy application + deployment group (`vuejs-admin-dashboard-<env>`)
 
 ---
 
@@ -320,6 +367,8 @@ terraform destroy -var-file=environments/production/terraform.tfvars
 | Resource | Scope | Config |
 |----------|-------|--------|
 | CodeCommit repository | Shared (created once) | 1 repo |
+| **CodeArtifact domain** | Per environment | AWS-managed KMS key |
+| **CodeArtifact npm repository** | Per environment | Upstream: `public:npmjs` |
 | S3 artifact bucket | Per environment | Versioned, 30-day expiry |
 | CodeBuild project | Per environment | `BUILD_GENERAL1_SMALL`, 10 min timeout |
 | Lambda deploy trigger | Per environment | Python 3.12, 128 MB, 120 s timeout, X-Ray active |
@@ -327,14 +376,20 @@ terraform destroy -var-file=environments/production/terraform.tfvars
 | Amplify app + branch | Per environment | Hosting only (builds handled by CodeBuild) |
 | EventBridge rule | Per environment | 1 rule watching branch push |
 | CloudWatch Log Groups | Per environment | 2 groups (CodeBuild + Lambda), 14-day retention |
-| IAM roles | Per environment | 5 roles (no cost) |
+| IAM roles | Per environment | 7 roles (no cost) |
 | Terraform state (S3 + DynamoDB) | Shared bootstrap | < 1 MB state file |
+| **S3 web bucket** *(opt-in)* | Per environment | Versioned, OAC-backed, SSE-S3 |
+| **CloudFront distribution** *(opt-in)* | Per environment | HTTPS-only, Vue Router SPA fallback |
+| **CodeDeploy app + deployment group** *(opt-in)* | Per environment | In-place, EC2 tag filter |
 
 ### Monthly Cost per Environment
+
+#### Path A — Lambda → Amplify (default)
 
 | Service | Usage | Unit Price | Monthly Cost |
 |---------|-------|-----------|-------------|
 | **CodeCommit** | < 5 active users, < 1 GB | Free tier covers it | **$0.00** |
+| **CodeArtifact** | < 2 GB storage, ~75 req/month | First 2 GB/month free | **$0.00** ² |
 | **S3 artifact bucket** | ~50 MB peak (30-day lifecycle) | $0.025/GB | **< $0.01** |
 | **CodeBuild** `BUILD_GENERAL1_SMALL` | ~25 builds × 3 min = 75 min | 100 min/month free, then $0.005/min | **$0.00** ¹ |
 | **Lambda** deploy trigger | ~25 invocations × 60 s × 128 MB | 400,000 GB-s/month free | **$0.00** |
@@ -346,21 +401,35 @@ terraform destroy -var-file=environments/production/terraform.tfvars
 | **Terraform state** (shared) | < 1 MB S3 + ~10 DynamoDB ops | Negligible | **~$0.00** |
 | **Environment total** | | | **~$1.00** |
 
+#### Path B — CodeDeploy → S3 + CloudFront (opt-in, additional costs)
+
+| Service | Usage | Unit Price | Additional Monthly Cost |
+|---------|-------|-----------|------------------------|
+| **CodeDeploy** | EC2 on-prem deployments | Free for EC2/on-prem | **$0.00** |
+| **S3 web bucket** | ~1 MB SPA, versioned | $0.025/GB | **< $0.01** |
+| **CloudFront** (`PriceClass_100`) | ~1 GB transfer, ~1,000 req | 1 TB + 10M req/month free (12 months) | **$0.00** ³ |
+| **Additional total** | | | **< $0.01** |
+
 > ¹ CodeBuild free tier: **100 build minutes/month** on `BUILD_GENERAL1_SMALL` Linux (account-wide). Both environments share this quota. If combined builds exceed 100 min/month, each additional minute costs $0.005.
+> ² CodeArtifact free tier: **2 GB storage + 100,000 requests/month** per account. Data transfer to CodeBuild in the same region is free.
+> ³ CloudFront free tier (12 months): 1 TB data transfer + 10 million HTTP requests. After free tier: $0.009–$0.012/GB depending on region.
 
 ### Combined Monthly Estimate (Production + Staging)
 
 | Scenario | Monthly Cost |
 |----------|-------------|
-| **Typical** (within all free tiers) | **~$2.00** |
+| **Typical — Path A** (within all free tiers) | **~$2.00** |
+| **Typical — Path B** (CodeDeploy enabled, within free tiers) | **~$2.01** |
 | **Heavy usage** (200+ builds/month, exhausting CodeBuild free tier) | **~$2.50–$3.00** |
-| **High traffic** (> 15 GB Amplify data transfer) | **~$2.00 + $0.15/GB over limit** |
+| **High traffic** (> 15 GB Amplify or > 1 TB CloudFront transfer) | **~$2.00 + overage** |
 
 ### Key Cost Drivers
 
 1. **CodePipeline V1** — the dominant cost at **$1.00/pipeline/month**, fixed regardless of usage. Running both environments continuously = $2.00/month minimum.
 2. **CodeBuild minutes** — free tier covers typical portfolio usage. The 10-minute build timeout is a safety ceiling; actual Vite builds are ~3 minutes.
 3. **Amplify data transfer** — negligible at portfolio scale; becomes the main variable cost if the app goes public with significant traffic ($0.15/GB beyond 15 GB free).
+4. **CodeArtifact** — essentially free at portfolio scale (< 2 GB/month, same-region transfer free).
+5. **CloudFront** (Path B) — free tier is generous; no meaningful cost at portfolio traffic volumes.
 
 ### Cost Optimisation Options
 
@@ -369,6 +438,75 @@ terraform destroy -var-file=environments/production/terraform.tfvars
 | Destroy staging when idle | Save ~$1.00/month | Must re-apply before testing |
 | Switch CodePipeline to V2 | $0.002/action-min instead of flat $1.00 — cheaper at < ~500 action-min/month | V2 pricing varies with execution volume |
 | Reduce CodeBuild timeout from 10 to 5 min | No direct cost saving (billed on actual usage) | Fails faster on runaway builds |
+
+---
+
+## CodeArtifact Setup
+
+CodeArtifact is provisioned automatically for every environment. To use it in `buildspec.yml`, add a pre-build phase that configures npm to pull packages from the private proxy:
+
+```yaml
+phases:
+  pre_build:
+    commands:
+      # Obtain a short-lived CodeArtifact auth token (12 hours)
+      - export CODEARTIFACT_AUTH_TOKEN=$(aws codeartifact get-authorization-token \
+          --domain $CODEARTIFACT_DOMAIN \
+          --domain-owner $CODEARTIFACT_DOMAIN_OWNER \
+          --region $AWS_DEFAULT_REGION \
+          --query authorizationToken \
+          --output text)
+      # Point npm at the CodeArtifact npm endpoint
+      - npm config set registry https://${CODEARTIFACT_DOMAIN}-${CODEARTIFACT_DOMAIN_OWNER}.d.codeartifact.${AWS_DEFAULT_REGION}.amazonaws.com/npm/${CODEARTIFACT_REPO}/
+      - npm config set //${CODEARTIFACT_DOMAIN}-${CODEARTIFACT_DOMAIN_OWNER}.d.codeartifact.${AWS_DEFAULT_REGION}.amazonaws.com/npm/${CODEARTIFACT_REPO}/:_authToken $CODEARTIFACT_AUTH_TOKEN
+      - npm install
+```
+
+The three `CODEARTIFACT_*` environment variables are injected automatically by Terraform into the CodeBuild project.
+
+---
+
+## Enabling the CodeDeploy Deploy Path
+
+Set `enable_codedeploy_deploy = true` in the environment's `terraform.tfvars` and re-apply. Terraform will:
+
+1. Provision the S3 web bucket, CloudFront distribution, CodeDeploy app, and deployment group.
+2. Swap the CodePipeline Deploy stage from Lambda (Amplify) to CodeDeploy.
+
+### How CodeDeploy deploys the SPA
+
+CodeDeploy does **not** deploy directly to Amplify or S3. It deploys to **EC2 instances** that act as deployment agents:
+
+1. CodeDeploy locates EC2 instances tagged `CodeDeployTarget = vuejs-admin-dashboard-<env>`.
+2. The CodeDeploy agent on each instance downloads the build artifact (zip) from the S3 artifact bucket.
+3. The agent executes the `appspec.yml` lifecycle hooks bundled in the artifact.
+4. The hooks run shell scripts that:
+   - Sync `dist/` to the S3 web bucket (`aws s3 sync`)
+   - Issue a CloudFront cache invalidation (`aws cloudfront create-invalidation`)
+5. End users access the SPA via the CloudFront distribution URL.
+
+### Deployment target options
+
+| Option | Deploy target | EC2 required | Cost |
+|--------|--------------|--------------|------|
+| **Path A** (default) | Amplify | No | $0 extra |
+| **Path B** (CodeDeploy) | EC2 → S3 + CloudFront | **Yes** | ~$8–15/month (t3.micro) |
+| **Path C** (alternative) | S3 directly via CodePipeline S3 provider | No | $0 extra |
+
+> **Path C** is the most practical for a static SPA: replace the CodeDeploy pipeline stage
+> with CodePipeline's native `S3` deploy provider to sync artifacts directly to the web
+> bucket — no EC2 agents needed. The CodeDeploy application resource can remain registered
+> to demonstrate the skill without requiring running instances.
+
+### Prerequisites before applying with `enable_codedeploy_deploy = true`
+
+- Run `terraform state mv aws_codepipeline.app aws_codepipeline.amplify[0]` to rename the existing state entry (avoids destroy/recreate of the pipeline).
+- Provision EC2 instances tagged `CodeDeployTarget = vuejs-admin-dashboard-<env>` with the CodeDeploy agent installed and running.
+- Attach an IAM instance profile to those instances with:
+  - `s3:GetObject` on the artifact bucket (to download the build artifact)
+  - `s3:PutObject`, `s3:DeleteObject`, `s3:ListBucket` on the S3 web bucket
+  - `cloudfront:CreateInvalidation` on the CloudFront distribution
+- Include an `appspec.yml` at the root of the build artifact in the SPA repository.
 
 ---
 
@@ -384,7 +522,9 @@ terraform destroy -var-file=environments/production/terraform.tfvars
 | `main.tf` | CodeCommit repository (conditional) + S3 artifact bucket |
 | `iam.tf` | IAM roles and policies for all services (env-scoped names) |
 | `amplify.tf` | Amplify app, branch, rewrite rules, optional domain |
-| `pipeline.tf` | CodeBuild, Lambda, CodePipeline, EventBridge |
+| `codeartifact.tf` | CodeArtifact domain, npm repository, domain permissions policy |
+| `codedeploy.tf` | S3 web bucket, CloudFront OAC + distribution, CodeDeploy app + deployment group (all conditional) |
+| `pipeline.tf` | CodeBuild, Lambda, conditional CodePipeline (amplify or codedeploy path), EventBridge |
 | `lambda/amplify_deploy.py` | Lambda handler for Amplify deployment trigger |
 | `environments/production/backend.hcl` | Production S3 backend config |
 | `environments/production/terraform.tfvars` | Production variable values |
