@@ -1,0 +1,349 @@
+<mxfile host="Electron" modified="2026-04-15T00:00:00.000Z" version="26.0.0">
+  <diagram id="aws-eks-arch" name="AWS EKS Architecture">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1"
+                  tooltips="1" connect="1" arrows="1" fold="1"
+                  page="1" pageScale="1" pageWidth="1654" pageHeight="1169"
+                  math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TITLE -->
+        <mxCell id="title" value="AWS EKS Architecture — dep-{env}-eks"
+                style="text;html=1;strokeColor=none;fillColor=none;align=center;verticalAlign=middle;fontSize=18;fontStyle=1;"
+                vertex="1" parent="1">
+          <mxGeometry x="477" y="20" width="700" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- EXTERNAL AWS SERVICES (above VPC) -->
+
+        <mxCell id="cw-logs" value="&lt;b&gt;CloudWatch Logs&lt;/b&gt;&lt;br&gt;VPC Flow Logs&lt;br&gt;EKS Control Plane Logs"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;"
+                vertex="1" parent="1">
+          <mxGeometry x="80" y="70" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="kms-key" value="&lt;b&gt;AWS KMS Key&lt;/b&gt;&lt;br&gt;Secret Encryption&lt;br&gt;Key Rotation: Enabled"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;"
+                vertex="1" parent="1">
+          <mxGeometry x="300" y="70" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="oidc" value="&lt;b&gt;OIDC Provider&lt;/b&gt;&lt;br&gt;IRSA / Service Account Auth"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;"
+                vertex="1" parent="1">
+          <mxGeometry x="520" y="70" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="iam-cluster" value="&lt;b&gt;IAM Role&lt;/b&gt;&lt;br&gt;EKS Cluster Role"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;"
+                vertex="1" parent="1">
+          <mxGeometry x="740" y="70" width="160" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="iam-ebs" value="&lt;b&gt;IAM Role (IRSA)&lt;/b&gt;&lt;br&gt;EBS CSI Driver&lt;br&gt;ebs-csi-controller-sa"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;"
+                vertex="1" parent="1">
+          <mxGeometry x="940" y="70" width="180" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="iam-autoscaler" value="&lt;b&gt;IAM Role (IRSA)&lt;/b&gt;&lt;br&gt;Cluster Autoscaler&lt;br&gt;cluster-autoscaler sa"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;"
+                vertex="1" parent="1">
+          <mxGeometry x="1160" y="70" width="200" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="igw" value="&lt;b&gt;Internet Gateway&lt;/b&gt;"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;"
+                vertex="1" parent="1">
+          <mxGeometry x="1400" y="70" width="160" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- VPC CONTAINER -->
+        <mxCell id="vpc" value="VPC: dep-{env}-eks-vpc (10.0.0.0/16)"
+                style="swimlane;startSize=35;fillColor=#f5f5f5;strokeColor=#666666;fontColor=#333333;fontStyle=1;fontSize=13;"
+                vertex="1" parent="1">
+          <mxGeometry x="60" y="160" width="1534" height="960" as="geometry" />
+        </mxCell>
+
+        <!-- PUBLIC SUBNETS TIER -->
+        <mxCell id="tier-public" value="Public Subnets"
+                style="swimlane;startSize=30;fillColor=#d5e8d4;strokeColor=#82b366;fontStyle=1;fontSize=11;"
+                vertex="1" parent="vpc">
+          <mxGeometry x="20" y="45" width="1494" height="150" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pub-sub-a" value="Public Subnet AZ-a&lt;br&gt;10.0.1.0/24&lt;br&gt;NAT Gateway"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;"
+                vertex="1" parent="tier-public">
+          <mxGeometry x="20" y="40" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pub-sub-b" value="Public Subnet AZ-b&lt;br&gt;10.0.2.0/24&lt;br&gt;NAT GW (prod only)"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;"
+                vertex="1" parent="tier-public">
+          <mxGeometry x="250" y="40" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pub-sub-c" value="Public Subnet AZ-c&lt;br&gt;10.0.3.0/24&lt;br&gt;NAT GW (prod only)"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;"
+                vertex="1" parent="tier-public">
+          <mxGeometry x="480" y="40" width="200" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pub-alb-label" value="&lt;b&gt;Public Load Balancer Zone&lt;/b&gt;&lt;br&gt;kubernetes.io/role/elb: 1"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;"
+                vertex="1" parent="tier-public">
+          <mxGeometry x="720" y="40" width="240" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="pub-tags-label" value="Tags: kubernetes.io/cluster/{name}=shared"
+                style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontStyle=2;"
+                vertex="1" parent="tier-public">
+          <mxGeometry x="990" y="55" width="460" height="50" as="geometry" />
+        </mxCell>
+
+        <!-- EKS CONTROL PLANE TIER -->
+        <mxCell id="tier-eks-cp" value="EKS Control Plane (AWS Managed)"
+                style="swimlane;startSize=30;fillColor=#dae8fc;strokeColor=#6c8ebf;fontStyle=1;fontSize=11;"
+                vertex="1" parent="vpc">
+          <mxGeometry x="20" y="215" width="1494" height="170" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eks-api" value="&lt;b&gt;API Server&lt;/b&gt;&lt;br&gt;Kubernetes v1.32&lt;br&gt;Private Endpoint&lt;br&gt;(Optional Public CIDR)"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+                vertex="1" parent="tier-eks-cp">
+          <mxGeometry x="20" y="40" width="190" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eks-etcd" value="&lt;b&gt;etcd (Encrypted)&lt;/b&gt;&lt;br&gt;KMS Envelope Encryption&lt;br&gt;Secrets at Rest&lt;br&gt;Key Rotation: ON"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+                vertex="1" parent="tier-eks-cp">
+          <mxGeometry x="230" y="40" width="190" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eks-auth" value="&lt;b&gt;Authentication&lt;/b&gt;&lt;br&gt;Mode: API + ConfigMap&lt;br&gt;Creator Admin Access&lt;br&gt;IRSA: Enabled"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+                vertex="1" parent="tier-eks-cp">
+          <mxGeometry x="440" y="40" width="190" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eks-logs" value="&lt;b&gt;Control Plane Logs&lt;/b&gt;&lt;br&gt;api | audit&lt;br&gt;authenticator&lt;br&gt;controllerManager | scheduler"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+                vertex="1" parent="tier-eks-cp">
+          <mxGeometry x="650" y="40" width="220" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eks-sg" value="&lt;b&gt;Security Groups&lt;/b&gt;&lt;br&gt;Cluster SG: Nodes 1025-65535&lt;br&gt;Node SG: All intra-node&lt;br&gt;Egress: 0.0.0.0/0"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+                vertex="1" parent="tier-eks-cp">
+          <mxGeometry x="890" y="40" width="230" height="100" as="geometry" />
+        </mxCell>
+
+        <mxCell id="eks-addons-irsa" value="&lt;b&gt;Add-ons Config&lt;/b&gt;&lt;br&gt;subnet_ids: private&lt;br&gt;VPC-aware scheduling&lt;br&gt;create_kms_key: false"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;"
+                vertex="1" parent="tier-eks-cp">
+          <mxGeometry x="1140" y="40" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- PRIVATE SUBNETS / WORKER NODES TIER -->
+        <mxCell id="tier-private" value="Private Subnets — EKS Managed Node Groups"
+                style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=11;"
+                vertex="1" parent="vpc">
+          <mxGeometry x="20" y="405" width="1494" height="220" as="geometry" />
+        </mxCell>
+
+        <mxCell id="priv-sub-a" value="Private Subnet AZ-a | 10.0.11.0/24"
+                style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;"
+                vertex="1" parent="tier-private">
+          <mxGeometry x="20" y="35" width="450" height="155" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ng-a" value="&lt;b&gt;Node Group&lt;/b&gt;&lt;br&gt;EC2 Managed Nodes&lt;br&gt;min / desired / max&lt;br&gt;instance_types | SPOT/OD"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;"
+                vertex="1" parent="priv-sub-a">
+          <mxGeometry x="20" y="35" width="200" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ebs-a" value="&lt;b&gt;EBS Volume&lt;/b&gt;&lt;br&gt;CSI Driver&lt;br&gt;Persistent Storage"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;"
+                vertex="1" parent="priv-sub-a">
+          <mxGeometry x="240" y="35" width="180" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="priv-sub-b" value="Private Subnet AZ-b | 10.0.12.0/24"
+                style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;"
+                vertex="1" parent="tier-private">
+          <mxGeometry x="492" y="35" width="450" height="155" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ng-b" value="&lt;b&gt;Node Group&lt;/b&gt;&lt;br&gt;EC2 Managed Nodes&lt;br&gt;min / desired / max&lt;br&gt;instance_types | SPOT/OD"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;"
+                vertex="1" parent="priv-sub-b">
+          <mxGeometry x="20" y="35" width="200" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ebs-b" value="&lt;b&gt;EBS Volume&lt;/b&gt;&lt;br&gt;CSI Driver&lt;br&gt;Persistent Storage"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;"
+                vertex="1" parent="priv-sub-b">
+          <mxGeometry x="240" y="35" width="180" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="priv-sub-c" value="Private Subnet AZ-c | 10.0.13.0/24"
+                style="swimlane;startSize=25;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;"
+                vertex="1" parent="tier-private">
+          <mxGeometry x="964" y="35" width="450" height="155" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ng-c" value="&lt;b&gt;Node Group&lt;/b&gt;&lt;br&gt;EC2 Managed Nodes&lt;br&gt;min / desired / max&lt;br&gt;instance_types | SPOT/OD"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;"
+                vertex="1" parent="priv-sub-c">
+          <mxGeometry x="20" y="35" width="200" height="95" as="geometry" />
+        </mxCell>
+
+        <mxCell id="ebs-c" value="&lt;b&gt;EBS Volume&lt;/b&gt;&lt;br&gt;CSI Driver&lt;br&gt;Persistent Storage"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;"
+                vertex="1" parent="priv-sub-c">
+          <mxGeometry x="240" y="35" width="180" height="95" as="geometry" />
+        </mxCell>
+
+        <!-- KUBE-SYSTEM TIER -->
+        <mxCell id="tier-kube-sys" value="kube-system Namespace — EKS Add-ons &amp; Helm Releases"
+                style="swimlane;startSize=30;fillColor=#e1d5e7;strokeColor=#9673a6;fontStyle=1;fontSize=11;"
+                vertex="1" parent="vpc">
+          <mxGeometry x="20" y="645" width="1494" height="160" as="geometry" />
+        </mxCell>
+
+        <mxCell id="addon-vpc-cni" value="&lt;b&gt;vpc-cni&lt;/b&gt;&lt;br&gt;EKS Add-on&lt;br&gt;before_compute=true"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;"
+                vertex="1" parent="tier-kube-sys">
+          <mxGeometry x="20" y="40" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="addon-kube-proxy" value="&lt;b&gt;kube-proxy&lt;/b&gt;&lt;br&gt;EKS Add-on&lt;br&gt;before_compute=true"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;"
+                vertex="1" parent="tier-kube-sys">
+          <mxGeometry x="220" y="40" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="addon-coredns" value="&lt;b&gt;CoreDNS&lt;/b&gt;&lt;br&gt;EKS Add-on&lt;br&gt;After nodes ready"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;"
+                vertex="1" parent="tier-kube-sys">
+          <mxGeometry x="420" y="40" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="addon-ebs-csi" value="&lt;b&gt;EBS CSI Driver&lt;/b&gt;&lt;br&gt;EKS Add-on&lt;br&gt;IRSA Role Attached"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;"
+                vertex="1" parent="tier-kube-sys">
+          <mxGeometry x="620" y="40" width="180" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="helm-autoscaler" value="&lt;b&gt;Cluster Autoscaler&lt;/b&gt;&lt;br&gt;Helm chart v9.43.2&lt;br&gt;IRSA | Auto-discovery"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;"
+                vertex="1" parent="tier-kube-sys">
+          <mxGeometry x="820" y="40" width="220" height="90" as="geometry" />
+        </mxCell>
+
+        <mxCell id="helm-metrics" value="&lt;b&gt;Metrics Server&lt;/b&gt;&lt;br&gt;Helm chart v3.12.2&lt;br&gt;Enables HPA / kubectl top"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e1d5e7;strokeColor=#9673a6;"
+                vertex="1" parent="tier-kube-sys">
+          <mxGeometry x="1060" y="40" width="200" height="90" as="geometry" />
+        </mxCell>
+
+        <!-- VPC FLOW LOGS (inside VPC, bottom-left) -->
+        <mxCell id="vpc-flow-logs" value="&lt;b&gt;VPC Flow Logs&lt;/b&gt;&lt;br&gt;CloudWatch IAM Role&lt;br&gt;7-day Retention"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;"
+                vertex="1" parent="vpc">
+          <mxGeometry x="20" y="830" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- GITHUB OIDC (inside VPC, bottom-right) -->
+        <mxCell id="github-oidc" value="&lt;b&gt;GitHub OIDC&lt;/b&gt;&lt;br&gt;Keyless CI/CD Auth&lt;br&gt;IAM Role Assumption"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;"
+                vertex="1" parent="vpc">
+          <mxGeometry x="1290" y="830" width="220" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- EDGES -->
+
+        <!-- Internet Gateway <-> Public Subnets -->
+        <mxCell id="e-igw-pub" value="Internet Traffic"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;startArrow=block;startFill=1;"
+                edge="1" source="igw" target="tier-public" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Public Subnets (NAT) -> Private Subnets (egress) -->
+        <mxCell id="e-pub-priv" value="Egress (NAT)"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;"
+                edge="1" source="pub-sub-a" target="tier-private" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- EKS API -> Worker Nodes -->
+        <mxCell id="e-cp-nodes" value="Kubelet / API"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=0;"
+                edge="1" source="eks-api" target="tier-private" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- EKS Control Plane Logs -> CloudWatch -->
+        <mxCell id="e-cp-logs-cw" value="Logs"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;dashed=1;"
+                edge="1" source="eks-logs" target="cw-logs" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- VPC Flow Logs -> CloudWatch -->
+        <mxCell id="e-flowlogs-cw" value="Flow Logs"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=1;dashed=1;"
+                edge="1" source="vpc-flow-logs" target="cw-logs" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- KMS Key -> EKS etcd (secret encryption) -->
+        <mxCell id="e-kms-etcd" value="Encrypt Secrets"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=0;dashed=1;"
+                edge="1" source="kms-key" target="eks-etcd" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- OIDC -> IAM EBS IRSA -->
+        <mxCell id="e-oidc-ebs" value="IRSA"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;"
+                edge="1" source="oidc" target="iam-ebs" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- OIDC -> IAM Autoscaler IRSA -->
+        <mxCell id="e-oidc-autoscaler" value="IRSA"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=open;endFill=0;dashed=1;"
+                edge="1" source="oidc" target="iam-autoscaler" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- IAM EBS IRSA -> EBS CSI Add-on -->
+        <mxCell id="e-iam-ebs-addon" value="Assumes Role"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=0;dashed=1;"
+                edge="1" source="iam-ebs" target="addon-ebs-csi" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- IAM Autoscaler IRSA -> Helm Cluster Autoscaler -->
+        <mxCell id="e-iam-auto-helm" value="Assumes Role"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=0;dashed=1;"
+                edge="1" source="iam-autoscaler" target="helm-autoscaler" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- GitHub OIDC -> IAM Cluster Role -->
+        <mxCell id="e-github-iam" value="OIDC Trust"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;endArrow=block;endFill=0;dashed=1;"
+                edge="1" source="github-oidc" target="iam-cluster" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
