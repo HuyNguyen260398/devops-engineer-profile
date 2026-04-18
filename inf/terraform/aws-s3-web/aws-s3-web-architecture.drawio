@@ -1,0 +1,192 @@
+<mxfile host="Electron" modified="2026-04-12T00:00:00.000Z" version="26.0.0">
+  <diagram id="aws-s3-web-arch" name="AWS S3 Static Website Architecture">
+    <mxGraphModel dx="1422" dy="762" grid="1" gridSize="10" guides="1"
+                  tooltips="1" connect="1" arrows="1" fold="1"
+                  page="1" pageScale="1" pageWidth="1169" pageHeight="900"
+                  math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- TITLE -->
+        <mxCell id="title" value="AWS S3 Static Website Architecture — ap-southeast-1"
+                style="text;strokeColor=none;fillColor=none;html=1;fontSize=18;fontStyle=1;align=center;"
+                vertex="1" parent="1">
+          <mxGeometry x="184" y="20" width="800" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- TIER 1: Public Internet -->
+        <mxCell id="tier-internet" value="Public Internet"
+                style="swimlane;startSize=30;fillColor=#f5f5f5;strokeColor=#666666;fontStyle=1;fontSize=12;"
+                vertex="1" parent="1">
+          <mxGeometry x="60" y="80" width="1050" height="130" as="geometry" />
+        </mxCell>
+
+        <mxCell id="internet-users" value="Internet Users"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f5f5f5;strokeColor=#666666;fontSize=11;fontStyle=1;"
+                vertex="1" parent="tier-internet">
+          <mxGeometry x="70" y="35" width="140" height="60" as="geometry" />
+        </mxCell>
+
+        <mxCell id="s3-endpoint" value="&lt;b&gt;S3 Website Endpoint&lt;/b&gt;&lt;br&gt;&lt;font style=&quot;font-size: 9px;&quot;&gt;http://[bucket].s3-website-ap-southeast-1.amazonaws.com&lt;/font&gt;"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=11;"
+                vertex="1" parent="tier-internet">
+          <mxGeometry x="340" y="30" width="280" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="e-users-endpoint" value="HTTP GET"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;"
+                edge="1" source="internet-users" target="s3-endpoint" parent="tier-internet">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- TIER 2: AWS S3 Bucket -->
+        <mxCell id="tier-s3" value="AWS S3 — ap-southeast-1"
+                style="swimlane;startSize=30;fillColor=#fff2cc;strokeColor=#d6b656;fontStyle=1;fontSize=12;"
+                vertex="1" parent="1">
+          <mxGeometry x="60" y="240" width="1050" height="540" as="geometry" />
+        </mxCell>
+
+        <!-- Main S3 Bucket center -->
+        <mxCell id="s3-bucket" value="&lt;b&gt;aws_s3_bucket&lt;/b&gt;&lt;br&gt;var.bucket_name&lt;br&gt;&lt;br&gt;Type: StaticWebsite&lt;br&gt;SSE: AES256&lt;br&gt;ManagedBy: Terraform"
+                style="shape=mxgraph.flowchart.database;whiteSpace=wrap;html=1;fillColor=#d5e8d4;strokeColor=#82b366;fontSize=11;verticalAlign=middle;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="400" y="50" width="250" height="220" as="geometry" />
+        </mxCell>
+
+        <!-- Left Column: Security, Policy, Access -->
+        <mxCell id="public-access-block" value="&lt;b&gt;aws_s3_bucket_public_access_block&lt;/b&gt;&lt;br&gt;block_public_acls = false&lt;br&gt;block_public_policy = false&lt;br&gt;ignore_public_acls = false&lt;br&gt;restrict_public_buckets = false"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="60" y="50" width="250" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="bucket-policy" value="&lt;b&gt;aws_s3_bucket_policy&lt;/b&gt;&lt;br&gt;Effect: Allow&lt;br&gt;Principal: * (anonymous)&lt;br&gt;Action: s3:GetObject&lt;br&gt;&lt;i&gt;depends_on: public_access_block&lt;/i&gt;"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="60" y="170" width="250" height="80" as="geometry" />
+        </mxCell>
+
+        <mxCell id="website-config" value="&lt;b&gt;aws_s3_bucket_website_configuration&lt;/b&gt;&lt;br&gt;index_document: index.html&lt;br&gt;error_document: error.html&lt;br&gt;routing_rules: (dynamic)"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="60" y="290" width="250" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Right Column: Encryption, Versioning -->
+        <mxCell id="sse-encryption" value="&lt;b&gt;aws_s3_bucket_server_side_encryption_configuration&lt;/b&gt;&lt;br&gt;sse_algorithm: AES256&lt;br&gt;bucket_key_enabled: true"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8cecc;strokeColor=#b85450;fontSize=10;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="750" y="50" width="250" height="70" as="geometry" />
+        </mxCell>
+
+        <mxCell id="versioning" value="&lt;b&gt;aws_s3_bucket_versioning&lt;/b&gt;&lt;br&gt;status: Enabled | Suspended&lt;br&gt;&lt;i&gt;var.enable_versioning&lt;/i&gt;"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dae8fc;strokeColor=#6c8ebf;fontSize=10;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="750" y="160" width="250" height="60" as="geometry" />
+        </mxCell>
+
+        <!-- Optional Section label -->
+        <mxCell id="optional-label" value="Optional Configurations (count = 0 or 1, controlled by input variables)"
+                style="text;strokeColor=none;fillColor=none;html=1;fontSize=11;fontStyle=2;align=left;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="60" y="380" width="680" height="30" as="geometry" />
+        </mxCell>
+
+        <!-- Optional: Logging -->
+        <mxCell id="logging" value="&lt;b&gt;aws_s3_bucket_logging&lt;/b&gt;&lt;br&gt;[var.enable_logging]&lt;br&gt;target_prefix: logs/{environment}/"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;dashed=1;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="60" y="420" width="240" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- Optional: Lifecycle -->
+        <mxCell id="lifecycle" value="&lt;b&gt;aws_s3_bucket_lifecycle_configuration&lt;/b&gt;&lt;br&gt;[var.enable_lifecycle_rules]&lt;br&gt;Rule 1: delete noncurrent versions (N days)&lt;br&gt;Rule 2: abort incomplete multipart (7 days)"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;dashed=1;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="370" y="420" width="270" height="80" as="geometry" />
+        </mxCell>
+
+        <!-- Optional: CORS -->
+        <mxCell id="cors" value="&lt;b&gt;aws_s3_bucket_cors_configuration&lt;/b&gt;&lt;br&gt;[var.cors_rules]&lt;br&gt;allowed_headers, allowed_methods&lt;br&gt;allowed_origins"
+                style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff2cc;strokeColor=#d6b656;fontSize=10;dashed=1;"
+                vertex="1" parent="tier-s3">
+          <mxGeometry x="710" y="420" width="250" height="70" as="geometry" />
+        </mxCell>
+
+        <!-- EDGES -->
+
+        <!-- Cross-swimlane: S3 Endpoint to S3 Bucket -->
+        <mxCell id="e-endpoint-bucket" value="serves content"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;strokeColor=#6c8ebf;"
+                edge="1" source="s3-endpoint" target="s3-bucket" parent="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Within tier-s3: Public Access Block to S3 Bucket -->
+        <mxCell id="e-public-access-bucket" value="permits public access"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;"
+                edge="1" source="public-access-block" target="s3-bucket" parent="tier-s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Within tier-s3: Public Access Block to Bucket Policy dependency -->
+        <mxCell id="e-access-policy-dep" value="depends_on"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;endArrow=open;endFill=0;strokeColor=#b85450;"
+                edge="1" source="public-access-block" target="bucket-policy" parent="tier-s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Within tier-s3: Bucket Policy to S3 Bucket -->
+        <mxCell id="e-bucket-policy-bucket" value="s3:GetObject (*)"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;"
+                edge="1" source="bucket-policy" target="s3-bucket" parent="tier-s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Within tier-s3: Website Config to S3 Bucket -->
+        <mxCell id="e-website-config-bucket" value="configures endpoints"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;"
+                edge="1" source="website-config" target="s3-bucket" parent="tier-s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Within tier-s3: SSE Encryption to S3 Bucket -->
+        <mxCell id="e-sse-bucket" value="encrypts at rest"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;"
+                edge="1" source="sse-encryption" target="s3-bucket" parent="tier-s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Within tier-s3: Versioning to S3 Bucket -->
+        <mxCell id="e-versioning-bucket" value="versions objects"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;"
+                edge="1" source="versioning" target="s3-bucket" parent="tier-s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Within tier-s3: S3 Bucket to Logging (optional) -->
+        <mxCell id="e-bucket-logging" value="writes access logs"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#d6b656;"
+                edge="1" source="s3-bucket" target="logging" parent="tier-s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Within tier-s3: S3 Bucket to Lifecycle (optional) -->
+        <mxCell id="e-bucket-lifecycle" value="manages versions"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#d6b656;"
+                edge="1" source="s3-bucket" target="lifecycle" parent="tier-s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Within tier-s3: S3 Bucket to CORS (optional) -->
+        <mxCell id="e-bucket-cors" value="CORS policy"
+                style="edgeStyle=orthogonalEdgeStyle;html=1;dashed=1;strokeColor=#d6b656;"
+                edge="1" source="s3-bucket" target="cors" parent="tier-s3">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>
