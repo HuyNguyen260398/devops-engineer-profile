@@ -162,6 +162,7 @@ Staging sets `create_codecommit_repo = false` so it reads the existing repositor
 | `pipeline_branch` | `main` | `develop` |
 | `amplify_app_name` | `vuejs-admin-dashboard-production` | `vuejs-admin-dashboard-staging` |
 | `amplify_branch_stage` | `PRODUCTION` | `DEVELOPMENT` |
+| `enable_amplify_deploy_cloudwatch_logs` | `false` | `false` |
 | `create_codecommit_repo` | `true` | `false` |
 | `codebuild_compute_type` | `BUILD_GENERAL1_SMALL` | `BUILD_GENERAL1_SMALL` |
 
@@ -375,7 +376,7 @@ terraform destroy -var-file=environments/production/terraform.tfvars
 | CodePipeline | Per environment | V1, 3 stages (Source → Build → Deploy) |
 | Amplify app + branch | Per environment | Hosting only (builds handled by CodeBuild) |
 | EventBridge rule | Per environment | 1 rule watching branch push |
-| CloudWatch Log Groups | Per environment | 2 groups (CodeBuild + Lambda), 14-day retention |
+| CloudWatch Log Groups | Per environment | CodeBuild group, 14-day retention; optional Lambda deploy group when `enable_amplify_deploy_cloudwatch_logs = true` |
 | IAM roles | Per environment | 7 roles (no cost) |
 | Terraform state (S3 + DynamoDB) | Shared bootstrap | < 1 MB state file |
 | **S3 web bucket** *(opt-in)* | Per environment | Versioned, OAC-backed, SSE-S3 |
@@ -395,7 +396,7 @@ terraform destroy -var-file=environments/production/terraform.tfvars
 | **Lambda** deploy trigger | ~25 invocations × 60 s × 128 MB | 400,000 GB-s/month free | **$0.00** |
 | **CodePipeline** V1 | 1 active pipeline | $1.00/pipeline/month | **$1.00** |
 | **Amplify** hosting | ~1 MB SPA, ~1 GB traffic | 15 GB storage + 15 GB transfer free | **$0.00** |
-| **CloudWatch Logs** | ~3 MB/month ingested | $0.76/GB ingested | **< $0.01** |
+| **CloudWatch Logs** | CodeBuild logs only by default | $0.76/GB ingested | **< $0.01** |
 | **EventBridge** | ~25 events/month | $1.00/million events | **$0.00** |
 | **X-Ray traces** (Lambda) | ~25 traces/month | $0.05/10,000 traces | **$0.00** |
 | **Terraform state** (shared) | < 1 MB S3 + ~10 DynamoDB ops | Negligible | **~$0.00** |

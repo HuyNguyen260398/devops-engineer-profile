@@ -25,6 +25,9 @@ amplify_app_name     = "vuejs-admin-dashboard-production" # use "-staging" suffi
 amplify_branch_stage = "PRODUCTION"                       # "DEVELOPMENT" for staging
 custom_domain        = ""                                  # e.g. "dashboard.example.com"
 
+# CloudWatch logging for the Lambda -> Amplify deploy path
+enable_amplify_deploy_cloudwatch_logs = false
+
 # CodeBuild
 codebuild_compute_type = "BUILD_GENERAL1_SMALL"
 codebuild_image        = "aws/codebuild/standard:7.0"
