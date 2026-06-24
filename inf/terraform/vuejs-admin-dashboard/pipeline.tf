@@ -117,6 +117,8 @@ resource "aws_lambda_function" "amplify_deploy_trigger" {
 
 #tfsec:ignore:aws-cloudwatch-log-group-customer-key
 resource "aws_cloudwatch_log_group" "amplify_deploy_lambda" {
+  count = var.enable_amplify_deploy_cloudwatch_logs ? 1 : 0
+
   #checkov:skip=CKV_AWS_158: CMK encryption not required for Lambda function logs in this portfolio project.
   name              = "/aws/lambda/${local.name_prefix}-amplify-deploy"
   retention_in_days = 14

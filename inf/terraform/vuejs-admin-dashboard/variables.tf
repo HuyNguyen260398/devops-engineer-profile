@@ -66,6 +66,12 @@ variable "custom_domain" {
   default     = ""
 }
 
+variable "enable_amplify_deploy_cloudwatch_logs" {
+  description = "Create and permit CloudWatch Logs for the Lambda function that triggers Amplify deployments. Set to false to disable CloudWatch logging for the Amplify deploy path."
+  type        = bool
+  default     = false
+}
+
 # ============================================================================
 # CodeBuild
 # ============================================================================

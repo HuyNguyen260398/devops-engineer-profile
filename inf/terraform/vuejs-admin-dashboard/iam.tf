@@ -270,18 +270,22 @@ resource "aws_iam_role" "amplify_deploy_lambda_role" {
 }
 
 data "aws_iam_policy_document" "lambda_policy" {
-  statement {
-    sid    = "CloudWatchLogs"
-    effect = "Allow"
-    actions = [
-      "logs:CreateLogGroup",
-      "logs:CreateLogStream",
-      "logs:PutLogEvents",
-    ]
-    resources = [
-      "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/${local.name_prefix}-amplify-deploy",
-      "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/${local.name_prefix}-amplify-deploy:*",
-    ]
+  dynamic "statement" {
+    for_each = var.enable_amplify_deploy_cloudwatch_logs ? [1] : []
+
+    content {
+      sid    = "CloudWatchLogs"
+      effect = "Allow"
+      actions = [
+        "logs:CreateLogGroup",
+        "logs:CreateLogStream",
+        "logs:PutLogEvents",
+      ]
+      resources = [
+        "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/${local.name_prefix}-amplify-deploy",
+        "arn:aws:logs:${local.region}:${local.account_id}:log-group:/aws/lambda/${local.name_prefix}-amplify-deploy:*",
+      ]
+    }
   }
 
   statement {
