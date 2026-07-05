@@ -210,3 +210,46 @@ a:hover { text-decoration: underline; }
 .scroll-top.show { opacity: 1; pointer-events: auto; }
 .scroll-top:hover { border-color: var(--green); text-decoration: none; }
 .no-js .scroll-top { opacity: 1; pointer-events: auto; }
+
+/* ---------- About.system ---------- */
+.about-grid { display: grid; grid-template-columns: 240px 1fr; gap: 32px; align-items: start; }
+.about-photo img { border-radius: 10px; border: 1px solid var(--border); }
+.about-kv { display: grid; gap: 8px; margin-bottom: 18px; }
+.about-bio { margin-bottom: 22px; }
+@media (max-width: 760px) {
+  .about-grid { grid-template-columns: 1fr; }
+  .about-photo { max-width: 220px; }
+}
+
+/* ---------- Skills.json ---------- */
+.skills-body { position: relative; }
+.skills-stage {
+  position: relative; height: 380px; overflow: hidden; touch-action: none;
+  background:
+    radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--green) 6%, transparent), transparent 60%),
+    var(--bg-subtle);
+}
+.badge {
+  position: absolute; display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 999px; font-family: var(--mono); font-size: 13px;
+  color: var(--text-bright); background: var(--bg-elev);
+  border: 1px solid color-mix(in srgb, var(--badge-c, var(--border)) 60%, var(--border));
+  box-shadow: 0 0 14px color-mix(in srgb, var(--badge-c, transparent) 30%, transparent);
+  cursor: grab; user-select: none; white-space: nowrap; will-change: transform;
+}
+.badge:active { cursor: grabbing; }
+.badge-ic { width: 18px; height: 18px; color: var(--badge-c, var(--green)); }
+.skills-hint { text-align: center; font-size: 12px; padding: 12px 0; }
+.skills-static { display: none; padding: 24px; }
+.skills-static-hint { margin-bottom: 14px; }
+.skills-static.show { display: block; }
+.skills-static.show ~ .skills-hint { display: none; }
+.skills-static .badge { position: static; }
+.skills-static .badge-grid { display: flex; flex-wrap: wrap; gap: 12px; }
+.no-js .skills-stage, .reduced-motion .skills-stage { display: none; }
+
+.skills-json {
+  margin-top: 24px; background: var(--bg-subtle); border: 1px solid var(--border);
+  border-radius: 10px; padding: 20px 24px; overflow-x: auto;
+  font-family: var(--mono); font-size: 13px; line-height: 1.9; color: var(--text);
+}
