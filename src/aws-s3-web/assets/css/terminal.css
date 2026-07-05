@@ -119,6 +119,20 @@ a:hover { text-decoration: underline; }
 .icon-link { color: var(--text-dim); display: inline-flex; }
 .icon-link:hover { color: var(--green); }
 
+/* ---------- Boot loader ---------- */
+#boot-loader {
+  position: fixed; inset: 0; z-index: 9999; background: var(--bg);
+  display: flex; align-items: center; justify-content: center; padding: 24px;
+  transition: opacity .4s ease;
+}
+#boot-loader.done { opacity: 0; pointer-events: none; }
+.boot-window { width: min(560px, 92vw); background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; box-shadow: 0 16px 50px var(--shadow); }
+.boot-lines { padding: 20px 22px; min-height: 168px; font-family: var(--mono); font-size: 14px; line-height: 1.9; }
+.boot-lines div { display: flex; gap: 8px; }
+.boot-lines .ok { color: var(--green); font-weight: 600; }
+.boot-lines .boot-cursor { color: var(--green); animation: blink 1s steps(1) infinite; }
+.no-js #boot-loader, .reduced-motion #boot-loader { display: none; }
+
 /* Scroll reveal */
 .reveal { opacity: 0; transform: translateY(18px); transition: opacity .6s ease, transform .6s ease; }
 .reveal.visible { opacity: 1; transform: none; }

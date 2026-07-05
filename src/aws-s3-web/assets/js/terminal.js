@@ -7,6 +7,37 @@
   const reduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   if (reduced) root.classList.add('reduced-motion');
 
+  /* ---------- Boot loader ---------- */
+  const loader = document.getElementById('boot-loader');
+  const dismissLoader = () => { if (loader) loader.classList.add('done'); };
+  if (loader && !reduced) {
+    const box = document.getElementById('boot-lines');
+    const cursor = document.createElement('span');
+    cursor.className = 'boot-cursor';
+    cursor.textContent = '_';
+    const lines = [
+      'mounting /dev/portfolio',
+      'loading modules: aws terraform kubernetes',
+      'starting ci-cd.service',
+      'SYSTEM.KERNEL :: v1.0.0 ONLINE — welcome, visitor',
+    ];
+    lines.forEach((line, i) => {
+      setTimeout(() => {
+        const row = document.createElement('div');
+        const ok = document.createElement('span');
+        ok.className = 'ok';
+        ok.textContent = '[ OK ]';
+        row.appendChild(ok);
+        row.appendChild(document.createTextNode(line));
+        if (box) { box.appendChild(row); box.appendChild(cursor); }
+      }, 250 + i * 350);
+    });
+    setTimeout(dismissLoader, 250 + lines.length * 350 + 500);
+    setTimeout(dismissLoader, 3200); /* hard guarantee: never blocks content */
+  } else {
+    dismissLoader();
+  }
+
   /* ---------- Theme toggle ---------- */
   const themeBtn = document.getElementById('theme-toggle');
   const currentTheme = () => {
