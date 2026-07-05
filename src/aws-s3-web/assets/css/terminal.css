@@ -228,11 +228,15 @@ a:hover { text-decoration: underline; }
 /* ---------- About.system ---------- */
 .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: start; }
 .about-side { display: flex; flex-direction: column; gap: 14px; }
-.about-photo { display: flex; justify-content: center; }
+.about-intro { display: flex; align-items: center; gap: 18px; }
+.about-intro-text { flex: 1; }
+.about-intro-text .about-prompt { margin-bottom: 6px; }
+.about-photo { display: flex; justify-content: center; flex-shrink: 0; }
 .about-photo img {
-  width: 168px; height: 168px; border-radius: 50%; object-fit: cover;
+  width: 104px; height: 104px; border-radius: 50%; object-fit: cover;
   border: 2px solid var(--green); box-shadow: 0 0 22px color-mix(in srgb, var(--green) 30%, transparent);
 }
+@media (max-width: 480px) { .about-intro { flex-direction: column; text-align: center; } }
 .about-log { display: grid; gap: 6px; font-family: var(--mono); font-size: 12px; border: 1px solid var(--border); border-radius: 10px; padding: 16px; background: var(--bg-subtle); }
 .about-log div { display: flex; justify-content: space-between; gap: 12px; }
 .about-log dt { color: var(--text-dim); letter-spacing: .5px; }
