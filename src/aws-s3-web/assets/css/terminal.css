@@ -226,7 +226,7 @@ a:hover { text-decoration: underline; }
 .no-js .scroll-top { opacity: 1; pointer-events: auto; }
 
 /* ---------- About.system ---------- */
-.about-grid { display: grid; grid-template-columns: 260px 1fr; gap: 36px; align-items: start; }
+.about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 36px; align-items: start; }
 .about-side { display: flex; flex-direction: column; gap: 14px; }
 .about-photo { display: flex; justify-content: center; }
 .about-photo img {
