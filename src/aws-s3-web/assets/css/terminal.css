@@ -57,7 +57,14 @@
 }
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
-html { scroll-behavior: smooth; scroll-padding-top: 72px; }
+
+/* ---------- Background grid canvas ---------- */
+#bg-canvas {
+  position: fixed; inset: 0; z-index: -1;
+  width: 100vw; height: 100vh; display: block;
+  background: var(--bg); pointer-events: none;
+}
+html { scroll-behavior: smooth; scroll-padding-top: 20px; }
 body {
   background: var(--bg); color: var(--text);
   font-family: var(--sans); font-size: 15px; line-height: 1.7;
@@ -138,18 +145,13 @@ a:hover { text-decoration: underline; }
 .reveal.visible { opacity: 1; transform: none; }
 .no-js .reveal, .reduced-motion .reveal { opacity: 1; transform: none; }
 
-/* ---------- Top bar ---------- */
-.topbar {
-  position: fixed; top: 0; left: 0; right: 0; z-index: 1000;
-  background: color-mix(in srgb, var(--bg) 88%, transparent);
-  backdrop-filter: blur(8px); border-bottom: 1px solid var(--border);
+/* ---------- Floating controls (theme toggle + mobile menu) ---------- */
+.floating-controls {
+  position: fixed; top: 16px; right: 22px; z-index: 1000;
+  display: flex; align-items: center; gap: 10px;
 }
-.topbar-inner { display: flex; align-items: center; justify-content: space-between; height: 56px; }
-.brand { color: var(--text-bright); font-weight: 700; font-size: 18px; font-family: var(--mono); }
-.brand:hover { text-decoration: none; }
-.topbar-right { display: flex; align-items: center; gap: 14px; }
 .theme-toggle, .nav-toggle {
-  background: none; border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright);
+  background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 6px; color: var(--text-bright);
   cursor: pointer; display: inline-flex; align-items: center; justify-content: center; padding: 6px;
 }
 .theme-toggle:hover, .nav-toggle:hover { border-color: var(--green); color: var(--green); }
@@ -167,8 +169,9 @@ a:hover { text-decoration: underline; }
 @media (max-width: 820px) {
   .nav-toggle { display: inline-flex; }
   .nav-menu {
-    position: absolute; top: 56px; left: 0; right: 0; flex-direction: column;
-    background: var(--bg-subtle); border-bottom: 1px solid var(--border); padding: 10px 24px;
+    position: fixed; top: 60px; right: 22px; flex-direction: column; z-index: 999;
+    background: var(--bg-subtle); border: 1px solid var(--border); border-radius: 8px; padding: 10px 20px;
+    box-shadow: 0 12px 30px var(--shadow);
   }
   .nav-menu.open { display: flex; }
   .nav-menu a { display: block; padding: 8px 0; color: var(--text); font-family: var(--mono); font-size: 14px; }
@@ -197,7 +200,7 @@ a:hover { text-decoration: underline; }
 @media (max-width: 900px) { .rail { display: none; } }
 
 /* ---------- Hero ---------- */
-.hero { min-height: 100vh; display: flex; align-items: center; padding-top: 56px; }
+.hero { min-height: 100vh; display: flex; align-items: center; }
 .hero-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 48px; align-items: center; }
 .kernel { font-family: var(--mono); font-size: 12px; color: var(--green); display: flex; align-items: center; gap: 8px; letter-spacing: 1px; }
 .k-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
@@ -211,9 +214,9 @@ a:hover { text-decoration: underline; }
 .code-kw { color: var(--purple); } .code-str { color: var(--link); } .code-num { color: var(--amber); } .code-cm { color: var(--text-dim); }
 @media (max-width: 820px) { .hero-grid { grid-template-columns: 1fr; gap: 32px; } }
 
-/* ---------- Footer / scroll top ---------- */
-.footer { border-top: 1px solid var(--border); padding: 40px 0; text-align: center; color: var(--text-dim); font-size: 13px; }
-.footer .prompt { margin-bottom: 6px; }
+/* ---------- Footer content / scroll top ---------- */
+.footer-content { padding: 40px 0; text-align: center; color: var(--text-dim); font-size: 13px; }
+.footer-content .prompt { margin-bottom: 6px; }
 .footer-social { display: flex; justify-content: center; gap: 18px; margin-top: 16px; }
 .scroll-top {
   position: fixed; right: 18px; bottom: 18px; width: 42px; height: 42px; z-index: 850;
@@ -232,10 +235,10 @@ a:hover { text-decoration: underline; }
 .about-log div { display: flex; justify-content: space-between; gap: 12px; }
 .about-log dt { color: var(--text-dim); letter-spacing: .5px; }
 .about-log dd { color: var(--text-bright); text-align: right; }
-.about-log .about-photo { justify-content: center; margin-bottom: 6px; }
+.about-log .about-photo { justify-content: center; margin-bottom: 10px; }
 .about-photo img {
-  width: 104px; height: 104px; border-radius: 50%; object-fit: cover;
-  border: 2px solid var(--green); box-shadow: 0 0 22px color-mix(in srgb, var(--green) 30%, transparent);
+  width: 220px; height: 220px; border-radius: 50%; object-fit: cover;
+  border: 3px solid var(--green); box-shadow: 0 0 32px color-mix(in srgb, var(--green) 30%, transparent);
 }
 .stat-online { color: var(--green); display: inline-flex; align-items: center; gap: 6px; }
 .pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.6s ease-in-out infinite; }
@@ -258,10 +261,7 @@ a:hover { text-decoration: underline; }
 /* ---------- Skills.json ---------- */
 .skills-body { position: relative; }
 .skills-stage {
-  position: relative; height: 380px; overflow: hidden; touch-action: none;
-  background:
-    radial-gradient(circle at 30% 30%, color-mix(in srgb, var(--green) 6%, transparent), transparent 60%),
-    var(--bg-subtle);
+  position: relative; height: 624px; overflow: hidden; touch-action: none;
 }
 .badge {
   position: absolute; display: inline-flex; align-items: center; gap: 8px;
@@ -273,20 +273,16 @@ a:hover { text-decoration: underline; }
 }
 .badge:active { cursor: grabbing; }
 .badge-ic { width: 18px; height: 18px; color: var(--badge-c, var(--green)); }
-.skills-hint { text-align: center; font-size: 12px; padding: 12px 0; }
+/* Badges inside .skills-stage are just source data for the globe canvas — never shown directly. */
+.skills-stage .badge { display: none; }
+.skills-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: grab; }
+.skills-canvas:active { cursor: grabbing; }
 .skills-static { display: none; padding: 24px; }
 .skills-static-hint { margin-bottom: 14px; }
 .skills-static.show { display: block; }
-.skills-static.show ~ .skills-hint { display: none; }
 .skills-static .badge { position: static; }
 .skills-static .badge-grid { display: flex; flex-wrap: wrap; gap: 12px; }
 .no-js .skills-stage, .reduced-motion .skills-stage { display: none; }
-
-.skills-json {
-  margin-top: 24px; background: var(--bg-subtle); border: 1px solid var(--border);
-  border-radius: 10px; padding: 20px 24px; overflow-x: auto;
-  font-family: var(--mono); font-size: 13px; line-height: 1.9; color: var(--text);
-}
 
 /* ---------- Experience: git log ---------- */
 .git-log { list-style: none; position: relative; padding-left: 28px; }
