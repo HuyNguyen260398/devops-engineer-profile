@@ -240,3 +240,54 @@
     io.observe(stage);
   }
 })();
+
+/* Live projects — fetch pinned repos, fall back to static cards on failure */
+(() => {
+  'use strict';
+  const grid = document.getElementById('repo-grid');
+  if (!grid || !('fetch' in window)) return;
+
+  const LANG_COLORS = {
+    HCL: '#844FBA', HTML: '#e34c26', CSS: '#563d7c', Python: '#3572A5',
+    PowerShell: '#012456', Vue: '#41b883', JavaScript: '#f1e05a', TypeScript: '#3178c6',
+    Shell: '#89e051', PHP: '#4F5D95', Go: '#00ADD8', Java: '#b07219', Dockerfile: '#384d54'
+  };
+
+  const REPO_SVG = '<svg class="repo-ic" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M2 2.5A2.5 2.5 0 0 1 4.5 0h8.75a.75.75 0 0 1 .75.75v12.5a.75.75 0 0 1-.75.75H4.5A1 1 0 0 0 4 15h9.25a.75.75 0 0 1 0 1.5H4.5A2.5 2.5 0 0 1 2 14zM4.5 1.5A1 1 0 0 0 3.5 2.5v9.05c.3-.05.6-.05.99-.05h8.26V1.5z"/></svg>';
+  const STAR_SVG = '<svg class="mini-ic" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 .25l2.4 4.85 5.35.78-3.87 3.77.91 5.33L8 12.42 3.21 15l.91-5.33L.25 5.88l5.35-.78z"/></svg>';
+  const FORK_SVG = '<svg class="mini-ic" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M5 3.25a1.75 1.75 0 1 0-2.5 1.58v6.34A1.75 1.75 0 1 0 5 12.75a1.75 1.75 0 0 0-1-1.58V8.5c.4.32.9.5 1.5.5H9a1.5 1.5 0 0 0 1.5-1.5v-2.42a1.75 1.75 0 1 0-1.5 0V7.5H5.5A.5.5 0 0 1 5 7V4.83c.6-.3 1-.9 1-1.58z"/></svg>';
+
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => (
+    { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]
+  ));
+
+  const card = (r) => {
+    const langs = Array.isArray(r.languages) ? r.languages : [];
+    const tags = langs.map((l) => `<span class="tag">${esc(l)}</span>`).join('');
+    const primary = r.primaryLanguage || langs[0] || '';
+    const color = LANG_COLORS[primary] || '#8b949e';
+    const langHtml = primary
+      ? `<span class="repo-lang"><span class="lang-dot" style="background:${color}"></span>${esc(primary)}</span>`
+      : '';
+    return `<article class="repo-card visible">
+      <div class="repo-head">${REPO_SVG}
+        <h3><a href="${esc(r.url)}" target="_blank" rel="noopener noreferrer">${esc(r.name)}</a></h3>
+      </div>
+      <p class="repo-desc">${esc(r.description || '')}</p>
+      <div class="repo-tags">${tags}</div>
+      <div class="repo-meta">
+        ${langHtml}
+        <span class="repo-stat">${STAR_SVG}${esc(r.stars || 0)}</span>
+        <span class="repo-stat">${FORK_SVG}${esc(r.forks || 0)}</span>
+      </div>
+    </article>`;
+  };
+
+  fetch('assets/data/pinned-repos.json', { cache: 'no-cache' })
+    .then((res) => (res.ok ? res.json() : Promise.reject(new Error('bad status'))))
+    .then((data) => {
+      if (!data || !Array.isArray(data.repos) || data.repos.length === 0) return;
+      grid.innerHTML = data.repos.map(card).join('');
+    })
+    .catch(() => { /* keep the static fallback cards already in the DOM */ });
+})();
