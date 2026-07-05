@@ -23,8 +23,12 @@ on:
         default: "Manual deployment triggered"
         type: string
 
+  schedule:
+    - cron: "0 18 * * *"
+
 permissions:
   id-token: write
+  contents: read
 
 env:
   PYTHON_VERSION: "3.11"
@@ -61,6 +65,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install boto3 requests
+
+      - name: Refresh pinned repos data
+        continue-on-error: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python ops/fetch_pinned_repos.py
 
       - name: Sync aws-s3-web to S3 Bucket
         id: sync
