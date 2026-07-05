@@ -1,716 +1,91 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="no-js">
 
 <head>
   <meta charset="utf-8">
-  <meta content="width=device-width, initial-scale=1.0" name="viewport">
-  <title>Huy Nguyen - DevOps Engineer Profile</title>
-  <meta content="" name="description">
-  <meta content="" name="keywords">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Huy Nguyen — DevOps Engineer</title>
+  <meta name="description" content="Nguyen Gia Huy — DevOps Engineer portfolio: AWS, Azure, Kubernetes, Terraform, CI/CD, GitOps.">
 
   <!-- Favicons -->
   <link href="assets/img/favicon-main.png" rel="icon">
   <link href="assets/img/apple-touch-icon-main.png" rel="apple-touch-icon">
 
-  <!-- Fonts -->
-  <link href="https://fonts.googleapis.com" rel="preconnect">
-  <link href="https://fonts.gstatic.com" rel="preconnect" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,100;0,300;0,400;0,500;0,700;0,900;1,100;1,300;1,400;1,500;1,700;1,900&family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&family=Raleway:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap" rel="stylesheet">
+  <!-- Font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 
-  <!-- Vendor CSS Files -->
-  <link href="assets/vendor/bootstrap/css/bootstrap.min.css" rel="stylesheet">
-  <link href="assets/vendor/bootstrap-icons/bootstrap-icons.css" rel="stylesheet">
-  <link href="assets/vendor/aos/aos.css" rel="stylesheet">
-  <link href="assets/vendor/glightbox/css/glightbox.min.css" rel="stylesheet">
-  <link href="assets/vendor/swiper/swiper-bundle.min.css" rel="stylesheet">
-
-  <!-- Main CSS File -->
-  <link href="assets/css/main.css" rel="stylesheet">
-
-  <!-- =======================================================
-  * Template Name: MyResume
-  * Template URL: https://bootstrapmade.com/free-html-bootstrap-template-my-resume/
-  * Updated: Jun 29 2024 with Bootstrap v5.3.3
-  * Author: BootstrapMade.com
-  * License: https://bootstrapmade.com/license/
-  ======================================================== -->
+  <link href="assets/css/terminal.css" rel="stylesheet">
 </head>
 
-<body class="index-page">
+<body>
 
-  <header id="header" class="header d-flex flex-column justify-content-center">
+  <!-- Boot loader (hidden when no-js / reduced-motion via CSS) -->
+  <div id="boot-loader" aria-hidden="true">
+    <div id="boot-lines" class="boot-lines"></div>
+  </div>
 
-    <i class="header-toggle d-xl-none bi bi-list"></i>
-
-    <nav id="navmenu" class="navmenu">
-      <ul>
-        <li><a href="#hero" class="active"><i class="bi bi-house navicon"></i><span>Home</span></a></li>
-        <li><a href="#about"><i class="bi bi-person navicon"></i><span>About</span></a></li>
-        <li><a href="#resume"><i class="bi bi-file-earmark-text navicon"></i><span>Resume</span></a></li>
-        <li><a href="#services"><i class="bi bi-briefcase navicon"></i><span>Projects</span></a></li>
-        <li><a href="#certifications"><i class="bi bi-award navicon"></i><span>Certifications</span></a></li>
-        <li><a href="#blog"><i class="bi bi-newspaper navicon"></i><span>Blog</span></a></li>
-        <li><a href="#contact"><i class="bi bi-envelope navicon"></i><span>Contact</span></a></li>
+  <header class="site-nav">
+    <div class="container nav-inner">
+      <a href="#home" class="brand"><span class="accent">huy@aws</span>:<span class="cyan">~</span>$</a>
+      <button id="nav-toggle" class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">≡</button>
+      <ul id="nav-menu" class="nav-menu">
+        <li><a href="#home" class="active">~/home</a></li>
+        <li><a href="#about">~/about</a></li>
+        <li><a href="#skills">~/skills</a></li>
+        <li><a href="#experience">~/experience</a></li>
+        <li><a href="#projects">~/projects</a></li>
+        <li><a href="#certs">~/certs</a></li>
+        <li><a href="#blog">~/blog</a></li>
+        <li><a href="#contact">~/contact</a></li>
       </ul>
-    </nav>
-
+    </div>
   </header>
 
-  <main class="main">
+  <main>
 
-    <!-- Hero Section -->
-    <section id="hero" class="hero section light-background">
-
-      <img src="assets/img/hero-bg-main.jpg" alt="">
-
-      <div class="container" data-aos="zoom-out">
-        <div class="row justify-content-center">
-          <div class="col-lg-9">
-            <h2>Nguyen Gia Huy</h2>
-            <p>I'm <span class="typed" data-typed-items="Devops Engineer, Developer, Freelancer">Devops Engineer</span><span class="typed-cursor typed-cursor--blink" aria-hidden="true"></span></p>
-            <div class="social-links">
-              <a href="#" target="_blank"><i class="bi bi-twitter-x"></i></a>
-              <a href="https://www.facebook.com/huy.nguyen.682" target="_blank"><i class="bi bi-facebook"></i></a>
-              <a href="https://www.instagram.com/huynguyen2603989/" target="_blank"><i class="bi bi-instagram"></i></a>
-              <a href="https://www.linkedin.com/in/huy-nguyen-966488189" target="_blank"><i class="bi bi-linkedin"></i></a>
-            </div>
-          </div>
-        </div>
-      </div>
-
-    </section><!-- /Hero Section -->
-
-    <!-- About Section -->
-    <section id="about" class="about section">
-
-      <!-- Section Title -->
-      <div class="container section-title" data-aos="fade-up">
-        <h2>About</h2>
-      </div><!-- End Section Title -->
-
-      <div class="container" data-aos="fade-up" data-aos-delay="100">
-
-        <div class="row gy-4 justify-content-center">
-          <div class="col-lg-4">
-            <img src="assets/img/profile-img-main.jpg" class="img-fluid" alt="">
-          </div>
-          <div class="col-lg-8 content">
-            <h2>Nguyen Gia Huy</h2>
-            <p class="fst-italic py-3">
-              I am a DevOps Engineer with 5 years of hands-on experience in automating infrastructure, optimizing CI/CD pipelines, and ensuring scalable cloud deployments. I am skilled in bridging development and operations to deliver reliable, high-performing systems. I am seeking to leverage expertise in DevOps practices while driving innovation through AI implementation, with a focus on enhancing automation, predictive monitoring, and intelligent workflow optimization.
-            </p>
-            <div class="row">
-              <div class="col-lg-6">
-                <ul>
-                  <li><i class="bi bi-chevron-right"></i> <strong>Date of Birth:</strong> <span>March 26, 1998</span></li>
-                  <li><i class="bi bi-chevron-right"></i> <strong>Phone:</strong> <span>+84 903 336 493</span></li>
-                  <li><i class="bi bi-chevron-right"></i> <strong>Degree:</strong> <span>Bachelor of Information Technology</span></li>
-                </ul>
-              </div>
-              <div class="col-lg-6">
-                <ul>
-                  <li><i class="bi bi-chevron-right"></i> <strong>City:</strong> <span>Ho Chi Minh City, Viet Nam</span></li>
-                  <li><i class="bi bi-chevron-right"></i> <strong>Email:</strong> <span>huynguyen2603989@gmail.com</span></li>
-                  <li><i class="bi bi-chevron-right"></i> <strong>PDF CV:</strong> <span><a href="https://d1k59jrf89m1h2.cloudfront.net/Nguyen-Gia-Huy-DevOps-Engineer.pdf" download="Nguyen-Gia-Huy-DevOps-Engineer.pdf" class="cv-download-link" target="_blank" rel="noopener noreferrer">Download Resume (PDF)</a></span></li>
-                </ul>
-              </div>
-            </div>
-          </div>
-        </div>
-
-      </div>
-
-    </section><!-- /About Section -->
-
-    <!-- Skills Section -->
-    <section id="skills" class="skills section">
-
-      <!-- Section Title -->
-      <div class="container section-title" data-aos="fade-up">
-        <h2>Skills</h2>
-      </div><!-- End Section Title -->
-
-      <div class="container" data-aos="fade-up" data-aos-delay="100">
-
-        <div class="row skills-content skills-animation">
-
-          <div class="col-lg-6">
-
-            <div class="progress">
-              <span class="skill"><span>AWS</span> <i class="val">90%</i></span>
-              <div class="progress-bar-wrap">
-                <div class="progress-bar" role="progressbar" aria-valuenow="90" aria-valuemin="0" aria-valuemax="100"></div>
-              </div>
-            </div><!-- End Skills Item -->
-
-            <div class="progress">
-              <span class="skill"><span>Azure</span> <i class="val">60%</i></span>
-              <div class="progress-bar-wrap">
-                <div class="progress-bar" role="progressbar" aria-valuenow="60" aria-valuemin="0" aria-valuemax="100"></div>
-              </div>
-            </div><!-- End Skills Item -->
-
-            <div class="progress">
-              <span class="skill"><span>Python</span> <i class="val">90%</i></span>
-              <div class="progress-bar-wrap">
-                <div class="progress-bar" role="progressbar" aria-valuenow="90" aria-valuemin="0" aria-valuemax="100"></div>
-              </div>
-            </div><!-- End Skills Item -->
-
-            <div class="progress">
-              <span class="skill"><span>Linux</span> <i class="val">75%</i></span>
-              <div class="progress-bar-wrap">
-                <div class="progress-bar" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
-              </div>
-            </div><!-- End Skills Item -->
-
-          </div>
-
-          <div class="col-lg-6">
-
-            <div class="progress">
-              <span class="skill"><span>Terraform</span> <i class="val">75%</i></span>
-              <div class="progress-bar-wrap">
-                <div class="progress-bar" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"></div>
-              </div>
-            </div><!-- End Skills Item -->
-
-            <div class="progress">
-              <span class="skill"><span>Ansible</span> <i class="val">80%</i></span>
-              <div class="progress-bar-wrap">
-                <div class="progress-bar" role="progressbar" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100"></div>
-              </div>
-            </div><!-- End Skills Item -->
-
-            <div class="progress">
-              <span class="skill"><span>Docker</span> <i class="val">80%</i></span>
-              <div class="progress-bar-wrap">
-                <div class="progress-bar" role="progressbar" aria-valuenow="80" aria-valuemin="0" aria-valuemax="100"></div>
-              </div>
-            </div><!-- End Skills Item -->
-
-            <div class="progress">
-              <span class="skill"><span>Kubernetes</span> <i class="val">70%</i></span>
-              <div class="progress-bar-wrap">
-                <div class="progress-bar" role="progressbar" aria-valuenow="70" aria-valuemin="0" aria-valuemax="100"></div>
-              </div>
-            </div><!-- End Skills Item -->
-
-          </div>
-
-        </div>
-
-      </div>
-
-    </section><!-- /Skills Section -->
-
-    <!-- Resume Section -->
-    <section id="resume" class="resume section">
-
-      <!-- Section Title -->
-      <div class="container section-title" data-aos="fade-up">
-        <h2>Resume</h2>
-      </div><!-- End Section Title -->
-
+    <!-- Hero -->
+    <section id="home" class="hero">
       <div class="container">
-
-        <div class="row">
-
-          <div class="col-lg-6" data-aos="fade-up" data-aos-delay="100">
-
-            <h3 class="resume-title">Education</h3>
-            <div class="resume-item pb-0">
-              <h4>Bachelor of Information Technology</h4>
-              <h5>2017 - 2020</h5>
-              <p><em>University of Greenwich, Viet Nam</em></p>
-              <p>GPA: 3.6/4</p>
-            </div><!-- End Resume Item -->
-
-            <br>
-            <br>
-
-            <h3 class="resume-title">Work experience</h3>
-            <div class="resume-item">
-              <h4>Bosch Global Software Technologies Viet Nam</h4>
-              <h5>Jan 2020 - Present</h5>
-              <p><em>DevOps Engineer</em></p>
-              <ul>
-                <li>DevOps engineer with a strong progression from automation development to large scale CI/CD infrastructure system to support multiple embedded teams.</li>
-                <li>Skilled in building automationsolutions using Jenkins, Groovy,Python, Helm, and Ansible,supporting domains such asPowertrain, Splunk, and ActiveSafety.</li>
-                <li>Experienced in maintaining and CIinfrastructure on Azure Cloud withKubernetes, ArgoCD and Terraform.</li>
-                <li>Willingly and actively collaboratingwith teams in Germany, India, China,and Hungary, delivering reliablepipelines, scalable infrastructure.</li>
-                <li>Proactive to research early adoptionof agentic AI to enhance DevOpsworkflows.</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-          </div>
-
-          <div class="col-lg-6" data-aos="fade-up" data-aos-delay="200">
-            <h3 class="resume-title">Professional Experience</h3>
-            
-            <div class="resume-item">
-              <h4>AWS CloudOps Agent - Leader</h4>
-              <h5>Oct 2025 - Dec 2025</h5>
-              <p><em>Bosch Global Software Technology Vietnam</em></p>
-              <ul>
-                <li>Leading development of an intelligent agentic AI system powered by AWS Bedrock AgentCore and AWS Strands Agent SDK for autonomous AWS cloud operations management</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-            <div class="resume-item">
-              <h4>MCP Server for DevOps - DevOps Engineer</h4>
-              <h5>Sep 2025 - Dec 2025</h5>
-              <p><em>Bosch Global Software Technology Vietnam</em></p>
-              <ul>
-                <li>Conducting research and early implementation of agentic AI in DevOps</li>
-                <li>Developing MCP server to explore intelligent automation capabilities</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-            <div class="resume-item">
-              <h4>CI/CD Infrastructure in K8S - DevOps Engineer</h4>
-              <h5>Jun 2025 - Dec 2025</h5>
-              <p><em>Bosch Global Software Technology Vietnam</em></p>
-              <ul>
-                <li>Received knowledge transfer from Hungary team to operate and maintain Jenkins systems deployed on Azure Cloud</li>
-                <li>Leveraged Kubernetes (K8s) and ArgoCD for GitOps-based deployments</li>
-                <li>Maintained Azure cloud infrastructure using Terraform</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-            <div class="resume-item">
-              <h4>Jenkins CI/CD Pipelines for DE ActiveSafety Team - DevOps Engineer</h4>
-              <h5>Jun 2024 - Dec 2025</h5>
-              <p><em>Bosch Global Software Technology Vietnam</em></p>
-              <ul>
-                <li>Enhanced Jenkins pipelines using custom Python libraries</li>
-                <li>Implemented Jenkins Infrastructure as Code with Helm</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-            <div class="resume-item">
-              <h4>Splunk &amp; CI Infrastructure - DevOps Engineer</h4>
-              <h5>Jan 2024 - Jun 2024</h5>
-              <p><em>Bosch Global Software Technology Vietnam</em></p>
-              <ul>
-                <li>Supported Splunk team in setting up and optimizing Jenkins pipelines for log analytics and monitoring solutions</li>
-                <li>Maintained and improved CI infrastructure for German projects, including Jenkins, Grafana, and Prometheus</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-            <div class="resume-item">
-              <h4>Jenkins CI/CD Pipelines for DE PowerTrain Team - DevOps Engineer</h4>
-              <h5>Jan 2021 - Jun 2024</h5>
-              <p><em>Bosch Global Software Technology Vietnam</em></p>
-              <ul>
-                <li>Transitioned into the DevOps team, working closely with colleagues in Germany to support large-scale automotive software development</li>
-                <li>Designed and implemented CI/CD pipelines using Jenkins and Groovy, enabling automated build, test, and deployment workflows</li>
-                <li>May 2023: Onsite trip to Bosch Abstatt to work closely with Germany colleagues</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-            <div class="resume-item">
-              <h4>KPI Dashboard - Automation Tool Developer</h4>
-              <h5>Apr 2020 - Jan 2021</h5>
-              <p><em>Bosch Global Software Technology Vietnam</em></p>
-              <ul>
-                <li>Collaborated with China-based software PCMs and managers to design and deliver KPI dashboards using PowerBI and SQL</li>
-                <li>Improved visibility into project performance through data visualization</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-            <div class="resume-item">
-              <h4>Automation Tool Developer</h4>
-              <h5>Apr 2020 - Jan 2021</h5>
-              <p><em>Bosch Global Software Technology Vietnam</em></p>
-              <ul>
-                <li>Developed automation applications using C# and Python to streamline workflow and process management on Jira</li>
-                <li>Supported embedded teams in India and Germany</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-            <div class="resume-item">
-              <h4>Python Intern - Embedded Automation Tools</h4>
-              <h5>Jan 2020 - Apr 2020</h5>
-              <p><em>Bosch Global Software Technology Vietnam</em></p>
-              <ul>
-                <li>Supported senior engineers in developing internal tools and improving code quality</li>
-              </ul>
-            </div><!-- End Resume Item -->
-
-          </div>
-
+        <pre id="hero-boot" class="hero-boot" aria-hidden="true"></pre>
+        <p class="hero-hello prompt">whoami</p>
+        <h1 class="hero-name">Nguyen Gia Huy</h1>
+        <p class="hero-role">I'm a <span id="typed-role" class="accent">DevOps Engineer</span><span class="cursor">_</span></p>
+        <p class="hero-tagline"># Automating infrastructure · CI/CD · Cloud on AWS &amp; Azure</p>
+        <div class="hero-social">
+          <a class="btn-cmd" href="https://www.linkedin.com/in/huy-nguyen-966488189" target="_blank" rel="noopener noreferrer">./linkedin</a>
+          <a class="btn-cmd" href="https://github.com/HuyNguyen260398" target="_blank" rel="noopener noreferrer">./github</a>
+          <a class="btn-cmd" href="https://www.facebook.com/huy.nguyen.682" target="_blank" rel="noopener noreferrer">./facebook</a>
+          <a class="btn-cmd" href="https://www.instagram.com/huynguyen2603989/" target="_blank" rel="noopener noreferrer">./instagram</a>
         </div>
-
       </div>
+    </section>
 
-    </section><!-- /Resume Section -->
+    <!-- @about+skills -->
 
-    <!-- Projects Section -->
-    <section id="services" class="services section">
+    <!-- @experience+projects -->
 
-      <!-- Section Title -->
-      <div class="container section-title" data-aos="fade-up">
-        <h2>Projects</h2>
-      </div><!-- End Section Title -->
-
-      <div class="container">
-
-        <div class="row gy-4">
-
-          <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
-            <div class="service-item item-red position-relative">
-              <div class="icon">
-                <i class="bi bi-infinity"></i>
-              </div>
-              <a href="https://github.com/HuyNguyen260398/devops-engineer-profile" target="_blank" class="stretched-link">
-                <h3>DevOps Engineer Profile</h3>
-                </a>
-                <p>Comprehensive DevOps platform featuring CI/CD pipelines, monitoring, and observability tools, orchestrated on Kubernetes with Terraform and Helm-based infrastructure management and GitOps practices.</p>
-              <div class="tech-stack">
-                <span class="badge bg-danger">AWS EKS</span>
-                <span class="badge bg-danger">Helm</span>
-                <span class="badge bg-danger">Terraform</span>
-                <span class="badge bg-danger">Argo CD</span>
-              </div>
-            </div>
-          </div><!-- End Project Item -->
-
-          <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
-            <div class="service-item item-teal position-relative">
-              <div class="icon">
-                <i class="bi bi-cloud"></i>
-              </div>
-              <a href="https://github.com/HuyNguyen260398/aws_resume_web_inf" target="_blank" class="stretched-link">
-                <h3>AWS Resume Web</h3>
-              </a>
-              <p>Serverless static website deployment on AWS with CloudFront, S3, and automated CI/CD pipelines for continuous updates.</p>
-              <div class="tech-stack">
-                <span class="badge bg-success">AWS S3</span>
-                <span class="badge bg-success">AWS CloudFront</span>
-                <span class="badge bg-success">AWS Route53</span>
-                <span class="badge bg-success">AWS Certificate Manager</span>
-                <span class="badge bg-success">Terraform</span>
-                <span class="badge bg-success">GitHub Actions</span>
-              </div>
-            </div>
-          </div><!-- End Project Item -->
-
-          <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
-            <div class="service-item item-indigo position-relative">
-              <div class="icon">
-                <i class="bi bi-robot"></i>
-              </div>
-              <a href="https://github.com/HuyNguyen260398/aws-cloudops-agent" target="_blank" class="stretched-link">
-                <h3>AWS CloudOps Agent</h3>
-              </a>
-              <p>An intelligent agentic AI system powered by AWS Bedrock AgentCore and AWS Strands Agent SDK for autonomous AWS cloud operations management.</p>
-              <div class="tech-stack">
-                <span class="badge bg-primary">Strands Agent</span>
-                <span class="badge bg-primary">AWS Bedrock AgentCore</span>
-                <span class="badge bg-primary">AWS Bedrock LLM</span>
-                <span class="badge bg-primary">AWS Open Search</span>
-              </div>
-            </div>
-          </div><!-- End Project Item -->
-
-        </div>
-
-      </div>
-
-    </section><!-- /Services Section -->
-
-    <!-- Certifications Section -->
-    <section id="certifications" class="certifications section light-background">
-
-      <!-- Section Title -->
-      <div class="container section-title" data-aos="fade-up">
-        <h2>Certifications</h2>
-      </div><!-- End Section Title -->
-
-      <div class="container">
-
-        <div class="row gy-4 justify-content-center">
-
-          <!-- Certification Badge 1 -->
-          <div class="col-lg-2 col-md-3 col-sm-4 col-6" data-aos="fade-up" data-aos-delay="100">
-            <a href="https://www.credly.com/badges/a9c87043-fa06-49bb-8570-d08a3fb7883c/public_url" target="_blank" rel="noopener noreferrer" class="cert-badge-link" title="AWS Certified Cloud Practitioner">
-              <img src="assets/img/certifications/aws-certified-cloud-practitioner.png" alt="AWS Certified Cloud Practitioner" class="cert-badge">
-            </a>
-          </div><!-- End Certification Badge 1 -->
-
-          <!-- Certification Badge 2 -->
-          <div class="col-lg-2 col-md-3 col-sm-4 col-6" data-aos="fade-up" data-aos-delay="200">
-            <a href="https://www.credly.com/badges/39219854-bc9b-43a0-942e-9e86064151d6/public_url" target="_blank" rel="noopener noreferrer" class="cert-badge-link" title="AWS Certified Solutions Architect - Associate">
-              <img src="assets/img/certifications/aws-certified-solutions-architect-associate.png" alt="AWS Certified Solution Architect - Associate" class="cert-badge">
-            </a>
-          </div><!-- End Certification Badge 2 -->
-
-          <!-- Certification Badge 3 -->
-          <div class="col-lg-2 col-md-3 col-sm-4 col-6" data-aos="fade-up" data-aos-delay="300">
-            <a href="https://www.credly.com/badges/75544d8f-9193-4505-8634-238a8925fd86/public_url" target="_blank" rel="noopener noreferrer" class="cert-badge-link" title="AWS Certified SysOps Administrator - Associate">
-              <img src="assets/img/certifications/aws-certified-sysops-administrator-associate.png" alt="AWS Certified SysOps Administrator - Associate" class="cert-badge">
-            </a>
-          </div><!-- End Certification Badge 3 -->
-
-        </div>
-
-      </div>
-
-    </section><!-- /Certifications Section -->
-
-    <!-- Blogs Section -->
-    <section id="blog" class="blog section">
-
-      <!-- Section Title -->
-      <div class="container section-title" data-aos="fade-up">
-        <h2>Blogs</h2>
-      </div><!-- End Section Title -->
-
-      <div class="container">
-
-        <div class="row gy-4">
-
-          <!-- Blog Post 1 -->
-          <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="100">
-            <article class="blog-card h-100">
-              <div class="blog-image">
-                <img src="assets/img/blog/blog-1.svg" alt="Kubernetes Security Best Practices" class="img-fluid">
-              </div>
-              <div class="blog-content">
-                <h3 class="blog-title">Kubernetes Security Best Practices: Pod Security Standards</h3>
-                <div class="blog-meta">
-                  <span class="blog-date"><i class="bi bi-calendar-event"></i> January 15, 2026</span>
-                  <span class="blog-source"><i class="bi bi-link-45deg"></i> <a href="https://kubernetes.io/blog/" target="_blank" rel="noopener noreferrer">Kubernetes Blog</a></span>
-                </div>
-                <p class="blog-excerpt">Learn how to implement Pod Security Standards to enhance your Kubernetes cluster security. This comprehensive guide covers the latest security controls and best practices for production environments.</p>
-                <a href="https://kubernetes.io/blog/" class="btn-read-more" target="_blank" rel="noopener noreferrer">Read More <i class="bi bi-arrow-right"></i></a>
-              </div>
-            </article>
-          </div><!-- End Blog Post 1 -->
-
-          <!-- Blog Post 2 -->
-          <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="200">
-            <article class="blog-card h-100">
-              <div class="blog-image">
-                <img src="assets/img/blog/blog-2.svg" alt="CI/CD Pipeline Optimization" class="img-fluid">
-              </div>
-              <div class="blog-content">
-                <h3 class="blog-title">Optimizing CI/CD Pipelines: From Commit to Production in Minutes</h3>
-                <div class="blog-meta">
-                  <span class="blog-date"><i class="bi bi-calendar-event"></i> January 12, 2026</span>
-                  <span class="blog-source"><i class="bi bi-link-45deg"></i> <a href="https://github.blog/" target="_blank" rel="noopener noreferrer">GitHub Blog</a></span>
-                </div>
-                <p class="blog-excerpt">Discover strategies to optimize your CI/CD pipelines using GitHub Actions. Learn caching techniques, parallel jobs, and workflow optimization to reduce deployment time by up to 60%.</p>
-                <a href="https://github.blog/" class="btn-read-more" target="_blank" rel="noopener noreferrer">Read More <i class="bi bi-arrow-right"></i></a>
-              </div>
-            </article>
-          </div><!-- End Blog Post 2 -->
-
-          <!-- Blog Post 3 -->
-          <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="300">
-            <article class="blog-card h-100">
-              <div class="blog-image">
-                <img src="assets/img/blog/blog-3.svg" alt="Infrastructure as Code with Terraform" class="img-fluid">
-              </div>
-              <div class="blog-content">
-                <h3 class="blog-title">Infrastructure as Code: Managing AWS Resources with Terraform</h3>
-                <div class="blog-meta">
-                  <span class="blog-date"><i class="bi bi-calendar-event"></i> January 8, 2026</span>
-                  <span class="blog-source"><i class="bi bi-link-45deg"></i> <a href="https://www.hashicorp.com/blog/" target="_blank" rel="noopener noreferrer">HashiCorp Blog</a></span>
-                </div>
-                <p class="blog-excerpt">Master Infrastructure as Code with Terraform. This guide covers module design, state management, and best practices for managing large-scale AWS infrastructure with confidence.</p>
-                <a href="https://www.hashicorp.com/blog/" class="btn-read-more" target="_blank" rel="noopener noreferrer">Read More <i class="bi bi-arrow-right"></i></a>
-              </div>
-            </article>
-          </div><!-- End Blog Post 3 -->
-
-          <!-- Blog Post 4 -->
-          <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="400">
-            <article class="blog-card h-100">
-              <div class="blog-image">
-                <img src="assets/img/blog/blog-4.svg" alt="Observability and Monitoring" class="img-fluid">
-              </div>
-              <div class="blog-content">
-                <h3 class="blog-title">Building Observability: Metrics, Logs, and Traces in Modern Systems</h3>
-                <div class="blog-meta">
-                  <span class="blog-date"><i class="bi bi-calendar-event"></i> January 5, 2026</span>
-                  <span class="blog-source"><i class="bi bi-link-45deg"></i> <a href="https://www.datadoghq.com/blog/" target="_blank" rel="noopener noreferrer">Datadog Blog</a></span>
-                </div>
-                <p class="blog-excerpt">Understand the three pillars of observability and how to implement comprehensive monitoring strategies using OpenTelemetry, Prometheus, and modern observability platforms.</p>
-                <a href="https://www.datadoghq.com/blog/" class="btn-read-more" target="_blank" rel="noopener noreferrer">Read More <i class="bi bi-arrow-right"></i></a>
-              </div>
-            </article>
-          </div><!-- End Blog Post 4 -->
-
-          <!-- Blog Post 5 -->
-          <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="500">
-            <article class="blog-card h-100">
-              <div class="blog-image">
-                <img src="assets/img/blog/blog-5.svg" alt="Container Orchestration" class="img-fluid">
-              </div>
-              <div class="blog-content">
-                <h3 class="blog-title">Docker and Container Security: Securing Your Container Supply Chain</h3>
-                <div class="blog-meta">
-                  <span class="blog-date"><i class="bi bi-calendar-event"></i> December 28, 2025</span>
-                  <span class="blog-source"><i class="bi bi-link-45deg"></i> <a href="https://www.docker.com/blog/" target="_blank" rel="noopener noreferrer">Docker Blog</a></span>
-                </div>
-                <p class="blog-excerpt">Secure your containerized applications from build to production. Learn image scanning, runtime security, and vulnerability management techniques for a hardened container environment.</p>
-                <a href="https://www.docker.com/blog/" class="btn-read-more" target="_blank" rel="noopener noreferrer">Read More <i class="bi bi-arrow-right"></i></a>
-              </div>
-            </article>
-          </div><!-- End Blog Post 5 -->
-
-          <!-- Blog Post 6 -->
-          <div class="col-lg-4 col-md-6" data-aos="fade-up" data-aos-delay="600">
-            <article class="blog-card h-100">
-              <div class="blog-image">
-                <img src="assets/img/blog/blog-6.svg" alt="GitOps Practices" class="img-fluid">
-              </div>
-              <div class="blog-content">
-                <h3 class="blog-title">GitOps: The Future of Declarative Infrastructure Management</h3>
-                <div class="blog-meta">
-                  <span class="blog-date"><i class="bi bi-calendar-event"></i> December 20, 2025</span>
-                  <span class="blog-source"><i class="bi bi-link-45deg"></i> <a href="https://www.cncf.io/blog/" target="_blank" rel="noopener noreferrer">CNCF Blog</a></span>
-                </div>
-                <p class="blog-excerpt">Explore GitOps principles and tools like ArgoCD and Flux. Learn how to manage your infrastructure and applications declaratively using Git as the single source of truth.</p>
-                <a href="https://www.cncf.io/blog/" class="btn-read-more" target="_blank" rel="noopener noreferrer">Read More <i class="bi bi-arrow-right"></i></a>
-              </div>
-            </article>
-          </div><!-- End Blog Post 6 -->
-
-        </div>
-
-      </div>
-
-    </section><!-- /Blog Section -->
-
-    <!-- Contact Section -->
-    <section id="contact" class="contact section">
-
-      <!-- Section Title -->
-      <div class="container section-title" data-aos="fade-up">
-        <h2>Contact</h2>
-      </div><!-- End Section Title -->
-
-      <div class="container" data-aos="fade" data-aos-delay="100">
-
-        <div class="row gy-4">
-
-          <div class="col-lg-4">
-            <div class="info-item d-flex" data-aos="fade-up" data-aos-delay="200">
-              <i class="bi bi-geo-alt flex-shrink-0"></i>
-              <div>
-                <h3>Address</h3>
-                <p>91 Tran Tan Street, Ho Chi Minh City, Viet Nam</p>
-              </div>
-            </div><!-- End Info Item -->
-
-            <div class="info-item d-flex" data-aos="fade-up" data-aos-delay="300">
-              <i class="bi bi-telephone flex-shrink-0"></i>
-              <div>
-                <h3>Call Me</h3>
-                <p>+84 903 336 493</p>
-              </div>
-            </div><!-- End Info Item -->
-
-            <div class="info-item d-flex" data-aos="fade-up" data-aos-delay="400">
-              <i class="bi bi-envelope flex-shrink-0"></i>
-              <div>
-                <h3>Email Me</h3>
-                <p>huynguyen2603989@gmail.com</p>
-              </div>
-            </div><!-- End Info Item -->
-
-          </div>
-
-          <div class="col-lg-8">
-            <form action="forms/contact.php" method="post" class="php-email-form" data-aos="fade-up" data-aos-delay="200">
-              <div class="row gy-4">
-
-                <div class="col-md-6">
-                  <input type="text" name="name" class="form-control" placeholder="Your Name" required="">
-                </div>
-
-                <div class="col-md-6 ">
-                  <input type="email" class="form-control" name="email" placeholder="Your Email" required="">
-                </div>
-
-                <div class="col-md-12">
-                  <input type="text" class="form-control" name="subject" placeholder="Subject" required="">
-                </div>
-
-                <div class="col-md-12">
-                  <textarea class="form-control" name="message" rows="6" placeholder="Message" required=""></textarea>
-                </div>
-
-                <div class="col-md-12 text-center">
-                  <div class="loading">Loading</div>
-                  <div class="error-message"></div>
-                  <div class="sent-message">Your message has been sent. Thank you!</div>
-
-                  <button type="submit">Send Message</button>
-                </div>
-
-              </div>
-            </form>
-          </div><!-- End Contact Form -->
-
-        </div>
-
-      </div>
-
-    </section><!-- /Contact Section -->
+    <!-- @certs+blog+contact -->
 
   </main>
 
-  <footer id="footer" class="footer position-relative light-background">
+  <footer class="footer">
     <div class="container">
-      <h3 class="sitename">Nguyen Gia Huy</h3>
-      <p>DevOps Engineer Profile</p>
-      <div class="social-links d-flex justify-content-center">
-        <a href="#" target="_blank"><i class="bi bi-twitter-x"></i></a>
-        <a href="https://www.facebook.com/huy.nguyen.682" target="_blank"><i class="bi bi-facebook"></i></a>
-        <a href="https://www.instagram.com/huynguyen2603989/" target="_blank"><i class="bi bi-instagram"></i></a>
-        <a href="" target="_blank"><i class="bi bi-skype"></i></a>
-        <a href="https://www.linkedin.com/in/huy-nguyen-966488189" target="_blank"><i class="bi bi-linkedin"></i></a>
-      </div>
-      <div class="container">
-        <div class="copyright">
-          <span>Copyright</span> <strong class="px-1 sitename">Alex Smith</strong> <span>All Rights Reserved</span>
-        </div>
-        <div class="credits">
-          <!-- All the links in the footer should remain intact. -->
-          <!-- You can delete the links only if you've purchased the pro version. -->
-          <!-- Licensing information: https://bootstrapmade.com/license/ -->
-          <!-- Purchase the pro version with working PHP/AJAX contact form: [buy-url] -->
-          Designed by <a href="https://bootstrapmade.com/">BootstrapMade</a>
-        </div>
+      <p class="prompt">exit 0</p>
+      <p>© <span id="year">2026</span> Nguyen Gia Huy — DevOps Engineer</p>
+      <div class="hero-social">
+        <a class="btn-cmd" href="https://www.linkedin.com/in/huy-nguyen-966488189" target="_blank" rel="noopener noreferrer">./linkedin</a>
+        <a class="btn-cmd" href="https://github.com/HuyNguyen260398" target="_blank" rel="noopener noreferrer">./github</a>
+        <a class="btn-cmd" href="https://www.facebook.com/huy.nguyen.682" target="_blank" rel="noopener noreferrer">./facebook</a>
+        <a class="btn-cmd" href="https://www.instagram.com/huynguyen2603989/" target="_blank" rel="noopener noreferrer">./instagram</a>
       </div>
     </div>
   </footer>
 
-  <!-- Scroll Top -->
-  <a href="#" id="scroll-top" class="scroll-top d-flex align-items-center justify-content-center"><i class="bi bi-arrow-up-short"></i></a>
+  <a href="#home" id="scroll-top" class="scroll-top" aria-label="Back to top">↑</a>
 
-  <!-- Preloader -->
-  <div id="preloader"></div>
-
-  <!-- Vendor JS Files -->
-  <script src="assets/vendor/bootstrap/js/bootstrap.bundle.min.js"></script>
-  <script src="assets/vendor/php-email-form/validate.js"></script>
-  <script src="assets/vendor/aos/aos.js"></script>
-  <script src="assets/vendor/typed.js/typed.umd.js"></script>
-  <script src="assets/vendor/purecounter/purecounter_vanilla.js"></script>
-  <script src="assets/vendor/waypoints/noframework.waypoints.js"></script>
-  <script src="assets/vendor/glightbox/js/glightbox.min.js"></script>
-  <script src="assets/vendor/imagesloaded/imagesloaded.pkgd.min.js"></script>
-  <script src="assets/vendor/isotope-layout/isotope.pkgd.min.js"></script>
-  <script src="assets/vendor/swiper/swiper-bundle.min.js"></script>
-
-  <!-- Main JS File -->
-  <script src="assets/js/main.js"></script>
-
+  <script src="assets/js/terminal.js"></script>
 </body>
 
 </html>
