@@ -92,12 +92,13 @@ Two token sets exposed as CSS custom properties on `:root`.
 - Content carried verbatim from the existing implementation (Bosch roles, AWS CloudOps Agent, MCP Server, CI/CD in K8s, ActiveSafety, Splunk, PowerTrain, KPI Dashboard, Automation Tool Developer, Python Intern, and the education entry). Fix the missing-space typos already noted.
 
 ### 5. `$ ls -la ~/projects`
-- The **5 real pinned GitHub repos** as GitHub-style repo cards, each with:
+- The **real pinned GitHub repos**, rendered **live** from a build-time-generated data file (see "Projects Data Pipeline" below), as GitHub-style repo cards, each with:
   - repo icon (▣) + repo-name link (opens the real GitHub URL)
   - real description
   - **real ★ star count and fork count** (inline star/fork SVG icons), shown even when 0
   - primary-language dot + language tags
-- Real data (fetched 2026-07-05):
+- On load, `terminal.js` fetches `assets/data/pinned-repos.json` (same-origin) and renders the cards from it. If the fetch fails or JS/network is unavailable, the **static fallback cards baked into the HTML** (the current pins, below) remain visible — progressive enhancement, never an empty section.
+- Current pinned data (fetched 2026-07-05, used as the committed fallback + initial `pinned-repos.json`):
   1. `devops-engineer-profile` — "devops-engineer-profile" — ★1 ⑂0 — HCL, HTML, Python, PowerShell, Vue, CSS
   2. `aws-cloudops-agent` — "A beginner-friendly AWS operations agent built with AWS Strands Agent SDK and Amazon Bedrock Claude 4 Sonnet." — ★0 ⑂0 — Python
   3. `aws_resume_web_inf` — "Cloudformation templates for aws resume web" — ★0 ⑂0 — Python, PowerShell, Shell
@@ -128,6 +129,45 @@ Two token sets exposed as CSS custom properties on `:root`.
 
 - Slim fixed top bar: `<Dev/>`-style brand mark on the left; theme-toggle button + social icons on the right; hamburger for mobile menu. (Kept minimal — the right-side nav is the primary in-page navigation on desktop.)
 
+## Projects Data Pipeline (live pinned repos)
+
+Keeps the Projects section in sync with GitHub pinned repos **at build/deploy time**, without embedding any token in the static site and without any third-party runtime dependency.
+
+**Data file:** `src/aws-s3-web/assets/data/pinned-repos.json` — a stable, versioned schema the front-end consumes:
+```json
+{
+  "generated_at": "2026-07-05T00:00:00Z",
+  "username": "HuyNguyen260398",
+  "repos": [
+    { "name": "...", "description": "...", "url": "...",
+      "stars": 1, "forks": 0,
+      "primaryLanguage": "HCL", "languages": ["HCL", "HTML", "..."] }
+  ]
+}
+```
+An initial version (the 5 current pins) is committed so the site works before the first CI refresh and so local `http.server` testing exercises the fetch path.
+
+**Generator script:** `ops/fetch_pinned_repos.py`
+- Reads `GITHUB_TOKEN` (required) and optional `GITHUB_USERNAME` (default `HuyNguyen260398`) from env.
+- POSTs the `pinnedItems(first: 6, types: REPOSITORY)` GraphQL query to `https://api.github.com/graphql` using `requests` (already a workflow dependency).
+- Shapes the response into the schema above and writes `src/aws-s3-web/assets/data/pinned-repos.json`.
+- **Fail-safe:** on any error (network, auth, empty result) it logs and exits **non-zero without overwriting** the existing file, so the committed fallback survives. The workflow step runs with `continue-on-error: true` so a GitHub API hiccup never blocks a deploy.
+- Uses the default `GITHUB_TOKEN` (pinned items are public GraphQL data). Contingency noted in the plan: if the default token returns empty, swap to a read-only PAT stored as the `PINNED_REPOS_TOKEN` secret.
+
+**Workflow integration** (both `aws-s3-web-sync-staging.yml` and `aws-s3-web-sync-prod.yml`):
+- Add a `Refresh pinned repos data` step **before** the `aws s3 sync` step:
+  ```yaml
+  - name: Refresh pinned repos data
+    continue-on-error: true
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    run: python ops/fetch_pinned_repos.py
+  ```
+  (Python + `requests` are already set up in these jobs.)
+- Add `contents: read` alongside the existing `id-token: write` permission (default token read scope is sufficient for public GraphQL).
+- **Prod** (`aws-s3-web-sync-prod.yml`) additionally gets a `schedule:` trigger (daily cron, e.g. `0 18 * * *`) so pins refresh and re-sync even with no code push. `workflow_dispatch` already exists there.
+- The regenerated JSON is picked up by the existing `aws s3 sync` (no extra upload logic). No commit-back to the repo is needed; S3 always holds the freshest copy. Freshness bound: browser/CloudFront cache is `max-age=3600`, so changes appear within ~1h of a deploy/scheduled run.
+
 ## Accessibility / Robustness
 
 - `prefers-reduced-motion: reduce` skips: hero typing, boot/kernel animation, reveal transitions, and the skills physics loop (badges shown as a static grid; JSON skills block always readable).
@@ -143,13 +183,20 @@ Serve locally: `python3 -m http.server 8080` from `src/aws-s3-web/` (background;
 3. `prefers-color-scheme` drives theme with JS disabled.
 4. Right-side nav highlights the active section on scroll and scroll-jumps on click; hidden on mobile.
 5. Skills badges drift, are draggable, and fling on release; reduced-motion shows a static grid.
-6. Projects show the 5 real repos with real ★/fork counts.
+6. Projects render from `assets/data/pinned-repos.json` with real ★/fork counts; deleting/renaming the JSON falls back to the static HTML cards (no empty section). `python ops/fetch_pinned_repos.py` (with a token) regenerates the JSON with current pins.
 7. Blogs shows the empty placeholder.
 8. Contact form still posts to `forms/contact.php`.
 9. `prefers-reduced-motion` and `no-js` fallbacks behave as specified.
 
+## Files Touched
+
+- `src/aws-s3-web/index.html`, `assets/css/terminal.css`, `assets/js/terminal.js` — rewritten (portfolio redesign).
+- `src/aws-s3-web/assets/data/pinned-repos.json` — new (initial committed pins + CI-refreshed).
+- `ops/fetch_pinned_repos.py` — new (GraphQL generator).
+- `.github/workflows/aws-s3-web-sync-staging.yml`, `aws-s3-web-sync-prod.yml` — add the refresh step + permission; prod also gets the daily `schedule`.
+
 ## Out of Scope
 
-- No changes to `.github/`, `inf/`, `gitops/`, `ops/`, or files in `src/aws-s3-web/` other than `index.html`, `assets/css/terminal.css`, `assets/js/terminal.js`.
+- No changes to `inf/`, `gitops/`, or other `.github/` workflows.
 - Old template files (`index_bk.html`, `index_2.html`, `main.css`, `main.js`, etc.) left in place; cleanup out of scope.
 - No backend/contact-form logic changes.
