@@ -203,3 +203,34 @@ a:hover { color: var(--green); text-decoration: underline; }
 .repo-card p { font-size: 14px; flex: 1; }
 .tags { display: flex; flex-wrap: wrap; gap: 8px; }
 .tag { font-size: 12px; color: var(--green); border: 1px solid var(--green-dim); border-radius: 999px; padding: 2px 10px; }
+
+/* ---------- Certifications ---------- */
+.cert-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 24px; justify-items: center; margin-top: 18px; }
+.cert { display: flex; flex-direction: column; align-items: center; gap: 10px; font-size: 12px; color: var(--text); transition: transform .2s; }
+.cert:hover { transform: scale(1.05); text-decoration: none; color: var(--green); }
+.cert img { width: 140px; height: auto; }
+
+/* ---------- Blog ---------- */
+.blog-list { display: grid; gap: 16px; }
+.blog-entry { background: var(--bg-panel); border: 1px solid var(--border); border-radius: 10px; padding: 20px 24px; transition: border-color .2s; }
+.blog-entry:hover { border-color: var(--green-dim); }
+.blog-line { display: flex; flex-wrap: wrap; gap: 14px; font-size: 13px; margin-bottom: 8px; }
+.perm { color: var(--text-dim); }
+.blog-date { color: var(--amber); }
+.blog-file { color: var(--cyan); word-break: break-all; }
+.blog-entry h3 { color: var(--text-bright); font-size: 16px; margin-bottom: 6px; }
+.blog-entry p { font-size: 14px; }
+.blog-meta { margin-top: 10px; font-size: 13px; color: var(--text-dim); }
+
+/* ---------- Contact ---------- */
+.contact-grid { display: grid; grid-template-columns: 1fr 1.4fr; gap: 24px; align-items: start; }
+.contact-kv { display: grid; gap: 8px; margin-top: 14px; }
+.contact-kv dt { min-width: 76px; }
+@media (max-width: 860px) { .contact-grid { grid-template-columns: 1fr; } }
+.term-form { display: grid; gap: 16px; }
+.term-form label { display: grid; gap: 6px; font-size: 13px; color: var(--cyan); }
+.term-form input, .term-form textarea {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 12px; color: var(--text-bright); font-family: inherit; font-size: 14px;
+}
+.term-form input:focus, .term-form textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 10px rgba(34, 197, 94, .2); }
