@@ -226,13 +226,30 @@ a:hover { text-decoration: underline; }
 .no-js .scroll-top { opacity: 1; pointer-events: auto; }
 
 /* ---------- About.system ---------- */
-.about-grid { display: grid; grid-template-columns: 240px 1fr; gap: 32px; align-items: start; }
-.about-photo img { border-radius: 10px; border: 1px solid var(--border); }
-.about-kv { display: grid; gap: 8px; margin-bottom: 18px; }
-.about-bio { margin-bottom: 22px; }
+.about-grid { display: grid; grid-template-columns: 260px 1fr; gap: 36px; align-items: start; }
+.about-side { display: flex; flex-direction: column; gap: 12px; }
+.about-photo img { border-radius: 10px; border: 1px solid var(--border); width: 100%; }
+.about-avatar-cap { font-family: var(--mono); font-size: 12px; text-align: center; }
+.about-log { display: grid; gap: 6px; font-family: var(--mono); font-size: 12px; border: 1px dashed var(--border); border-radius: 8px; padding: 14px; }
+.about-log div { display: flex; justify-content: space-between; gap: 12px; }
+.about-log dt { color: var(--text-dim); letter-spacing: .5px; }
+.about-log dd { color: var(--text-bright); text-align: right; }
+.stat-online { color: var(--green); display: inline-flex; align-items: center; gap: 6px; }
+.pulse { width: 8px; height: 8px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: .35; } }
+.reduced-motion .pulse { animation: none; }
+.about-block { margin-bottom: 20px; }
+.about-block p:not(.about-prompt) { color: var(--text); }
+.about-prompt { font-family: var(--mono); color: var(--text-bright); margin-bottom: 6px; }
+.about-prompt::before { content: '\2794  '; color: var(--green); }
+.about-stats { display: flex; flex-wrap: wrap; gap: 12px; margin: 24px 0; }
+.stat-badge { display: flex; flex-direction: column; gap: 2px; border: 1px solid var(--border); border-radius: 8px; padding: 10px 16px; font-family: var(--mono); background: var(--bg-elev); }
+.stat-k { font-size: 10px; letter-spacing: 1px; color: var(--text-dim); }
+.stat-v { font-size: 16px; color: var(--green); font-weight: 700; }
+.about-resume { margin-top: 4px; }
 @media (max-width: 760px) {
   .about-grid { grid-template-columns: 1fr; }
-  .about-photo { max-width: 220px; }
+  .about-side { max-width: 280px; margin: 0 auto; }
 }
 
 /* ---------- Skills.json ---------- */
