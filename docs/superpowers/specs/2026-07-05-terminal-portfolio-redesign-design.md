@@ -47,6 +47,10 @@ copied from that site). All existing content carries over.
 
 ## Page Structure (single page, anchor navigation)
 
+0. **Boot loader** — full-screen preloader on first paint: brief terminal
+   boot/loading sequence (progress lines, blinking cursor) that fades into the
+   page. Skipped entirely under `prefers-reduced-motion`, and auto-dismissed
+   after a short timeout so it can never block content.
 1. **Nav** — fixed top bar styled as a shell path / editor tabs
    (`~/home`, `~/about`, `~/skills`, `~/experience`, `~/projects`,
    `~/certs`, `~/blog`, `~/contact`). Active-section highlighting.
@@ -59,9 +63,14 @@ copied from that site). All existing content carries over.
    profile photo (`profile-img-main.jpg`) with green glow border; personal info
    (DOB, phone, degree, city, email) as key-value config pairs; CV download
    link styled as `wget resume.pdf` (same CloudFront PDF URL as today).
-4. **Skills** — ASCII progress bars animated on scroll, using current values:
+4. **Skills** — interactive **"skills universe"**: a canvas-based field of
+   floating skill nodes the visitor can drag to pan/explore (mouse + touch),
+   with node size reflecting proficiency and a hint label ("drag to explore").
+   Below it, ASCII progress bars animated on scroll using current values:
    AWS 90, Azure 60, Python 90, Linux 75, Terraform 75, Ansible 80, Docker 80,
-   Kubernetes 70. Format: `AWS  [█████████░] 90%`.
+   Kubernetes 70. Format: `AWS  [█████████░] 90%`. With
+   `prefers-reduced-motion` or no JS, the canvas is skipped and only the bars
+   render (filled immediately).
 5. **Experience** — git-log-style timeline: pseudo commit hashes + date ranges
    + role/company for every current resume item (Bosch roles Jan 2020–present,
    all professional-experience project entries) plus the education entry
@@ -83,10 +92,14 @@ copied from that site). All existing content carries over.
 
 ## Behavior (terminal.js)
 
-- Typed boot sequence + rotating role text (custom, no typed.js).
+- Boot-loader sequence with guaranteed dismissal (timeout fallback).
+- Typed hero boot lines + rotating role text (custom, no typed.js).
+- Skills-universe canvas: floating skill nodes, drag/touch panning,
+  requestAnimationFrame loop paused when off-screen.
 - IntersectionObserver: section reveal + skill-bar fill animation.
 - Sticky nav active-link highlighting (scroll position based).
 - Smooth anchor scrolling; mobile menu toggle.
+- Blinking-cursor accents on section headings.
 - No external JS dependencies.
 
 ## Accessibility & Performance
