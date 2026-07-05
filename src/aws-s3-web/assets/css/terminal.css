@@ -295,3 +295,22 @@ a:hover { text-decoration: underline; }
 .lang-dot { width: 11px; height: 11px; border-radius: 50%; display: inline-block; }
 .repo-stat { display: inline-flex; align-items: center; gap: 4px; }
 .mini-ic { width: 13px; height: 13px; }
+
+/* ---------- Blogs ---------- */
+.blogs-empty { font-family: var(--mono); font-size: 14px; }
+.blogs-empty .prompt { margin-bottom: 6px; }
+.blogs-empty .comment + .comment { margin-top: 2px; }
+
+/* ---------- Contact ---------- */
+.contact-grid { display: grid; grid-template-columns: 1fr 1.3fr; gap: 24px; align-items: start; }
+.contact-json {
+  padding: 22px; overflow-x: auto; font-family: var(--mono); font-size: 13px; line-height: 2; color: var(--text);
+}
+@media (max-width: 860px) { .contact-grid { grid-template-columns: 1fr; } }
+.term-form { display: grid; gap: 16px; }
+.term-form label { display: grid; gap: 6px; font-family: var(--mono); font-size: 13px; color: var(--link); }
+.term-form input, .term-form textarea {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 6px;
+  padding: 10px 12px; color: var(--text-bright); font-family: var(--mono); font-size: 14px;
+}
+.term-form input:focus, .term-form textarea:focus { outline: none; border-color: var(--green); box-shadow: 0 0 10px var(--shadow); }

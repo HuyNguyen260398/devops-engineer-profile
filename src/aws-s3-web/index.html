@@ -387,7 +387,74 @@
       </div>
     </section>
 
-    <!-- @blogs+contact -->
+    <!-- Blogs: ls -la ~/blogs -->
+    <section id="blogs" class="section">
+      <div class="container">
+        <div class="section-head reveal">
+          <h2>$ ls -la ~/blogs</h2>
+          <span class="comment"># pinned writing</span>
+        </div>
+        <div class="term reveal">
+          <div class="term-bar">
+            <span class="dot dot-r"></span><span class="dot dot-a"></span><span class="dot dot-g"></span>
+            <span class="term-title">~/blogs</span>
+          </div>
+          <div class="term-body blogs-empty">
+            <p class="prompt">ls -la ~/blogs</p>
+            <p class="comment">total 0</p>
+            <p class="comment"># No pinned blogs yet.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Contact: ./contact.exe -->
+    <section id="contact" class="section">
+      <div class="container">
+        <div class="section-head reveal">
+          <h2>$ ./contact.exe</h2>
+          <span class="comment"># let's build something reliable together</span>
+        </div>
+        <div class="contact-grid">
+          <div class="term reveal">
+            <div class="term-bar">
+              <span class="dot dot-r"></span><span class="dot dot-a"></span><span class="dot dot-g"></span>
+              <span class="term-title">contact.json</span>
+            </div>
+            <pre class="contact-json"><code>{
+  <span class="code-str">"email"</span>:    <span class="code-str">"huynguyen2603989@gmail.com"</span>,
+  <span class="code-str">"github"</span>:   <span class="code-str">"@HuyNguyen260398"</span>,
+  <span class="code-str">"linkedin"</span>: <span class="code-str">"huy-nguyen-966488189"</span>,
+  <span class="code-str">"location"</span>: <span class="code-str">"Ho Chi Minh City, VN"</span>,
+  <span class="code-str">"status"</span>:   <span class="code-str">"available"</span>
+}</code></pre>
+          </div>
+          <div class="term reveal">
+            <div class="term-bar">
+              <span class="dot dot-r"></span><span class="dot dot-a"></span><span class="dot dot-g"></span>
+              <span class="term-title">send-message.sh</span>
+            </div>
+            <div class="term-body">
+              <form action="forms/contact.php" method="post" class="term-form">
+                <label>&gt; name:
+                  <input type="text" name="name" required>
+                </label>
+                <label>&gt; email:
+                  <input type="email" name="email" required>
+                </label>
+                <label>&gt; subject:
+                  <input type="text" name="subject" required>
+                </label>
+                <label>&gt; message:
+                  <textarea name="message" rows="6" required></textarea>
+                </label>
+                <button type="submit" class="btn btn-primary">&gt; ./send-message.sh</button>
+              </form>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
 
   </main>
 
