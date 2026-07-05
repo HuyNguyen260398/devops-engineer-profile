@@ -4,14 +4,25 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Huy Nguyen — DevOps Engineer</title>
+  <title>Nguyen Gia Huy — DevOps Engineer</title>
   <meta name="description" content="Nguyen Gia Huy — DevOps Engineer portfolio: AWS, Azure, Kubernetes, Terraform, CI/CD, GitOps.">
 
-  <!-- Favicons -->
   <link href="assets/img/favicon-main.png" rel="icon">
   <link href="assets/img/apple-touch-icon-main.png" rel="apple-touch-icon">
 
-  <!-- Font -->
+  <!-- Apply theme before first paint (no flash) -->
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t !== 'light' && t !== 'dark') {
+          t = window.matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark';
+        }
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
+
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
@@ -21,444 +32,88 @@
 
 <body>
 
-  <!-- Boot loader (hidden when no-js / reduced-motion via CSS) -->
-  <div id="boot-loader" aria-hidden="true">
-    <div id="boot-lines" class="boot-lines"></div>
-  </div>
-
-  <header class="site-nav">
-    <div class="container nav-inner">
-      <a href="#home" class="brand"><span class="accent">huy@aws</span>:<span class="cyan">~</span>$</a>
-      <button id="nav-toggle" class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">≡</button>
-      <ul id="nav-menu" class="nav-menu">
-        <li><a href="#home" class="active">~/home</a></li>
-        <li><a href="#about">~/about</a></li>
-        <li><a href="#skills">~/skills</a></li>
-        <li><a href="#experience">~/experience</a></li>
-        <li><a href="#projects">~/projects</a></li>
-        <li><a href="#certs">~/certs</a></li>
-        <li><a href="#blog">~/blog</a></li>
-        <li><a href="#contact">~/contact</a></li>
-      </ul>
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <a href="#home" class="brand">&lt;<span class="accent">Dev</span>/&gt;</a>
+      <div class="topbar-right">
+        <a class="icon-link" href="https://github.com/HuyNguyen260398" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+        <a class="icon-link" href="https://www.linkedin.com/in/huy-nguyen-966488189" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.64h.05c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.78 2.65 4.78 6.1V21h-4v-5.4c0-1.29-.02-2.95-1.8-2.95-1.8 0-2.07 1.4-2.07 2.85V21H9z"/></svg>
+        </a>
+        <a class="icon-link" href="mailto:huynguyen2603989@gmail.com" aria-label="Email">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm2 .4v.6l8 5 8-5V5.4l-8 5z"/></svg>
+        </a>
+        <button id="theme-toggle" class="theme-toggle" aria-label="Toggle color theme">
+          <svg class="icon icon-sun" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 7a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm0-5v3m0 14v3M4.2 4.2l2.1 2.1m11.4 11.4 2.1 2.1M2 12h3m14 0h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/></svg>
+          <svg class="icon icon-moon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        </button>
+        <button id="nav-toggle" class="nav-toggle" aria-label="Toggle navigation" aria-expanded="false">≡</button>
+      </div>
     </div>
+    <ul id="nav-menu" class="nav-menu">
+      <li><a href="#home">Home</a></li>
+      <li><a href="#about">About</a></li>
+      <li><a href="#skills">Skills</a></li>
+      <li><a href="#experience">Experience</a></li>
+      <li><a href="#projects">Projects</a></li>
+      <li><a href="#blogs">Blogs</a></li>
+      <li><a href="#contact">Contact</a></li>
+    </ul>
   </header>
+
+  <!-- Right-side vertical rail nav -->
+  <nav id="rail" class="rail" aria-label="Section navigation">
+    <a href="#home" data-label="Home" class="rail-dot active" aria-label="Home"><span></span></a>
+    <a href="#about" data-label="About" class="rail-dot" aria-label="About"><span></span></a>
+    <a href="#skills" data-label="Skills" class="rail-dot" aria-label="Skills"><span></span></a>
+    <a href="#experience" data-label="Experience" class="rail-dot" aria-label="Experience"><span></span></a>
+    <a href="#projects" data-label="Projects" class="rail-dot" aria-label="Projects"><span></span></a>
+    <a href="#blogs" data-label="Blogs" class="rail-dot" aria-label="Blogs"><span></span></a>
+    <a href="#contact" data-label="Contact" class="rail-dot" aria-label="Contact"><span></span></a>
+  </nav>
 
   <main>
 
     <!-- Hero -->
     <section id="home" class="hero">
-      <div class="container">
-        <pre id="hero-boot" class="hero-boot" aria-hidden="true"></pre>
-        <p class="hero-hello prompt">whoami</p>
-        <h1 class="hero-name">Nguyen Gia Huy</h1>
-        <p class="hero-role">I'm a <span id="typed-role" class="accent">DevOps Engineer</span><span class="cursor">_</span></p>
-        <p class="hero-tagline"># Automating infrastructure · CI/CD · Cloud on AWS &amp; Azure</p>
-        <div class="hero-social">
-          <a class="btn-cmd" href="https://www.linkedin.com/in/huy-nguyen-966488189" target="_blank" rel="noopener noreferrer">./linkedin</a>
-          <a class="btn-cmd" href="https://github.com/HuyNguyen260398" target="_blank" rel="noopener noreferrer">./github</a>
-          <a class="btn-cmd" href="https://www.facebook.com/huy.nguyen.682" target="_blank" rel="noopener noreferrer">./facebook</a>
-          <a class="btn-cmd" href="https://www.instagram.com/huynguyen2603989/" target="_blank" rel="noopener noreferrer">./instagram</a>
-        </div>
-      </div>
-    </section>
-
-    <!-- About -->
-    <section id="about" class="section">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2><span class="accent">$</span>cat about.txt<span class="cursor">_</span></h2>
-        </div>
-        <div class="term reveal">
-          <div class="term-bar">
-            <span class="dot dot-r"></span><span class="dot dot-a"></span><span class="dot dot-g"></span>
-            <span class="term-title">about.txt — ~/huy</span>
-          </div>
-          <div class="term-body about-grid">
-            <div class="about-photo">
-              <img src="assets/img/profile-img-main.jpg" alt="Portrait of Nguyen Gia Huy">
-            </div>
-            <div class="about-text">
-              <p class="comment"># DevOps Engineer — Ho Chi Minh City, Viet Nam</p>
-              <p>I am a DevOps Engineer with 5 years of hands-on experience in automating infrastructure, optimizing CI/CD pipelines, and ensuring scalable cloud deployments. I am skilled in bridging development and operations to deliver reliable, high-performing systems. I am seeking to leverage expertise in DevOps practices while driving innovation through AI implementation, with a focus on enhancing automation, predictive monitoring, and intelligent workflow optimization.</p>
-              <dl class="kv">
-                <div><dt>dob</dt><dd>1998-03-26</dd></div>
-                <div><dt>phone</dt><dd>+84 903 336 493</dd></div>
-                <div><dt>degree</dt><dd>Bachelor of Information Technology</dd></div>
-                <div><dt>city</dt><dd>Ho Chi Minh City, Viet Nam</dd></div>
-                <div><dt>email</dt><dd><a href="mailto:huynguyen2603989@gmail.com">huynguyen2603989@gmail.com</a></dd></div>
-              </dl>
-              <a class="btn-cmd btn-primary" href="https://d1k59jrf89m1h2.cloudfront.net/Nguyen-Gia-Huy-DevOps-Engineer.pdf" download="Nguyen-Gia-Huy-DevOps-Engineer.pdf" target="_blank" rel="noopener noreferrer">wget resume.pdf</a>
-            </div>
+      <div class="container hero-grid">
+        <div class="hero-left">
+          <p id="kernel" class="kernel"><span class="k-dot"></span>SYSTEM.KERNEL :: v1.0.0 ONLINE</p>
+          <p class="hero-hello">Hello, I'm</p>
+          <h1 class="hero-name">Nguyen Gia Huy</h1>
+          <p class="hero-role">&gt; <span id="typed-role" class="accent">DevOps Engineer</span><span class="cursor">_</span></p>
+          <p class="hero-tagline">Automating Infrastructure Beyond Boundaries</p>
+          <div class="hero-cta">
+            <a class="btn btn-primary" href="#about">&gt; Initialize OS</a>
+            <a class="btn" href="https://github.com/HuyNguyen260398" target="_blank" rel="noopener noreferrer">&gt; Check out GitHub</a>
           </div>
         </div>
-      </div>
-    </section>
-
-    <!-- Skills -->
-    <section id="skills" class="section">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2><span class="accent">$</span>./skills --explore<span class="cursor">_</span></h2>
-        </div>
-        <div class="term skills-universe reveal">
-          <div class="term-bar">
-            <span class="dot dot-r"></span><span class="dot dot-a"></span><span class="dot dot-g"></span>
-            <span class="term-title">skills-universe — drag to explore</span>
-          </div>
-          <div class="term-body term-body-flush">
-            <canvas id="skills-canvas" role="img" aria-label="Interactive map of technical skills. Skill levels are listed below."></canvas>
-            <p class="canvas-hint">&lt; drag to explore the skills universe &gt;</p>
-          </div>
-        </div>
-        <div class="skill-grid reveal">
-          <div class="skill-bar" data-level="90">
-            <span class="skill-name">AWS</span>
-            <span class="skill-track" aria-hidden="true">[█████████░]</span>
-            <span class="skill-val">90%</span>
-          </div>
-          <div class="skill-bar" data-level="75">
-            <span class="skill-name">Terraform</span>
-            <span class="skill-track" aria-hidden="true">[████████░░]</span>
-            <span class="skill-val">75%</span>
-          </div>
-          <div class="skill-bar" data-level="60">
-            <span class="skill-name">Azure</span>
-            <span class="skill-track" aria-hidden="true">[██████░░░░]</span>
-            <span class="skill-val">60%</span>
-          </div>
-          <div class="skill-bar" data-level="80">
-            <span class="skill-name">Ansible</span>
-            <span class="skill-track" aria-hidden="true">[████████░░]</span>
-            <span class="skill-val">80%</span>
-          </div>
-          <div class="skill-bar" data-level="90">
-            <span class="skill-name">Python</span>
-            <span class="skill-track" aria-hidden="true">[█████████░]</span>
-            <span class="skill-val">90%</span>
-          </div>
-          <div class="skill-bar" data-level="80">
-            <span class="skill-name">Docker</span>
-            <span class="skill-track" aria-hidden="true">[████████░░]</span>
-            <span class="skill-val">80%</span>
-          </div>
-          <div class="skill-bar" data-level="75">
-            <span class="skill-name">Linux</span>
-            <span class="skill-track" aria-hidden="true">[████████░░]</span>
-            <span class="skill-val">75%</span>
-          </div>
-          <div class="skill-bar" data-level="70">
-            <span class="skill-name">Kubernetes</span>
-            <span class="skill-track" aria-hidden="true">[███████░░░]</span>
-            <span class="skill-val">70%</span>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Experience -->
-    <section id="experience" class="section">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2><span class="accent">$</span>git log --career<span class="cursor">_</span></h2>
-        </div>
-        <ol class="git-log">
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">f4c3a9e</span><span class="ref">(HEAD -&gt; main)</span><span class="commit-date">Jan 2020 – Present</span></div>
-            <h3>DevOps Engineer</h3>
-            <p class="org">Bosch Global Software Technologies Viet Nam</p>
-            <ul>
-              <li>DevOps engineer with a strong progression from automation development to large scale CI/CD infrastructure system to support multiple embedded teams.</li>
-              <li>Skilled in building automation solutions using Jenkins, Groovy, Python, Helm, and Ansible, supporting domains such as Powertrain, Splunk, and Active Safety.</li>
-              <li>Experienced in maintaining CI infrastructure on Azure Cloud with Kubernetes, ArgoCD and Terraform.</li>
-              <li>Willingly and actively collaborating with teams in Germany, India, China, and Hungary, delivering reliable pipelines and scalable infrastructure.</li>
-              <li>Proactive to research early adoption of agentic AI to enhance DevOps workflows.</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">e7d21b8</span><span class="commit-date">Oct 2025 – Dec 2025</span></div>
-            <h3>AWS CloudOps Agent — Leader</h3>
-            <p class="org">Bosch Global Software Technology Vietnam</p>
-            <ul>
-              <li>Leading development of an intelligent agentic AI system powered by AWS Bedrock AgentCore and AWS Strands Agent SDK for autonomous AWS cloud operations management</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">c9a54f3</span><span class="commit-date">Sep 2025 – Dec 2025</span></div>
-            <h3>MCP Server for DevOps — DevOps Engineer</h3>
-            <p class="org">Bosch Global Software Technology Vietnam</p>
-            <ul>
-              <li>Conducting research and early implementation of agentic AI in DevOps</li>
-              <li>Developing MCP server to explore intelligent automation capabilities</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">b3e8d17</span><span class="commit-date">Jun 2025 – Dec 2025</span></div>
-            <h3>CI/CD Infrastructure in K8S — DevOps Engineer</h3>
-            <p class="org">Bosch Global Software Technology Vietnam</p>
-            <ul>
-              <li>Received knowledge transfer from Hungary team to operate and maintain Jenkins systems deployed on Azure Cloud</li>
-              <li>Leveraged Kubernetes (K8s) and ArgoCD for GitOps-based deployments</li>
-              <li>Maintained Azure cloud infrastructure using Terraform</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">a1f6c42</span><span class="commit-date">Jun 2024 – Dec 2025</span></div>
-            <h3>Jenkins CI/CD Pipelines for DE ActiveSafety Team — DevOps Engineer</h3>
-            <p class="org">Bosch Global Software Technology Vietnam</p>
-            <ul>
-              <li>Enhanced Jenkins pipelines using custom Python libraries</li>
-              <li>Implemented Jenkins Infrastructure as Code with Helm</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">98d3e5b</span><span class="commit-date">Jan 2024 – Jun 2024</span></div>
-            <h3>Splunk &amp; CI Infrastructure — DevOps Engineer</h3>
-            <p class="org">Bosch Global Software Technology Vietnam</p>
-            <ul>
-              <li>Supported Splunk team in setting up and optimizing Jenkins pipelines for log analytics and monitoring solutions</li>
-              <li>Maintained and improved CI infrastructure for German projects, including Jenkins, Grafana, and Prometheus</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">87c2f9a</span><span class="commit-date">Jan 2021 – Jun 2024</span></div>
-            <h3>Jenkins CI/CD Pipelines for DE PowerTrain Team — DevOps Engineer</h3>
-            <p class="org">Bosch Global Software Technology Vietnam</p>
-            <ul>
-              <li>Transitioned into the DevOps team, working closely with colleagues in Germany to support large-scale automotive software development</li>
-              <li>Designed and implemented CI/CD pipelines using Jenkins and Groovy, enabling automated build, test, and deployment workflows</li>
-              <li>May 2023: Onsite trip to Bosch Abstatt to work closely with Germany colleagues</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">76b1e48</span><span class="commit-date">Apr 2020 – Jan 2021</span></div>
-            <h3>KPI Dashboard — Automation Tool Developer</h3>
-            <p class="org">Bosch Global Software Technology Vietnam</p>
-            <ul>
-              <li>Collaborated with China-based software PCMs and managers to design and deliver KPI dashboards using PowerBI and SQL</li>
-              <li>Improved visibility into project performance through data visualization</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">65a9d37</span><span class="commit-date">Apr 2020 – Jan 2021</span></div>
-            <h3>Automation Tool Developer</h3>
-            <p class="org">Bosch Global Software Technology Vietnam</p>
-            <ul>
-              <li>Developed automation applications using C# and Python to streamline workflow and process management on Jira</li>
-              <li>Supported embedded teams in India and Germany</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">54f8c26</span><span class="commit-date">Jan 2020 – Apr 2020</span></div>
-            <h3>Python Intern — Embedded Automation Tools</h3>
-            <p class="org">Bosch Global Software Technology Vietnam</p>
-            <ul>
-              <li>Supported senior engineers in developing internal tools and improving code quality</li>
-            </ul>
-          </li>
-          <li class="commit reveal">
-            <div class="commit-line"><span class="hash">43e7b15</span><span class="ref">(tag: education)</span><span class="commit-date">2017 – 2020</span></div>
-            <h3>Bachelor of Information Technology</h3>
-            <p class="org">University of Greenwich, Viet Nam</p>
-            <ul>
-              <li>GPA: 3.6/4</li>
-            </ul>
-          </li>
-        </ol>
-      </div>
-    </section>
-
-    <!-- Projects -->
-    <section id="projects" class="section">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2><span class="accent">$</span>ls ~/projects<span class="cursor">_</span></h2>
-        </div>
-        <div class="repo-grid">
-          <article class="repo-card reveal">
-            <div class="repo-head">
-              <span class="repo-icon" aria-hidden="true">▣</span>
-              <h3><a href="https://github.com/HuyNguyen260398/devops-engineer-profile" target="_blank" rel="noopener noreferrer">devops-engineer-profile</a></h3>
-            </div>
-            <p>Comprehensive DevOps platform featuring CI/CD pipelines, monitoring, and observability tools, orchestrated on Kubernetes with Terraform and Helm-based infrastructure management and GitOps practices.</p>
-            <div class="tags">
-              <span class="tag">AWS EKS</span><span class="tag">Helm</span><span class="tag">Terraform</span><span class="tag">Argo CD</span>
-            </div>
-          </article>
-          <article class="repo-card reveal">
-            <div class="repo-head">
-              <span class="repo-icon" aria-hidden="true">▣</span>
-              <h3><a href="https://github.com/HuyNguyen260398/aws_resume_web_inf" target="_blank" rel="noopener noreferrer">aws_resume_web_inf</a></h3>
-            </div>
-            <p>Serverless static website deployment on AWS with CloudFront, S3, and automated CI/CD pipelines for continuous updates.</p>
-            <div class="tags">
-              <span class="tag">AWS S3</span><span class="tag">CloudFront</span><span class="tag">Route53</span><span class="tag">ACM</span><span class="tag">Terraform</span><span class="tag">GitHub Actions</span>
-            </div>
-          </article>
-          <article class="repo-card reveal">
-            <div class="repo-head">
-              <span class="repo-icon" aria-hidden="true">▣</span>
-              <h3><a href="https://github.com/HuyNguyen260398/aws-cloudops-agent" target="_blank" rel="noopener noreferrer">aws-cloudops-agent</a></h3>
-            </div>
-            <p>An intelligent agentic AI system powered by AWS Bedrock AgentCore and AWS Strands Agent SDK for autonomous AWS cloud operations management.</p>
-            <div class="tags">
-              <span class="tag">Strands Agent</span><span class="tag">Bedrock AgentCore</span><span class="tag">Bedrock LLM</span><span class="tag">OpenSearch</span>
-            </div>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- Certifications -->
-    <section id="certs" class="section">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2><span class="accent">$</span>ls ~/certifications<span class="cursor">_</span></h2>
-        </div>
-        <div class="term reveal">
-          <div class="term-bar">
-            <span class="dot dot-r"></span><span class="dot dot-a"></span><span class="dot dot-g"></span>
-            <span class="term-title">~/certifications</span>
-          </div>
-          <div class="term-body">
-            <p class="prompt">ls -la ~/certifications/</p>
-            <div class="cert-grid">
-              <a href="https://www.credly.com/badges/a9c87043-fa06-49bb-8570-d08a3fb7883c/public_url" target="_blank" rel="noopener noreferrer" class="cert" title="AWS Certified Cloud Practitioner">
-                <img src="assets/img/certifications/aws-certified-cloud-practitioner.png" alt="AWS Certified Cloud Practitioner badge" loading="lazy">
-                <span>cloud-practitioner.cert</span>
-              </a>
-              <a href="https://www.credly.com/badges/39219854-bc9b-43a0-942e-9e86064151d6/public_url" target="_blank" rel="noopener noreferrer" class="cert" title="AWS Certified Solutions Architect - Associate">
-                <img src="assets/img/certifications/aws-certified-solutions-architect-associate.png" alt="AWS Certified Solutions Architect - Associate badge" loading="lazy">
-                <span>solutions-architect.cert</span>
-              </a>
-              <a href="https://www.credly.com/badges/75544d8f-9193-4505-8634-238a8925fd86/public_url" target="_blank" rel="noopener noreferrer" class="cert" title="AWS Certified SysOps Administrator - Associate">
-                <img src="assets/img/certifications/aws-certified-sysops-administrator-associate.png" alt="AWS Certified SysOps Administrator - Associate badge" loading="lazy">
-                <span>sysops-admin.cert</span>
-              </a>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-
-    <!-- Blog -->
-    <section id="blog" class="section">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2><span class="accent">$</span>ls ~/blog<span class="cursor">_</span></h2>
-        </div>
-        <div class="blog-list">
-          <article class="blog-entry reveal">
-            <div class="blog-line">
-              <span class="perm" aria-hidden="true">-rw-r--r--</span>
-              <span class="blog-date">2026-01-15</span>
-              <a class="blog-file" href="https://kubernetes.io/blog/" target="_blank" rel="noopener noreferrer">pod-security-standards.md</a>
-            </div>
-            <h3>Kubernetes Security Best Practices: Pod Security Standards</h3>
-            <p>Learn how to implement Pod Security Standards to enhance your Kubernetes cluster security. This comprehensive guide covers the latest security controls and best practices for production environments.</p>
-            <p class="blog-meta">source: <a href="https://kubernetes.io/blog/" target="_blank" rel="noopener noreferrer">Kubernetes Blog</a></p>
-          </article>
-          <article class="blog-entry reveal">
-            <div class="blog-line">
-              <span class="perm" aria-hidden="true">-rw-r--r--</span>
-              <span class="blog-date">2026-01-12</span>
-              <a class="blog-file" href="https://github.blog/" target="_blank" rel="noopener noreferrer">cicd-pipeline-optimization.md</a>
-            </div>
-            <h3>Optimizing CI/CD Pipelines: From Commit to Production in Minutes</h3>
-            <p>Discover strategies to optimize your CI/CD pipelines using GitHub Actions. Learn caching techniques, parallel jobs, and workflow optimization to reduce deployment time by up to 60%.</p>
-            <p class="blog-meta">source: <a href="https://github.blog/" target="_blank" rel="noopener noreferrer">GitHub Blog</a></p>
-          </article>
-          <article class="blog-entry reveal">
-            <div class="blog-line">
-              <span class="perm" aria-hidden="true">-rw-r--r--</span>
-              <span class="blog-date">2026-01-08</span>
-              <a class="blog-file" href="https://www.hashicorp.com/blog/" target="_blank" rel="noopener noreferrer">terraform-aws-iac.md</a>
-            </div>
-            <h3>Infrastructure as Code: Managing AWS Resources with Terraform</h3>
-            <p>Master Infrastructure as Code with Terraform. This guide covers module design, state management, and best practices for managing large-scale AWS infrastructure with confidence.</p>
-            <p class="blog-meta">source: <a href="https://www.hashicorp.com/blog/" target="_blank" rel="noopener noreferrer">HashiCorp Blog</a></p>
-          </article>
-          <article class="blog-entry reveal">
-            <div class="blog-line">
-              <span class="perm" aria-hidden="true">-rw-r--r--</span>
-              <span class="blog-date">2026-01-05</span>
-              <a class="blog-file" href="https://www.datadoghq.com/blog/" target="_blank" rel="noopener noreferrer">observability-pillars.md</a>
-            </div>
-            <h3>Building Observability: Metrics, Logs, and Traces in Modern Systems</h3>
-            <p>Understand the three pillars of observability and how to implement comprehensive monitoring strategies using OpenTelemetry, Prometheus, and modern observability platforms.</p>
-            <p class="blog-meta">source: <a href="https://www.datadoghq.com/blog/" target="_blank" rel="noopener noreferrer">Datadog Blog</a></p>
-          </article>
-          <article class="blog-entry reveal">
-            <div class="blog-line">
-              <span class="perm" aria-hidden="true">-rw-r--r--</span>
-              <span class="blog-date">2025-12-28</span>
-              <a class="blog-file" href="https://www.docker.com/blog/" target="_blank" rel="noopener noreferrer">container-supply-chain-security.md</a>
-            </div>
-            <h3>Docker and Container Security: Securing Your Container Supply Chain</h3>
-            <p>Secure your containerized applications from build to production. Learn image scanning, runtime security, and vulnerability management techniques for a hardened container environment.</p>
-            <p class="blog-meta">source: <a href="https://www.docker.com/blog/" target="_blank" rel="noopener noreferrer">Docker Blog</a></p>
-          </article>
-          <article class="blog-entry reveal">
-            <div class="blog-line">
-              <span class="perm" aria-hidden="true">-rw-r--r--</span>
-              <span class="blog-date">2025-12-20</span>
-              <a class="blog-file" href="https://www.cncf.io/blog/" target="_blank" rel="noopener noreferrer">gitops-declarative-infra.md</a>
-            </div>
-            <h3>GitOps: The Future of Declarative Infrastructure Management</h3>
-            <p>Explore GitOps principles and tools like ArgoCD and Flux. Learn how to manage your infrastructure and applications declaratively using Git as the single source of truth.</p>
-            <p class="blog-meta">source: <a href="https://www.cncf.io/blog/" target="_blank" rel="noopener noreferrer">CNCF Blog</a></p>
-          </article>
-        </div>
-      </div>
-    </section>
-
-    <!-- Contact -->
-    <section id="contact" class="section">
-      <div class="container">
-        <div class="section-head reveal">
-          <h2><span class="accent">$</span>./contact.sh<span class="cursor">_</span></h2>
-        </div>
-        <div class="contact-grid">
-          <div class="term reveal">
+        <div class="hero-right">
+          <div class="term code-card">
             <div class="term-bar">
               <span class="dot dot-r"></span><span class="dot dot-a"></span><span class="dot dot-g"></span>
-              <span class="term-title">whois — huy</span>
+              <span class="term-title">about-me.tf</span>
             </div>
-            <div class="term-body">
-              <p class="prompt">whois huy</p>
-              <dl class="kv contact-kv">
-                <div><dt>address</dt><dd>91 Tran Tan Street, Ho Chi Minh City, Viet Nam</dd></div>
-                <div><dt>phone</dt><dd>+84 903 336 493</dd></div>
-                <div><dt>email</dt><dd><a href="mailto:huynguyen2603989@gmail.com">huynguyen2603989@gmail.com</a></dd></div>
-                <div><dt>status</dt><dd><span class="accent">● online</span> — open to opportunities</dd></div>
-              </dl>
-            </div>
-          </div>
-          <div class="term reveal">
-            <div class="term-bar">
-              <span class="dot dot-r"></span><span class="dot dot-a"></span><span class="dot dot-g"></span>
-              <span class="term-title">send-message.sh</span>
-            </div>
-            <div class="term-body">
-              <form action="forms/contact.php" method="post" class="term-form">
-                <label>&gt; name:
-                  <input type="text" name="name" required>
-                </label>
-                <label>&gt; email:
-                  <input type="email" name="email" required>
-                </label>
-                <label>&gt; subject:
-                  <input type="text" name="subject" required>
-                </label>
-                <label>&gt; message:
-                  <textarea name="message" rows="6" required></textarea>
-                </label>
-                <button type="submit" class="btn-cmd btn-primary">./send-message.sh</button>
-              </form>
-            </div>
+            <pre class="code-body"><code><span class="code-kw">resource</span> <span class="code-str">"devops_engineer"</span> <span class="code-str">"huy"</span> {
+  name       = <span class="code-str">"Nguyen Gia Huy"</span>
+  location   = <span class="code-str">"Ho Chi Minh City, VN"</span>
+  experience = <span class="code-num">5</span> <span class="code-cm"># years</span>
+  focus      = [<span class="code-str">"CI/CD"</span>, <span class="code-str">"GitOps"</span>, <span class="code-str">"IaC"</span>]
+  stack      = [<span class="code-str">"AWS"</span>, <span class="code-str">"Azure"</span>, <span class="code-str">"Kubernetes"</span>]
+  status     = <span class="code-str">"available"</span>
+}</code></pre>
           </div>
         </div>
       </div>
     </section>
+
+    <!-- @about+skills -->
+
+    <!-- @experience+projects -->
+
+    <!-- @blogs+contact -->
 
   </main>
 
@@ -466,11 +121,16 @@
     <div class="container">
       <p class="prompt">exit 0</p>
       <p>© <span id="year">2026</span> Nguyen Gia Huy — DevOps Engineer</p>
-      <div class="hero-social">
-        <a class="btn-cmd" href="https://www.linkedin.com/in/huy-nguyen-966488189" target="_blank" rel="noopener noreferrer">./linkedin</a>
-        <a class="btn-cmd" href="https://github.com/HuyNguyen260398" target="_blank" rel="noopener noreferrer">./github</a>
-        <a class="btn-cmd" href="https://www.facebook.com/huy.nguyen.682" target="_blank" rel="noopener noreferrer">./facebook</a>
-        <a class="btn-cmd" href="https://www.instagram.com/huynguyen2603989/" target="_blank" rel="noopener noreferrer">./instagram</a>
+      <div class="footer-social">
+        <a class="icon-link" href="https://github.com/HuyNguyen260398" target="_blank" rel="noopener noreferrer" aria-label="GitHub">
+          <svg class="icon" viewBox="0 0 16 16" aria-hidden="true"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        </a>
+        <a class="icon-link" href="https://www.linkedin.com/in/huy-nguyen-966488189" target="_blank" rel="noopener noreferrer" aria-label="LinkedIn">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M4.98 3.5a2.5 2.5 0 1 1 0 5 2.5 2.5 0 0 1 0-5zM3 9h4v12H3zM9 9h3.8v1.64h.05c.53-1 1.83-2.06 3.77-2.06 4.03 0 4.78 2.65 4.78 6.1V21h-4v-5.4c0-1.29-.02-2.95-1.8-2.95-1.8 0-2.07 1.4-2.07 2.85V21H9z"/></svg>
+        </a>
+        <a class="icon-link" href="mailto:huynguyen2603989@gmail.com" aria-label="Email">
+          <svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M2 5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2zm2 .4v.6l8 5 8-5V5.4l-8 5z"/></svg>
+        </a>
       </div>
     </div>
   </footer>
