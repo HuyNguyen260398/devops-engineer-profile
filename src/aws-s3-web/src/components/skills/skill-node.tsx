@@ -2,13 +2,14 @@
 
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Bot, Cloud } from "lucide-react";
+import { Bot, Cloud, CloudCog } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import {
   SiAnsible,
   SiArgo,
   SiCloudflare,
   SiDocker,
+  SiGit,
   SiGithub,
   SiGitlab,
   SiGnubash,
@@ -38,7 +39,9 @@ const iconMap = {
   kubernetes: SiKubernetes,
   terraform: SiTerraform,
   aws: Cloud,
+  azure: CloudCog,
   docker: SiDocker,
+  git: SiGit,
   linux: SiLinux,
   github: SiGithub,
   gitlab: SiGitlab,
