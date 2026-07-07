@@ -44,7 +44,7 @@ export function AssistantWidget() {
           <motion.button
             type="button"
             className="assistant-fab"
-            aria-label="Open sample assistant"
+            aria-label="Open assistant"
             onClick={() => setOpen(true)}
             initial={{ scale: 0.85, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
@@ -55,7 +55,7 @@ export function AssistantWidget() {
             <span className="assistant-orbit" aria-hidden="true" />
             <Image src="/avatar.jpg" alt="" width={43} height={43} />
             <span className="assistant-status" aria-hidden="true" />
-            <span className="assistant-tip" aria-hidden="true"><strong>&gt;</strong> Open sample assistant<small>local replies only</small></span>
+            <span className="assistant-tip" aria-hidden="true"><strong>&gt;</strong> Open assistant<small>local replies only</small></span>
           </motion.button>
         ) : (
           <motion.section
@@ -70,25 +70,25 @@ export function AssistantWidget() {
             <header>
               <div className="assistant-avatar"><Image src="/avatar.jpg" alt="" width={38} height={38} /><span aria-hidden="true" /></div>
               <div>
-                <h2 id="assistant-title"><span>&gt;</span> sample.ai</h2>
+                <h2 id="assistant-title"><span>&gt;</span> huy.ai</h2>
                 <p>{"// online locally"}</p>
               </div>
               <div className="assistant-controls">
                 <button
                   type="button"
-                  aria-label="Reset sample assistant"
+                  aria-label="Reset assistant"
                   onClick={() => setMessages([welcomeMessage])}
                 >
                   <RotateCcw aria-hidden="true" size={14} />
                 </button>
                 <button
                   type="button"
-                  aria-label={minimized ? "Restore sample assistant" : "Minimize sample assistant"}
+                  aria-label={minimized ? "Restore assistant" : "Minimize assistant"}
                   onClick={() => setMinimized((current) => !current)}
                 >
                   {minimized ? <Sparkles aria-hidden="true" size={14} /> : <Minus aria-hidden="true" size={14} />}
                 </button>
-                <button type="button" aria-label="Close sample assistant" onClick={close}>
+                <button type="button" aria-label="Close assistant" onClick={close}>
                   <X aria-hidden="true" size={15} />
                 </button>
               </div>
@@ -115,7 +115,7 @@ export function AssistantWidget() {
                     </button>
                   ))}
                 </div>
-                <footer><Sparkles aria-hidden="true" size={13} /> Scripted placeholder responses</footer>
+                <footer><Sparkles aria-hidden="true" size={13} /> Scripted local responses</footer>
               </>
             ) : null}
           </motion.section>

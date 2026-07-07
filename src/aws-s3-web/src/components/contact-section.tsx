@@ -59,7 +59,7 @@ export function ContactSection() {
             <ol aria-hidden="true">{Array.from({ length: 12 }, (_, index) => <li key={index}>{index + 1}</li>)}</ol>
             <div>
               <p><span className="json-yellow">{"{"}</span></p>
-              <p className="indent-one"><span className="json-key">&quot;status&quot;</span>: <span className="json-green">&quot;sample_available&quot;</span>,</p>
+              <p className="indent-one"><span className="json-key">&quot;status&quot;</span>: <span className="json-green">&quot;available&quot;</span>,</p>
               <p className="indent-one"><span className="json-key">&quot;email&quot;</span>: <a href={"mailto:" + portfolio.identity.email}>&quot;{portfolio.identity.email}&quot;</a>,</p>
               <p className="indent-one"><span className="json-key">&quot;socials&quot;</span>: <span className="json-yellow">{"{"}</span></p>
               {portfolio.socials.map((social, index) => (
@@ -141,9 +141,9 @@ export function ContactSection() {
         </article>
       </div>
       <footer className="site-footer">
-        <p><Code2 aria-hidden="true" size={18} /> Sample Developer <span>|</span> Platform Engineer</p>
-        <small>Built as an original Next.js, TypeScript, and Three.js demonstration.</small>
-        <small>© {new Date().getFullYear()} Sample Portfolio. Replace with your details.</small>
+        <p><Code2 aria-hidden="true" size={18} /> Nguyen Gia Huy <span>|</span> DevOps Engineer</p>
+        <small>Built with Next.js, TypeScript, and Three.js.</small>
+        <small>© {new Date().getFullYear()} Nguyen Gia Huy.</small>
       </footer>
     </section>
   );

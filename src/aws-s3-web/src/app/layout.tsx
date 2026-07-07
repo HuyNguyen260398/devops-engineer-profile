@@ -6,9 +6,9 @@ import "geist/font/mono";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "Sample Developer | Platform Engineer",
+  title: "Nguyen Gia Huy — DevOps Engineer",
   description:
-    "A sample terminal-inspired engineering portfolio with an interactive Three.js skills universe.",
+    "Nguyen Gia Huy — DevOps Engineer portfolio: AWS, Azure, Kubernetes, Terraform, CI/CD, GitOps.",
 };
 
 export const viewport: Viewport = {
