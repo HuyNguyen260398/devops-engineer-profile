@@ -1,0 +1,21 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 240" role="img" aria-labelledby="title desc">
+  <title id="title">Sample developer placeholder</title>
+  <desc id="desc">Abstract orange and blue geometric portrait with the initials SD.</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#181818"/>
+      <stop offset="1" stop-color="#090909"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#79c0ff"/>
+      <stop offset="1" stop-color="#58a6ff"/>
+    </linearGradient>
+  </defs>
+  <rect width="240" height="240" fill="url(#bg)"/>
+  <path d="M24 52h192M24 92h192M24 132h192M24 172h192" stroke="#58a6ff" stroke-opacity=".08"/>
+  <path d="M52 24v192M92 24v192M132 24v192M172 24v192" stroke="#58a6ff" stroke-opacity=".06"/>
+  <circle cx="120" cy="93" r="48" fill="none" stroke="url(#accent)" stroke-width="4"/>
+  <path d="M54 217c7-47 31-72 66-72s59 25 66 72" fill="#58a6ff" fill-opacity=".12" stroke="#58a6ff" stroke-width="3"/>
+  <circle cx="120" cy="93" r="38" fill="#202020"/>
+  <text x="120" y="105" fill="#f4f4f5" font-family="ui-monospace, monospace" font-size="34" font-weight="700" text-anchor="middle">SD</text>
+</svg>
