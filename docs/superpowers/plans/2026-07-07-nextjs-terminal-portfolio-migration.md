@@ -782,8 +782,15 @@ EOF
 
 ### Task 6: Blogs section empty state
 
+> **Amended during execution:** the bare `blogs: []` literal in `portfolio.ts`
+> narrows to an empty-tuple type under `as const`, which breaks type
+> inference for `BlogPost` fields in the (unreachable today, but still
+> type-checked) non-empty render branch. Fix: in `src/aws-s3-web/src/data/portfolio.ts`,
+> change `blogs: [],` to `blogs: [] as PortfolioContent["blogs"],`.
+
 **Files:**
 - Modify: `src/aws-s3-web/src/components/blogs-section.tsx`
+- Modify: `src/aws-s3-web/src/data/portfolio.ts` (widen the `blogs` field type — see amendment above)
 
 **Interfaces:**
 - Consumes: `portfolio.blogs` (empty array, from Task 2).
