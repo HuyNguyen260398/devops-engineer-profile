@@ -97,3 +97,11 @@ temp/
 
 # Helm charts
 chart.lock
+
+# Next.js build artifacts (src/aws-s3-web/)
+.next/
+out/
+test-results/
+playwright-report/
+coverage/
+*.tsbuildinfo
