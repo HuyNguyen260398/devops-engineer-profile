@@ -3,11 +3,53 @@
 import { Float, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { AdditiveBlending, DoubleSide, type Group } from "three";
+import { AdditiveBlending, BackSide, Color, DoubleSide, type Group, type ShaderMaterial } from "three";
 
 import { SkillNode } from "./skill-node";
 import { fibonacciSphere } from "./fibonacci-sphere";
 import { portfolio } from "@/data/portfolio";
+
+const glowVertexShader = `
+  varying vec3 vNormal;
+  void main() {
+    vNormal = normalize(normalMatrix * normal);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`;
+
+const glowFragmentShader = `
+  uniform vec3 glowColor;
+  varying vec3 vNormal;
+  void main() {
+    float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 4.0);
+    gl_FragColor = vec4(glowColor, intensity);
+  }
+`;
+
+function OrbitGlow({ lineColor }: { lineColor: string }) {
+  const materialRef = useRef<ShaderMaterial>(null);
+  const initialColor = useMemo(() => new Color(lineColor), []);
+
+  useEffect(() => {
+    materialRef.current?.uniforms.glowColor.value.set(lineColor);
+  }, [lineColor]);
+
+  return (
+    <mesh scale={1.16}>
+      <icosahedronGeometry args={[2.85, 4]} />
+      <shaderMaterial
+        ref={materialRef}
+        uniforms={{ glowColor: { value: initialColor } }}
+        vertexShader={glowVertexShader}
+        fragmentShader={glowFragmentShader}
+        transparent
+        blending={AdditiveBlending}
+        side={BackSide}
+        depthWrite={false}
+      />
+    </mesh>
+  );
+}
 
 function SkillsGlobe({ reducedMotion, lineColor }: { reducedMotion: boolean; lineColor: string }) {
   const group = useRef<Group>(null);
@@ -22,33 +64,10 @@ function SkillsGlobe({ reducedMotion, lineColor }: { reducedMotion: boolean; lin
 
   return (
     <group ref={group}>
+      <OrbitGlow lineColor={lineColor} />
       <mesh>
         <icosahedronGeometry args={[2.85, 2]} />
         <meshBasicMaterial color={lineColor} wireframe transparent opacity={0.16} side={DoubleSide} />
-      </mesh>
-      <mesh scale={1.015}>
-        <icosahedronGeometry args={[2.85, 2]} />
-        <meshBasicMaterial
-          color={lineColor}
-          wireframe
-          transparent
-          opacity={0.4}
-          side={DoubleSide}
-          blending={AdditiveBlending}
-          depthWrite={false}
-        />
-      </mesh>
-      <mesh scale={1.06}>
-        <icosahedronGeometry args={[2.85, 2]} />
-        <meshBasicMaterial
-          color={lineColor}
-          wireframe
-          transparent
-          opacity={0.14}
-          side={DoubleSide}
-          blending={AdditiveBlending}
-          depthWrite={false}
-        />
       </mesh>
       {positions.map((position, index) => (
         <SkillNode
