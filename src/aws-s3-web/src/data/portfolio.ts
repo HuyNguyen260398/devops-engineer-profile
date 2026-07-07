@@ -44,6 +44,14 @@ export const portfolio = {
     { label: "Linux", icon: "linux", color: "#FCC624" },
     { label: "Jenkins", icon: "jenkins", color: "#D24939" },
     { label: "Git", icon: "git", color: "#F05032" },
+    { label: "Prometheus", icon: "prometheus", color: "#E6522C" },
+    { label: "Grafana", icon: "grafana", color: "#F46800" },
+    { label: "Argo CD", icon: "argo", color: "#EF7B4D" },
+    { label: "Helm", icon: "helm", color: "#0F1689" },
+    { label: "Splunk", icon: "splunk", color: "#65A637" },
+    { label: "Packer", icon: "packer", color: "#02A8EF" },
+    { label: "Claude Code", icon: "claude", color: "#D97757" },
+    { label: "Codex", icon: "codex", color: "#10A37F" },
   ],
   experience: [
     {
