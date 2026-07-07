@@ -21,8 +21,8 @@ const glowFragmentShader = `
   uniform vec3 glowColor;
   varying vec3 vNormal;
   void main() {
-    float intensity = pow(0.7 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 4.0);
-    gl_FragColor = vec4(glowColor, intensity);
+    float intensity = pow(0.6 - dot(vNormal, vec3(0.0, 0.0, 1.0)), 6.0);
+    gl_FragColor = vec4(glowColor, intensity * 0.45);
   }
 `;
 
@@ -35,7 +35,7 @@ function OrbitGlow({ lineColor }: { lineColor: string }) {
   }, [lineColor]);
 
   return (
-    <mesh scale={1.16}>
+    <mesh scale={1.06}>
       <icosahedronGeometry args={[2.85, 4]} />
       <shaderMaterial
         ref={materialRef}
