@@ -2302,8 +2302,8 @@ main {
 }
 
 .skill-node svg {
-  width: 128px;
-  height: 128px;
+  width: 192px;
+  height: 192px;
   filter: drop-shadow(0 0 16px rgb(var(--accent-rgb) / 18%));
   transition: transform 200ms ease, filter 200ms ease;
 }
