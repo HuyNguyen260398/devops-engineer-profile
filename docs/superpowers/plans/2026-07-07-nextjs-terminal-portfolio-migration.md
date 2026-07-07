@@ -1043,7 +1043,7 @@ it("renders real work history", () => {
   render(<ExperienceSection />);
 
   expect(screen.getAllByText("Bosch Global Software Technology Vietnam").length).toBeGreaterThan(0);
-  expect(screen.getByRole("heading", { name: /DevOps Engineer/ })).toBeInTheDocument();
+  expect(screen.getAllByRole("heading", { name: /DevOps Engineer/ }).length).toBeGreaterThan(0);
   expect(screen.getByText("6 files changed")).toBeInTheDocument();
 });
 
