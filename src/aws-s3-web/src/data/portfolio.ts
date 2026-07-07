@@ -52,6 +52,12 @@ export const portfolio = {
     { label: "Packer", icon: "packer", color: "#02A8EF" },
     { label: "Claude Code", icon: "claude", color: "#D97757" },
     { label: "Codex", icon: "codex", color: "#10A37F" },
+    { label: "Chef", icon: "chef", color: "#F09820" },
+    { label: "GitLab", icon: "gitlab", color: "#FC6D26" },
+    { label: "Spacelift", icon: "spacelift", color: "#7B61FF" },
+    { label: "Teleport", icon: "teleport", color: "#512FC9" },
+    { label: "Rancher", icon: "rancher", color: "#0075A8" },
+    { label: "FluxCD", icon: "fluxcd", color: "#5468FF" },
   ],
   experience: [
     {

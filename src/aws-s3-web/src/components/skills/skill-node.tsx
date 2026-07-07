@@ -2,14 +2,16 @@
 
 import { Html } from "@react-three/drei";
 import { useFrame } from "@react-three/fiber";
-import { Bot, Cloud, CloudCog } from "lucide-react";
+import { Bot, Cloud, CloudCog, ShieldCheck, Workflow } from "lucide-react";
 import { useMemo, useRef, useState } from "react";
 import {
   SiAnsible,
   SiArgo,
+  SiChef,
   SiClaude,
   SiCloudflare,
   SiDocker,
+  SiFlux,
   SiGit,
   SiGithub,
   SiGitlab,
@@ -26,6 +28,7 @@ import {
   SiPostgresql,
   SiPrometheus,
   SiPython,
+  SiRancher,
   SiReact,
   SiRedis,
   SiSplunk,
@@ -58,6 +61,11 @@ const iconMap = {
   packer: SiPacker,
   claude: SiClaude,
   codex: Bot,
+  chef: SiChef,
+  spacelift: Workflow,
+  teleport: ShieldCheck,
+  rancher: SiRancher,
+  fluxcd: SiFlux,
   python: SiPython,
   typescript: SiTypescript,
   nextjs: SiNextdotjs,
