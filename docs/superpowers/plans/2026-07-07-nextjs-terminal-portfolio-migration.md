@@ -427,6 +427,13 @@ EOF
 
 ### Task 3: Add Azure and Git brand icons to the skills globe
 
+> **Amended during execution:** `react-icons/si` (v5.7.0, as installed) has no
+> Azure export — Microsoft trademarked icons (Azure, Teams, Edge, ...) were
+> removed from the Simple Icons set. `SiMicrosoftazure` referenced below does
+> not exist. Actual fix: import `CloudCog` from `lucide-react` and map
+> `azure: CloudCog` instead — the same generic-icon fallback already used for
+> `aws: Cloud` in this file. `SiGit` does exist and is used as planned.
+
 **Files:**
 - Modify: `src/aws-s3-web/src/components/skills/skill-node.tsx:1-59`
 
