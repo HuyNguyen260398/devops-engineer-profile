@@ -3,13 +3,13 @@ import { expect, test } from "@playwright/test";
 test("navigates sections and completes local interactions", async ({ page }) => {
   await page.goto("/");
 
-  await expect(page.getByRole("heading", { level: 1 })).toContainText("Sample Developer");
+  await expect(page.getByRole("heading", { level: 1 })).toContainText("Nguyen Gia Huy");
   await expect(page.locator("#main-content")).toHaveAttribute("data-motion-ready", "true");
 
   await page.getByRole("button", { name: "Projects" }).first().click();
   await expect(page.locator("#projects")).toBeInViewport();
 
-  await page.getByRole("button", { name: "Open sample assistant" }).click();
+  await page.getByRole("button", { name: "Open assistant" }).click();
   await expect(page.getByText("Local demo — no data leaves this browser")).toBeVisible();
 });
 

@@ -4,13 +4,13 @@ import { expect, it, vi } from "vitest";
 
 import { HeroSection } from "./hero-section";
 
-it("renders the sample identity and emits section actions", async () => {
+it("renders the real identity and emits section actions", async () => {
   const onNavigate = vi.fn();
   const user = userEvent.setup();
 
   render(<HeroSection onNavigate={onNavigate} reducedMotion />);
 
-  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Sample Developer");
+  expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Nguyen Gia Huy");
   await user.click(screen.getByRole("button", { name: "Run profile" }));
   await user.click(screen.getByRole("button", { name: "View projects" }));
   expect(onNavigate).toHaveBeenNthCalledWith(1, "about");

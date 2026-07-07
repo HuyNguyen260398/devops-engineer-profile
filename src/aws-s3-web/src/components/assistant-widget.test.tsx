@@ -8,15 +8,15 @@ it("opens, answers a local suggestion, minimizes, and closes", async () => {
   const user = userEvent.setup();
   render(<AssistantWidget />);
 
-  await user.click(screen.getByRole("button", { name: "Open sample assistant" }));
+  await user.click(screen.getByRole("button", { name: "Open assistant" }));
   expect(screen.getByText("Local demo — no data leaves this browser")).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Show sample projects" }));
-  expect(screen.getByText(/Cloud Control Plane/)).toBeInTheDocument();
+  await user.click(screen.getByRole("button", { name: "Show pinned projects" }));
+  expect(screen.getByText(/devops-engineer-profile/)).toBeInTheDocument();
 
-  await user.click(screen.getByRole("button", { name: "Minimize sample assistant" }));
-  await user.click(screen.getByRole("button", { name: "Restore sample assistant" }));
-  await user.click(screen.getByRole("button", { name: "Close sample assistant" }));
+  await user.click(screen.getByRole("button", { name: "Minimize assistant" }));
+  await user.click(screen.getByRole("button", { name: "Restore assistant" }));
+  await user.click(screen.getByRole("button", { name: "Close assistant" }));
 
-  expect(screen.getByRole("button", { name: "Open sample assistant" })).toBeInTheDocument();
+  expect(screen.getByRole("button", { name: "Open assistant" })).toBeInTheDocument();
 });
