@@ -143,6 +143,13 @@ export function ContactSection() {
       <footer className="site-footer">
         <p><Code2 aria-hidden="true" size={18} /> Nguyen Gia Huy <span>|</span> DevOps Engineer</p>
         <small>Built with Next.js, TypeScript, and Three.js.</small>
+        <small>
+          Design inspired by{" "}
+          <a href="https://www.abdulmomin.dev/" target="_blank" rel="noreferrer">
+            abdulmomin.dev
+          </a>
+          .
+        </small>
         <small>© {new Date().getFullYear()} Nguyen Gia Huy.</small>
       </footer>
     </section>
