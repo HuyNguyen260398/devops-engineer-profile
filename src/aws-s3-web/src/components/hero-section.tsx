@@ -91,12 +91,17 @@ export function HeroSection({ onNavigate, reducedMotion }: HeroSectionProps) {
                 <span className="boot-meta"><span>&gt; sudo boot_gui</span><strong>Loading...</strong></span>
               </span>
             </button>
-            <a className="github-card" href="https://example.com" target="_blank" rel="noreferrer">
+            <a
+              className="github-card"
+              href={portfolio.socials.find((social) => social.label === "GitHub")?.href}
+              target="_blank"
+              rel="noreferrer"
+            >
               <SiGithub aria-hidden="true" size={22} />
               <span><small>Check out</small><strong>GitHub</strong></span>
             </a>
           </div>
-          <div className="module-row" aria-label="Loaded sample modules">
+          <div className="module-row" aria-label="Loaded modules">
             <span>LOADED_MODULES:</span>
             {portfolio.heroModules.map((module) => <code key={module}>{module.toUpperCase()}</code>)}
           </div>

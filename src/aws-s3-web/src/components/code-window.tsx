@@ -4,14 +4,14 @@ import { FolderOpen, Play } from "lucide-react";
 import { useEffect, useState } from "react";
 
 const lines = [
-  <><span className="code-comment">{"# Welcome to the sample workspace"}</span></>,
-  <><span className="code-yellow">resource</span> <span className="code-green">&quot;developer&quot;</span> <span className="code-green">&quot;sample&quot;</span> {"{"}</>,
-  <>&nbsp;&nbsp;<span className="code-orange">name</span>&nbsp;&nbsp;&nbsp;&nbsp; = <span className="code-green">&quot;Sample Developer&quot;</span></>,
-  <>&nbsp;&nbsp;<span className="code-orange">role</span>&nbsp;&nbsp;&nbsp;&nbsp; = <span className="code-green">&quot;Platform Engineer&quot;</span></>,
-  <>&nbsp;&nbsp;<span className="code-orange">location</span> = <span className="code-green">&quot;Remote / Anywhere&quot;</span></>,
-  <>&nbsp;&nbsp;<span className="code-orange">focus</span>&nbsp;&nbsp;&nbsp; = <span className="code-green">&quot;Reliable Systems&quot;</span></>,
-  <>&nbsp;&nbsp;<span className="code-orange">stack</span>&nbsp;&nbsp;&nbsp; = [<span className="code-green">&quot;Kubernetes&quot;</span>, <span className="code-green">&quot;Terraform&quot;</span>, <span className="code-green">&quot;AWS&quot;</span>]</>,
-  <>&nbsp;&nbsp;<span className="code-orange">status</span>&nbsp;&nbsp; = <span className="code-blue">true</span></>,
+  <><span className="code-comment">{"# Welcome to my workspace"}</span></>,
+  <><span className="code-yellow">resource</span> <span className="code-green">&quot;devops_engineer&quot;</span> <span className="code-green">&quot;huy&quot;</span> {"{"}</>,
+  <>&nbsp;&nbsp;<span className="code-orange">name</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = <span className="code-green">&quot;Nguyen Gia Huy&quot;</span></>,
+  <>&nbsp;&nbsp;<span className="code-orange">location</span>&nbsp;&nbsp; = <span className="code-green">&quot;Ho Chi Minh City, VN&quot;</span></>,
+  <>&nbsp;&nbsp;<span className="code-orange">experience</span> = <span className="code-blue">5</span> <span className="code-comment"># years</span></>,
+  <>&nbsp;&nbsp;<span className="code-orange">focus</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = [<span className="code-green">&quot;CI/CD&quot;</span>, <span className="code-green">&quot;GitOps&quot;</span>, <span className="code-green">&quot;IaC&quot;</span>]</>,
+  <>&nbsp;&nbsp;<span className="code-orange">stack</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; = [<span className="code-green">&quot;AWS&quot;</span>, <span className="code-green">&quot;Azure&quot;</span>, <span className="code-green">&quot;Kubernetes&quot;</span>]</>,
+  <>&nbsp;&nbsp;<span className="code-orange">status</span>&nbsp;&nbsp;&nbsp; = <span className="code-green">&quot;available&quot;</span></>,
   <>{"}"}</>,
 ];
 
@@ -45,10 +45,10 @@ export function CodeWindow({ reducedMotion, onRun, onProjects }: CodeWindowProps
     <div className="code-window reveal">
       <div className="window-titlebar">
         <div className="window-dots" aria-hidden="true"><span /><span /><span /></div>
-        <div className="window-file"><span aria-hidden="true" /> portfolio.tf</div>
+        <div className="window-file"><span aria-hidden="true" /> about-me.tf</div>
         <span className="window-spacer" />
       </div>
-      <div className="code-body" aria-label="Sample Terraform profile">
+      <div className="code-body" aria-label="Terraform profile">
         {lines.map((line, index) => (
           <div className={index < renderedLines ? "code-line is-visible" : "code-line"} key={index}>
             <span className="line-number" aria-hidden="true">{index + 1}</span>
