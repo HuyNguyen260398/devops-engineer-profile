@@ -77,10 +77,6 @@ resource "aws_iam_openid_connect_provider" "github" {
   ]
 
   tags = local.common_tags
-
-  lifecycle {
-    ignore_changes = [tags_all]
-  }
 }
 
 # ==============================================================================
@@ -116,10 +112,6 @@ resource "aws_iam_role" "github_actions_oidc" {
 
   description = "Role for GitHub Actions to assume via OIDC for S3 sync operations"
   tags        = local.common_tags
-
-  lifecycle {
-    ignore_changes = [tags_all]
-  }
 
   depends_on = [aws_iam_openid_connect_provider.github]
 }
@@ -161,15 +153,17 @@ resource "aws_iam_policy" "github_actions_s3_sync" {
         Effect   = "Allow"
         Action   = ["s3:ListAllMyBuckets"]
         Resource = "*"
+      },
+      {
+        Sid      = "CloudFrontInvalidation"
+        Effect   = "Allow"
+        Action   = ["cloudfront:CreateInvalidation"]
+        Resource = "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${var.cloudfront_distribution_id_prod}"
       }
     ]
   })
 
   tags = local.common_tags
-
-  lifecycle {
-    ignore_changes = [tags_all]
-  }
 }
 
 # Attach the S3 sync policy to the GitHub Actions OIDC role

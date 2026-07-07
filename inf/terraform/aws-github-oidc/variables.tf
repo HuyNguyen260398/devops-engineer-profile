@@ -41,6 +41,12 @@ variable "s3_bucket_name_staging" {
   nullable    = false
 }
 
+variable "cloudfront_distribution_id_prod" {
+  description = "ID of the CloudFront distribution fronting the production S3 bucket, used to invalidate its cache after each sync"
+  type        = string
+  nullable    = false
+}
+
 variable "environment" {
   description = "Environment name for resource tagging and organization"
   type        = string
