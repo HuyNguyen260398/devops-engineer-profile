@@ -2089,6 +2089,21 @@ main {
 
 .view-all-link:hover { color: var(--accent-bright); }
 
+.blogs-empty {
+  font-family: "Geist Mono", monospace;
+  color: var(--muted);
+  padding: 2rem 0;
+}
+
+.blogs-empty-prompt::before {
+  content: "$ ";
+  opacity: 0.6;
+}
+
+.blogs-empty-comment {
+  opacity: 0.6;
+}
+
 .blog-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
