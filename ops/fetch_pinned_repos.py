@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Regenerate src/aws-s3-web/assets/data/pinned-repos.json from GitHub pinned repos.
+"""Regenerate src/aws-s3-web/public/data/pinned-repos.json from GitHub pinned repos.
 
 Uses the GitHub GraphQL API (pinned repos are only exposed there). On any error
 it exits non-zero WITHOUT touching the existing JSON, so the committed fallback
@@ -15,7 +15,7 @@ import urllib.request
 
 DEFAULT_USER = "HuyNguyen260398"
 REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-OUT_PATH = os.path.join(REPO_ROOT, "src", "aws-s3-web", "assets", "data", "pinned-repos.json")
+OUT_PATH = os.path.join(REPO_ROOT, "src", "aws-s3-web", "public", "data", "pinned-repos.json")
 
 QUERY = """
 query($login: String!) {
