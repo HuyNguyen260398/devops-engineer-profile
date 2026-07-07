@@ -116,7 +116,6 @@ export function SkillNode({ skill, position }: SkillNodeProps) {
           onMouseLeave={() => setHovered(false)}
         >
           <Icon aria-hidden="true" style={{ color: skill.color }} />
-          <span>{skill.label}</span>
         </div>
       </Html>
     </group>

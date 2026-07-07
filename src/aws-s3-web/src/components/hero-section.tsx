@@ -79,7 +79,7 @@ export function HeroSection({ onNavigate, reducedMotion }: HeroSectionProps) {
               <span className="sr-only">{portfolio.identity.roles.join(", ")}</span>
             </p>
             <p className="hero-summary">
-              <span>&lt;Architect /&gt;</span> {portfolio.identity.tagline} {portfolio.identity.summary}
+              {portfolio.identity.tagline} {portfolio.identity.summary}
             </p>
           </div>
           <div className="hero-ctas">

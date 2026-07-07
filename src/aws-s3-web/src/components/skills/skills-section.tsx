@@ -53,9 +53,6 @@ export function SkillsSection({ reducedMotion = false }: { reducedMotion?: boole
             <SkillsCanvas reducedMotion={reducedMotion} />
           </CanvasBoundary>
         )}
-        <div className="skills-hint" aria-hidden="true">
-          <Rotate3D size={16} /> Drag to explore skills universe
-        </div>
       </div>
       <ul className="sr-only" aria-label="Technology skills">
         {portfolio.skills.map((skill) => (

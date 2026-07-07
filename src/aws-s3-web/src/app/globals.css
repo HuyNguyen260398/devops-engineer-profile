@@ -553,8 +553,8 @@ main {
 
 .hero-copy h1 {
   margin: 0;
-  font-size: clamp(3.5rem, 6vw, 5.65rem);
-  line-height: 0.98;
+  font-size: clamp(3rem, 5.2vw, 4.85rem);
+  line-height: 1.08;
   letter-spacing: -0.055em;
 }
 
@@ -566,6 +566,7 @@ main {
 .hero-copy h1 strong {
   width: fit-content;
   margin-top: 6px;
+  padding-right: 0.06em;
   padding-bottom: 10px;
   background: linear-gradient(
     90deg,
@@ -576,6 +577,7 @@ main {
   background-clip: text;
   color: transparent;
   font-weight: 750;
+  white-space: nowrap;
 }
 
 .hero-role {
@@ -606,11 +608,6 @@ main {
   font-size: clamp(1.05rem, 1.8vw, 1.3rem);
   font-weight: 300;
   line-height: 1.45;
-}
-
-.hero-summary span {
-  color: var(--accent-bright);
-  font-family: "Geist Mono", monospace;
 }
 
 .hero-ctas {
@@ -704,9 +701,15 @@ main {
 
 .boot-progress span {
   display: block;
-  width: 63%;
+  width: 0;
   height: 100%;
   background: linear-gradient(90deg, var(--accent), var(--accent-bright));
+  animation: boot-progress-load 1.8s ease-out forwards;
+}
+
+@keyframes boot-progress-load {
+  from { width: 0; }
+  to { width: 75%; }
 }
 
 .boot-meta {
@@ -843,6 +846,10 @@ main {
   font-size: 0.68rem;
   text-align: right;
   margin-right: 18px;
+}
+
+.code-line code {
+  white-space: pre;
 }
 
 .code-comment { color: #a7a7aa; }
@@ -1179,7 +1186,7 @@ main {
 
 @media (max-width: 780px) {
   .hero-copy h1 {
-    font-size: clamp(3rem, 13vw, 4.5rem);
+    font-size: clamp(2.2rem, 11vw, 4.5rem);
   }
 
   .hero-ctas {
@@ -2309,40 +2316,9 @@ main {
   transition: transform 200ms ease, filter 200ms ease;
 }
 
-.skill-node span {
-  padding: 3px 7px;
-  border: 1px solid var(--border-soft);
-  border-radius: 5px;
-  background: var(--overlay);
-  font: 700 0.85rem "Geist Mono", monospace;
-  white-space: nowrap;
-}
-
 .skill-node.is-hovered svg {
   filter: drop-shadow(0 0 25px rgb(var(--accent-rgb) / 75%));
   transform: scale(1.14);
-}
-
-.skill-node.is-hovered span {
-  color: var(--accent-bright);
-}
-
-.skills-hint {
-  position: absolute;
-  bottom: -44px;
-  left: 50%;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 7px 12px;
-  pointer-events: none;
-  border: 1px solid var(--border-soft);
-  border-radius: 999px;
-  background: var(--overlay);
-  color: var(--muted);
-  font: 0.68rem "Geist Mono", monospace;
-  transform: translateX(-50%);
-  backdrop-filter: blur(10px);
 }
 
 .skills-loading,
@@ -2489,14 +2465,5 @@ html[data-theme="light"] .commit-branch {
   .skills-stage {
     height: 520px;
     min-height: 520px;
-  }
-
-  .skill-node svg {
-    width: 64px;
-    height: 64px;
-  }
-
-  .skill-node span {
-    font-size: 0.72rem;
   }
 }
