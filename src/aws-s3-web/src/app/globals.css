@@ -2286,6 +2286,7 @@ main {
   display: block;
   width: 100% !important;
   height: 100% !important;
+  filter: drop-shadow(0 0 28px rgb(var(--accent-rgb) / 40%)) drop-shadow(0 0 60px rgb(var(--accent-rgb) / 20%));
 }
 
 .skill-node {

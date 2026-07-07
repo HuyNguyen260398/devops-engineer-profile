@@ -3,7 +3,7 @@
 import { Float, OrbitControls } from "@react-three/drei";
 import { Canvas, useFrame } from "@react-three/fiber";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { DoubleSide, type Group } from "three";
+import { AdditiveBlending, DoubleSide, type Group } from "three";
 
 import { SkillNode } from "./skill-node";
 import { fibonacciSphere } from "./fibonacci-sphere";
@@ -24,7 +24,31 @@ function SkillsGlobe({ reducedMotion, lineColor }: { reducedMotion: boolean; lin
     <group ref={group}>
       <mesh>
         <icosahedronGeometry args={[2.85, 2]} />
-        <meshBasicMaterial color={lineColor} wireframe transparent opacity={0.13} side={DoubleSide} />
+        <meshBasicMaterial color={lineColor} wireframe transparent opacity={0.16} side={DoubleSide} />
+      </mesh>
+      <mesh scale={1.015}>
+        <icosahedronGeometry args={[2.85, 2]} />
+        <meshBasicMaterial
+          color={lineColor}
+          wireframe
+          transparent
+          opacity={0.4}
+          side={DoubleSide}
+          blending={AdditiveBlending}
+          depthWrite={false}
+        />
+      </mesh>
+      <mesh scale={1.06}>
+        <icosahedronGeometry args={[2.85, 2]} />
+        <meshBasicMaterial
+          color={lineColor}
+          wireframe
+          transparent
+          opacity={0.14}
+          side={DoubleSide}
+          blending={AdditiveBlending}
+          depthWrite={false}
+        />
       </mesh>
       {positions.map((position, index) => (
         <SkillNode
