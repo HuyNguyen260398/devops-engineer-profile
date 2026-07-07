@@ -4,14 +4,14 @@ export type SpherePoint = {
   z: number;
 };
 
-export function fibonacciSphere(count: number, radius = 1): SpherePoint[] {
+export function fibonacciSphere(count: number, radius = 1, verticalSpread = 1): SpherePoint[] {
   if (count <= 0) return [];
   if (count === 1) return [{ x: 0, y: radius, z: 0 }];
 
   const goldenAngle = Math.PI * (3 - Math.sqrt(5));
 
   return Array.from({ length: count }, (_, index) => {
-    const yUnit = 1 - (index / (count - 1)) * 2;
+    const yUnit = (1 - (index / (count - 1)) * 2) * verticalSpread;
     const horizontal = Math.sqrt(Math.max(0, 1 - yUnit * yUnit));
     const theta = goldenAngle * index;
 

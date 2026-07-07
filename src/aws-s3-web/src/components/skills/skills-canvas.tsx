@@ -11,7 +11,7 @@ import { portfolio } from "@/data/portfolio";
 
 function SkillsGlobe({ reducedMotion, lineColor }: { reducedMotion: boolean; lineColor: string }) {
   const group = useRef<Group>(null);
-  const positions = useMemo(() => fibonacciSphere(portfolio.skills.length, 3.3), []);
+  const positions = useMemo(() => fibonacciSphere(portfolio.skills.length, 3.3, 0.78), []);
 
   useFrame((_, delta) => {
     if (!reducedMotion && group.current) {

@@ -29,4 +29,19 @@ describe("fibonacciSphere", () => {
     expect(fibonacciSphere(0, 3.3)).toEqual([]);
     expect(fibonacciSphere(1, 3.3)).toEqual([{ x: 0, y: 3.3, z: 0 }]);
   });
+
+  it("keeps points off the poles when given a reduced vertical spread", () => {
+    const radius = 3.3;
+    const verticalSpread = 0.78;
+    const points = fibonacciSphere(18, radius, verticalSpread);
+
+    expect(points).toHaveLength(18);
+    for (const point of points) {
+      expect(Math.hypot(point.x, point.y, point.z)).toBeCloseTo(radius, 8);
+      expect(Math.abs(point.y)).toBeLessThanOrEqual(radius * verticalSpread + 1e-9);
+    }
+
+    const maxAbsY = Math.max(...points.map((point) => Math.abs(point.y)));
+    expect(maxAbsY).toBeGreaterThan(radius * verticalSpread * 0.9);
+  });
 });
