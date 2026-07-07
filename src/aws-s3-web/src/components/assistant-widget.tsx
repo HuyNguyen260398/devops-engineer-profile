@@ -53,7 +53,7 @@ export function AssistantWidget() {
             whileTap={{ scale: 0.96 }}
           >
             <span className="assistant-orbit" aria-hidden="true" />
-            <Image src="/avatar.jpg" alt="" width={43} height={43} />
+            <Image src="/avatar.jpg" alt="" width={43} height={43} priority />
             <span className="assistant-status" aria-hidden="true" />
             <span className="assistant-tip" aria-hidden="true"><strong>&gt;</strong> Open assistant<small>local replies only</small></span>
           </motion.button>
