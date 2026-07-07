@@ -33,6 +33,7 @@ permissions:
 env:
   PYTHON_VERSION: "3.11"
   S3_BUCKET: "s3.nghuy.link"
+  CLOUDFRONT_DISTRIBUTION_ID: "E3MGWTP58YX35G"
 
 jobs:
   run_job_with_aws:
@@ -112,6 +113,21 @@ jobs:
 
           echo "Completed at $(date)" | tee -a workflow.log
 
+      - name: Invalidate CloudFront cache
+        id: invalidate
+        if: steps.sync.outputs.sync_status == 'success'
+        run: |
+          echo "Creating CloudFront invalidation for distribution ${{ env.CLOUDFRONT_DISTRIBUTION_ID }}" | tee -a workflow.log
+
+          INVALIDATION_ID=$(aws cloudfront create-invalidation \
+            --distribution-id ${{ env.CLOUDFRONT_DISTRIBUTION_ID }} \
+            --paths "/*" \
+            --query "Invalidation.Id" \
+            --output text 2>&1 | tee -a workflow.log)
+
+          echo "invalidation_id=$INVALIDATION_ID" >> $GITHUB_OUTPUT
+          echo "✅ Created invalidation $INVALIDATION_ID" | tee -a workflow.log
+
       - name: Upload Workflow Log
         if: always()
         uses: actions/upload-artifact@v4
@@ -138,6 +154,14 @@ jobs:
             echo "## ✅ Sync Status: SUCCESS" >> $GITHUB_STEP_SUMMARY
           else
             echo "## ❌ Sync Status: FAILED" >> $GITHUB_STEP_SUMMARY
+          fi
+          echo "" >> $GITHUB_STEP_SUMMARY
+
+          echo "## 🌀 CloudFront Invalidation" >> $GITHUB_STEP_SUMMARY
+          if [ -n "${{ steps.invalidate.outputs.invalidation_id }}" ]; then
+            echo "- **Invalidation ID:** \`${{ steps.invalidate.outputs.invalidation_id }}\`" >> $GITHUB_STEP_SUMMARY
+          else
+            echo "- Skipped (sync did not succeed)" >> $GITHUB_STEP_SUMMARY
           fi
           echo "" >> $GITHUB_STEP_SUMMARY
 

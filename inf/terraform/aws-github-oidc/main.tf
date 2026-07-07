@@ -161,6 +161,12 @@ resource "aws_iam_policy" "github_actions_s3_sync" {
         Effect   = "Allow"
         Action   = ["s3:ListAllMyBuckets"]
         Resource = "*"
+      },
+      {
+        Sid      = "CloudFrontInvalidation"
+        Effect   = "Allow"
+        Action   = ["cloudfront:CreateInvalidation"]
+        Resource = "arn:${data.aws_partition.current.partition}:cloudfront::${data.aws_caller_identity.current.account_id}:distribution/${var.cloudfront_distribution_id_prod}"
       }
     ]
   })
