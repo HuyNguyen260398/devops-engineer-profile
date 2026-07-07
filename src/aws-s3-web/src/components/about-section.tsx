@@ -17,7 +17,7 @@ export function AboutSection() {
           <div className="avatar-system">
             <span className="avatar-ring avatar-ring-one" aria-hidden="true" />
             <span className="avatar-ring avatar-ring-two" aria-hidden="true" />
-            <Image src="/avatar-placeholder.svg" alt="Sample developer avatar" width={160} height={160} priority />
+            <Image src="/avatar.jpg" alt="Portrait of Nguyen Gia Huy" width={160} height={160} priority />
             <span className="online-dot" aria-label="Available" />
           </div>
           <dl className="system-fields">
@@ -48,7 +48,13 @@ export function AboutSection() {
               );
             })}
           </div>
-          <a className="resume-download" href="/resume.pdf" download>
+          <a
+            className="resume-download"
+            href="https://d1k59jrf89m1h2.cloudfront.net/Nguyen-Gia-Huy-DevOps-Engineer.pdf"
+            download="Nguyen-Gia-Huy-DevOps-Engineer.pdf"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             <FileDown aria-hidden="true" size={17} /> Download resume
           </a>
         </div>

@@ -53,7 +53,7 @@ export function AssistantWidget() {
             whileTap={{ scale: 0.96 }}
           >
             <span className="assistant-orbit" aria-hidden="true" />
-            <Image src="/avatar-placeholder.svg" alt="" width={43} height={43} />
+            <Image src="/avatar.jpg" alt="" width={43} height={43} />
             <span className="assistant-status" aria-hidden="true" />
             <span className="assistant-tip" aria-hidden="true"><strong>&gt;</strong> Open sample assistant<small>local replies only</small></span>
           </motion.button>
@@ -68,7 +68,7 @@ export function AssistantWidget() {
             exit={{ y: 24, opacity: 0, scale: 0.96 }}
           >
             <header>
-              <div className="assistant-avatar"><Image src="/avatar-placeholder.svg" alt="" width={38} height={38} /><span aria-hidden="true" /></div>
+              <div className="assistant-avatar"><Image src="/avatar.jpg" alt="" width={38} height={38} /><span aria-hidden="true" /></div>
               <div>
                 <h2 id="assistant-title"><span>&gt;</span> sample.ai</h2>
                 <p>{"// online locally"}</p>
