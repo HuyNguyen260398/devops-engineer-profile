@@ -67,6 +67,7 @@ html[data-theme="light"] {
 
 html {
   background: var(--bg);
+  overflow-x: hidden;
   scroll-behavior: smooth;
   scroll-padding-top: 16px;
 }
@@ -1835,7 +1836,7 @@ main {
 
 .commit-hash { color: var(--yellow); }
 .commit-branch { padding: 2px 5px; border: 1px solid rgb(var(--accent-rgb) / 20%); border-radius: 4px; background: rgb(var(--accent-rgb) / 7%); color: var(--blue); }
-.commit-company { margin-left: auto; overflow: hidden; color: var(--faint); text-overflow: ellipsis; white-space: nowrap; }
+.commit-company { min-width: 0; margin-left: auto; overflow: hidden; color: var(--faint); text-overflow: ellipsis; white-space: nowrap; }
 
 .commit-body {
   padding: 22px;
@@ -2235,6 +2236,7 @@ main {
   .git-commit,
   .git-commit.is-even {
     display: block;
+    min-width: 0;
     padding-left: 38px;
   }
 
