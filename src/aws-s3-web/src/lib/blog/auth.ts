@@ -9,9 +9,15 @@ import {
   getCurrentUser,
 } from "aws-amplify/auth";
 
+// Local dev bypass: when NEXT_PUBLIC_DEV_AUTH=1 (set only in .env.development),
+// skip Cognito entirely and hand out the "local-dev" token the in-memory backend
+// accepts, so /login, /admin, and the editor work without AWS.
+const DEV_AUTH = process.env.NEXT_PUBLIC_DEV_AUTH === "1";
+
 let configured = false;
 
 export function configureAuth() {
+  if (DEV_AUTH) return;
   if (configured) return;
   Amplify.configure({
     Auth: {
@@ -25,6 +31,7 @@ export function configureAuth() {
 }
 
 export async function getIdToken(): Promise<string | null> {
+  if (DEV_AUTH) return "local-dev";
   configureAuth();
   try {
     const session = await fetchAuthSession();
@@ -35,6 +42,7 @@ export async function getIdToken(): Promise<string | null> {
 }
 
 export async function signIn(email: string, password: string) {
+  if (DEV_AUTH) return { isSignedIn: true, nextStep: { signInStep: "DONE" } } as Awaited<ReturnType<typeof amplifySignIn>>;
   configureAuth();
   return amplifySignIn({ username: email, password });
 }
@@ -46,11 +54,13 @@ export async function completeNewPassword(newPassword: string) {
 }
 
 export async function signOut() {
+  if (DEV_AUTH) return;
   configureAuth();
   return amplifySignOut();
 }
 
 export async function currentUser(): Promise<{ email: string } | null> {
+  if (DEV_AUTH) return { email: "admin@local" };
   configureAuth();
   try {
     const u = await getCurrentUser();

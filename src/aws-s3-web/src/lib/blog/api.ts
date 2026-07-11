@@ -26,10 +26,14 @@ export interface PostRecord extends PostMeta {
   body: unknown;
 }
 
+// Same-origin ("") in production; in local dev NEXT_PUBLIC_API_BASE points at
+// the in-memory backend (e.g. http://localhost:3001).
+const API_BASE = process.env.NEXT_PUBLIC_API_BASE ?? "";
+
 async function req<T>(path: string, method: string, token?: string, body?: unknown): Promise<T> {
   const headers: Record<string, string> = { "content-type": "application/json" };
   if (token) headers.Authorization = `Bearer ${token}`;
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE}/api${path}`, {
     method,
     headers,
     body: body ? JSON.stringify(body) : undefined,

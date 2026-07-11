@@ -57,12 +57,28 @@ function buildEvent(
   } as unknown as APIGatewayProxyEvent;
 }
 
+const CORS_HEADERS = {
+  "access-control-allow-origin": "*",
+  "access-control-allow-methods": "GET,POST,PUT,DELETE,OPTIONS",
+  "access-control-allow-headers": "authorization,content-type",
+};
+
 const server = createServer(async (req, res) => {
   try {
     const url = new URL(req.url ?? "/", `http://localhost:${PORT}`);
-    const path = url.pathname;
     const method = req.method ?? "GET";
+    // The frontend calls same-origin "/api/*"; in prod CloudFront strips the
+    // "/api" prefix before API Gateway. Mirror that here so the dev server sees
+    // the same paths (/posts, /uploads, …).
+    const path = url.pathname.replace(/^\/api(?=\/|$)/, "") || "/";
     const authed = (req.headers.authorization ?? "").toLowerCase() === `bearer ${DEV_TOKEN}`;
+
+    // CORS: the browser talks to this server from the next dev origin (:3000).
+    Object.entries(CORS_HEADERS).forEach(([k, v]) => res.setHeader(k, v));
+    if (method === "OPTIONS") {
+      res.writeHead(204).end();
+      return;
+    }
 
     // Root / health: the API itself has no "/" route, so browsers hitting the
     // root previously got {"error":"no route"}. Return a short usage index.
