@@ -1,4 +1,4 @@
-name: Blog Deploy
+name: Deploy aws-s3-web infra (site + blog)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
       # aws-s3-web-sync-prod.yml, which deploys the whole static export to
       # s3.nghuy.link and invalidates the apex distribution.
       - "src/aws-s3-web/backend/**"
-      - "inf/terraform/aws-blog-serverless/**"
+      - "inf/terraform/aws-s3-web/**"
       - ".github/workflows/blog-deploy.yml"
   workflow_dispatch:
 
@@ -47,27 +47,40 @@ jobs:
           pnpm build
 
       - name: Terraform apply
-        working-directory: inf/terraform/aws-blog-serverless
+        working-directory: inf/terraform/aws-s3-web
         run: |
           terraform init \
             -backend-config="bucket=${{ vars.STATE_BUCKET_NAME }}" \
-            -backend-config="key=blog/terraform.tfstate" \
+            -backend-config="key=aws-s3-web/terraform.tfstate" \
             -backend-config="region=${{ vars.AWS_REGION }}" \
             -backend-config="dynamodb_table=${{ vars.LOCK_TABLE_NAME }}"
-          terraform apply -auto-approve \
-            -var="aws_region=${{ vars.AWS_REGION }}" \
-            -var="root_domain=${{ vars.BLOG_ROOT_DOMAIN }}" \
-            -var="route53_zone_id=${{ vars.BLOG_ROUTE53_ZONE_ID }}" \
-            -var="site_bucket_name=${{ vars.BLOG_SITE_BUCKET_NAME }}" \
-            -var="media_bucket_name=${{ vars.BLOG_MEDIA_BUCKET_NAME }}" \
+
+          TF_VARS=(
+            -var="aws_region=${{ vars.AWS_REGION }}"
+            -var="environment=production"
+            -var="root_domain=${{ vars.BLOG_ROOT_DOMAIN }}"
+            -var="route53_zone_id=${{ vars.BLOG_ROUTE53_ZONE_ID }}"
+            -var="bucket_name=${{ vars.BLOG_SITE_BUCKET_NAME }}"
+            -var="media_bucket_name=${{ vars.BLOG_MEDIA_BUCKET_NAME }}"
             -var="admin_email=${{ vars.BLOG_ADMIN_EMAIL }}"
+          )
+
+          # First apply only: adopt the pre-existing site bucket (s3.nghuy.link)
+          # into state so the managed aws_s3_bucket.website doesn't collide with
+          # the live bucket. Idempotent — skipped once it's tracked.
+          if ! terraform state list | grep -qx 'aws_s3_bucket.website'; then
+            echo "Importing existing site bucket ${{ vars.BLOG_SITE_BUCKET_NAME }}..."
+            terraform import "${TF_VARS[@]}" aws_s3_bucket.website "${{ vars.BLOG_SITE_BUCKET_NAME }}"
+          fi
+
+          terraform apply -auto-approve "${TF_VARS[@]}"
 
       # Surface the outputs an operator needs to wire the frontend deploy. Set
       # these as repo variables so aws-s3-web-sync-prod.yml bakes Cognito config
       # into the static export and invalidates the correct distribution:
       #   BLOG_USER_POOL_ID, BLOG_USER_POOL_CLIENT_ID, PROD_CLOUDFRONT_DISTRIBUTION_ID
       - name: Report Terraform outputs
-        working-directory: inf/terraform/aws-blog-serverless
+        working-directory: inf/terraform/aws-s3-web
         run: |
           {
             echo "## Blog stack outputs"
