@@ -38,7 +38,15 @@ async function req<T>(path: string, method: string, token?: string, body?: unkno
     headers,
     body: body ? JSON.stringify(body) : undefined,
   });
-  if (!res.ok) throw new Error(`request failed: ${res.status}`);
+  if (!res.ok) {
+    // Surface the backend's error message (e.g. {"error":"title required"})
+    // instead of an opaque status code, so validation failures are actionable.
+    const detail = await res
+      .json()
+      .then((d: unknown) => (d && typeof (d as { error?: unknown }).error === "string" ? (d as { error: string }).error : ""))
+      .catch(() => "");
+    throw new Error(detail || `request failed: ${res.status}`);
+  }
   return res.status === 204 ? (undefined as T) : ((await res.json()) as T);
 }
 

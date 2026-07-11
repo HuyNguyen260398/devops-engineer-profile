@@ -26,4 +26,26 @@ describe("api client", () => {
       }),
     );
   });
+
+  it("surfaces the backend error message on failure", async () => {
+    const f = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 400,
+      json: async () => ({ error: "title required" }),
+    });
+    vi.stubGlobal("fetch", f);
+    await expect(createPost({ title: "" } as never, "TOKEN")).rejects.toThrow("title required");
+  });
+
+  it("falls back to status code when there is no error body", async () => {
+    const f = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => {
+        throw new Error("not json");
+      },
+    });
+    vi.stubGlobal("fetch", f);
+    await expect(createPost({ title: "t" } as never, "TOKEN")).rejects.toThrow("request failed: 500");
+  });
 });
