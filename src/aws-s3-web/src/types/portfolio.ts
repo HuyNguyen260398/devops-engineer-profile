@@ -48,16 +48,6 @@ export type Project = {
   demoHref?: string;
 };
 
-export type BlogPost = {
-  id: string;
-  title: string;
-  excerpt: string;
-  date: string;
-  readingTime: string;
-  tags: readonly string[];
-  href: string;
-};
-
 export type AssistantSuggestion = {
   label: string;
   reply: string;
@@ -85,7 +75,6 @@ export type PortfolioContent = {
   skills: readonly Skill[];
   experience: readonly Experience[];
   projects: readonly Project[];
-  blogs: readonly BlogPost[];
   socials: readonly { label: string; value: string; href: string }[];
   assistant: {
     welcome: string;

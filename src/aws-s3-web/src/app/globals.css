@@ -2160,6 +2160,10 @@ main {
   color: color-mix(in srgb, var(--blue) 55%, transparent);
 }
 
+.blog-thumb img {
+  object-fit: cover;
+}
+
 .blog-card:nth-child(3n+2) .blog-thumb {
   background-color: color-mix(in srgb, var(--green) 10%, transparent);
   background-image:
