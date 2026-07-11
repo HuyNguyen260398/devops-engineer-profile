@@ -1,0 +1,86 @@
+name: Blog Deploy
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/blog-backend/**"
+      - "src/aws-s3-web/**"
+      - "inf/terraform/aws-blog-serverless/**"
+      - ".github/workflows/blog-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Build Lambda bundle
+        working-directory: src/blog-backend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Terraform apply
+        working-directory: inf/terraform/aws-blog-serverless
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.STATE_BUCKET_NAME }}" \
+            -backend-config="key=blog/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ vars.LOCK_TABLE_NAME }}"
+          terraform apply -auto-approve \
+            -var="aws_region=${{ vars.AWS_REGION }}" \
+            -var="root_domain=${{ vars.BLOG_ROOT_DOMAIN }}" \
+            -var="route53_zone_id=${{ vars.BLOG_ROUTE53_ZONE_ID }}" \
+            -var="site_bucket_name=${{ vars.BLOG_SITE_BUCKET_NAME }}" \
+            -var="media_bucket_name=${{ vars.BLOG_MEDIA_BUCKET_NAME }}" \
+            -var="admin_email=${{ vars.BLOG_ADMIN_EMAIL }}"
+
+      - name: Capture Terraform outputs
+        id: tf
+        working-directory: inf/terraform/aws-blog-serverless
+        run: |
+          echo "pool_id=$(terraform output -raw user_pool_id)" >> "$GITHUB_OUTPUT"
+          echo "client_id=$(terraform output -raw user_pool_client_id)" >> "$GITHUB_OUTPUT"
+          echo "site_bucket=$(terraform output -raw site_bucket_name)" >> "$GITHUB_OUTPUT"
+          echo "dist_id=$(terraform output -raw distribution_id)" >> "$GITHUB_OUTPUT"
+
+      - name: Build frontend
+        working-directory: src/aws-s3-web
+        env:
+          NEXT_PUBLIC_USER_POOL_ID: ${{ steps.tf.outputs.pool_id }}
+          NEXT_PUBLIC_USER_POOL_CLIENT_ID: ${{ steps.tf.outputs.client_id }}
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Sync SPA to S3
+        working-directory: src/aws-s3-web
+        run: aws s3 sync out/ "s3://${{ steps.tf.outputs.site_bucket }}" --delete
+
+      - name: Invalidate CloudFront
+        run: aws cloudfront create-invalidation --distribution-id ${{ steps.tf.outputs.dist_id }} --paths "/*"
