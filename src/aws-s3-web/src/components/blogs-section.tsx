@@ -36,6 +36,9 @@ export function BlogsSection() {
           ))}
         </div>
       )}
+      <a className="view-all-link" href="https://blogs.nghuy.link" target="_blank" rel="noreferrer">
+        Visit the blog <ArrowUpRight aria-hidden="true" size={15} />
+      </a>
     </section>
   );
 }
