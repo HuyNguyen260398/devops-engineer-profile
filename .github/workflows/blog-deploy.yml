@@ -4,7 +4,10 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/aws-s3-web/**"
+      # Backend + infra only. The frontend (portfolio + blog UI) ships via
+      # aws-s3-web-sync-prod.yml, which deploys the whole static export to
+      # s3.nghuy.link and invalidates the apex distribution.
+      - "src/aws-s3-web/backend/**"
       - "inf/terraform/aws-blog-serverless/**"
       - ".github/workflows/blog-deploy.yml"
   workflow_dispatch:
@@ -59,27 +62,19 @@ jobs:
             -var="media_bucket_name=${{ vars.BLOG_MEDIA_BUCKET_NAME }}" \
             -var="admin_email=${{ vars.BLOG_ADMIN_EMAIL }}"
 
-      - name: Capture Terraform outputs
-        id: tf
+      # Surface the outputs an operator needs to wire the frontend deploy. Set
+      # these as repo variables so aws-s3-web-sync-prod.yml bakes Cognito config
+      # into the static export and invalidates the correct distribution:
+      #   BLOG_USER_POOL_ID, BLOG_USER_POOL_CLIENT_ID, PROD_CLOUDFRONT_DISTRIBUTION_ID
+      - name: Report Terraform outputs
         working-directory: inf/terraform/aws-blog-serverless
         run: |
-          echo "pool_id=$(terraform output -raw user_pool_id)" >> "$GITHUB_OUTPUT"
-          echo "client_id=$(terraform output -raw user_pool_client_id)" >> "$GITHUB_OUTPUT"
-          echo "site_bucket=$(terraform output -raw site_bucket_name)" >> "$GITHUB_OUTPUT"
-          echo "dist_id=$(terraform output -raw distribution_id)" >> "$GITHUB_OUTPUT"
-
-      - name: Build frontend
-        working-directory: src/aws-s3-web
-        env:
-          NEXT_PUBLIC_USER_POOL_ID: ${{ steps.tf.outputs.pool_id }}
-          NEXT_PUBLIC_USER_POOL_CLIENT_ID: ${{ steps.tf.outputs.client_id }}
-        run: |
-          pnpm install --frozen-lockfile
-          pnpm build
-
-      - name: Sync SPA to S3
-        working-directory: src/aws-s3-web
-        run: aws s3 sync out/ "s3://${{ steps.tf.outputs.site_bucket }}" --delete
-
-      - name: Invalidate CloudFront
-        run: aws cloudfront create-invalidation --distribution-id ${{ steps.tf.outputs.dist_id }} --paths "/*"
+          {
+            echo "## Blog stack outputs"
+            echo ""
+            echo "Set these as repository variables for aws-s3-web-sync-prod.yml:"
+            echo ""
+            echo "- \`BLOG_USER_POOL_ID\` = $(terraform output -raw user_pool_id)"
+            echo "- \`BLOG_USER_POOL_CLIENT_ID\` = $(terraform output -raw user_pool_client_id)"
+            echo "- \`PROD_CLOUDFRONT_DISTRIBUTION_ID\` = $(terraform output -raw distribution_id)"
+          } >> "$GITHUB_STEP_SUMMARY"

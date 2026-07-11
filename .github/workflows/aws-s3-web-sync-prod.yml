@@ -33,7 +33,10 @@ permissions:
 env:
   PYTHON_VERSION: "3.11"
   S3_BUCKET: "s3.nghuy.link"
-  CLOUDFRONT_DISTRIBUTION_ID: "E3MGWTP58YX35G"
+  # Apex nghuy.link is served by the aws-blog-serverless CloudFront distribution
+  # (portfolio + blog + /api + /media). Set PROD_CLOUDFRONT_DISTRIBUTION_ID to that
+  # stack's `distribution_id` output after the first apply.
+  CLOUDFRONT_DISTRIBUTION_ID: ${{ vars.PROD_CLOUDFRONT_DISTRIBUTION_ID }}
 
 jobs:
   run_job_with_aws:
@@ -89,6 +92,12 @@ jobs:
 
       - name: Build static export
         working-directory: src/aws-s3-web
+        # Cognito config is baked into the static export so the blog auth works in
+        # production. Set these repo variables to the aws-blog-serverless outputs
+        # (user_pool_id / user_pool_client_id) after the first apply.
+        env:
+          NEXT_PUBLIC_USER_POOL_ID: ${{ vars.BLOG_USER_POOL_ID }}
+          NEXT_PUBLIC_USER_POOL_CLIENT_ID: ${{ vars.BLOG_USER_POOL_CLIENT_ID }}
         run: pnpm build
 
       - name: Sync aws-s3-web build output to S3 Bucket
