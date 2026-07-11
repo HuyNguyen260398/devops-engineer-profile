@@ -58,9 +58,11 @@ resource "aws_cloudfront_origin_access_control" "media" {
 }
 
 resource "aws_cloudfront_distribution" "blog" {
-  enabled             = true
-  aliases             = [local.domain]
-  default_root_object = "blogs/index.html"
+  enabled = true
+  aliases = [local.domain]
+  # The viewer-request rewrite function maps "/" to /blogs.html; this default is
+  # only a fallback and points at a real exported object.
+  default_root_object = "blogs.html"
   comment             = local.domain
 
   origin {
