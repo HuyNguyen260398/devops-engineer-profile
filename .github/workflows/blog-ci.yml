@@ -3,7 +3,6 @@ name: Blog CI
 on:
   pull_request:
     paths:
-      - "src/blog-backend/**"
       - "src/aws-s3-web/**"
       - ".github/workflows/blog-ci.yml"
 
@@ -12,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     defaults:
       run:
-        working-directory: src/blog-backend
+        working-directory: src/aws-s3-web/backend
     steps:
       - uses: actions/checkout@v4
       - uses: pnpm/action-setup@v4
@@ -22,7 +21,7 @@ jobs:
         with:
           node-version: 22
           cache: pnpm
-          cache-dependency-path: src/blog-backend/pnpm-lock.yaml
+          cache-dependency-path: src/aws-s3-web/backend/pnpm-lock.yaml
       - run: pnpm install --frozen-lockfile
       - run: pnpm typecheck
       - run: pnpm test

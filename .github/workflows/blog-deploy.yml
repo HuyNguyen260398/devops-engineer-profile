@@ -4,7 +4,6 @@ on:
   push:
     branches: [main]
     paths:
-      - "src/blog-backend/**"
       - "src/aws-s3-web/**"
       - "inf/terraform/aws-blog-serverless/**"
       - ".github/workflows/blog-deploy.yml"
@@ -39,7 +38,7 @@ jobs:
           aws-region: ${{ vars.AWS_REGION }}
 
       - name: Build Lambda bundle
-        working-directory: src/blog-backend
+        working-directory: src/aws-s3-web/backend
         run: |
           pnpm install --frozen-lockfile
           pnpm build

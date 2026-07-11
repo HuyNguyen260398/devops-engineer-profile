@@ -1,6 +1,6 @@
 data "archive_file" "lambda" {
   type        = "zip"
-  source_dir  = "${path.module}/../../../src/blog-backend/dist"
+  source_dir  = "${path.module}/../../../src/aws-s3-web/backend/dist"
   output_path = "${path.module}/build/handler.zip"
 }
 

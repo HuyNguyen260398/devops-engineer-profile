@@ -35,7 +35,7 @@ Cognito ── CloudFront (blogs.nghuy.link) ┬─ /        → S3 (Next.js sta
 ## Prerequisites
 
 - The Lambda bundle must be built before `terraform apply` (the deploy workflow
-  does this): `cd src/blog-backend && pnpm install && pnpm build` → produces
+  does this): `cd src/aws-s3-web/backend && pnpm install && pnpm build` → produces
   `dist/handler.mjs`, which `archive_file` zips.
 - A Route53 hosted zone for the apex domain (`root_domain`); pass its ID as
   `route53_zone_id`.
@@ -69,7 +69,7 @@ Lambda execution role.
 ## Local plan
 
 ```bash
-cd src/blog-backend && pnpm install && pnpm build && cd -
+cd src/aws-s3-web/backend && pnpm install && pnpm build && cd -
 cd inf/terraform/aws-blog-serverless
 cp terraform.tfvars.example terraform.tfvars   # fill in real values
 terraform init \
