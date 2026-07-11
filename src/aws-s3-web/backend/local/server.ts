@@ -64,6 +64,30 @@ const server = createServer(async (req, res) => {
     const method = req.method ?? "GET";
     const authed = (req.headers.authorization ?? "").toLowerCase() === `bearer ${DEV_TOKEN}`;
 
+    // Root / health: the API itself has no "/" route, so browsers hitting the
+    // root previously got {"error":"no route"}. Return a short usage index.
+    if (method === "GET" && (path === "/" || path === "/health")) {
+      res.writeHead(200, { "content-type": "application/json" }).end(
+        JSON.stringify(
+          {
+            service: "blog backend (in-memory dev harness)",
+            authHeader: `Authorization: Bearer ${DEV_TOKEN}`,
+            routes: {
+              "GET /posts": "list published (add auth header to include drafts)",
+              "GET /posts/{slug}": "read one post with body",
+              "POST /posts": "create (auth)",
+              "PUT /posts/{id}": "update (auth)",
+              "DELETE /posts/{id}": "delete (auth)",
+              "POST /uploads": "presign an image upload (auth)",
+            },
+          },
+          null,
+          2,
+        ),
+      );
+      return;
+    }
+
     // Dev-only image endpoints (these live outside the Lambda in real AWS: they
     // are the presigned S3 PUT target and the CloudFront /media/* read path).
     if (method === "PUT" && path.startsWith("/_upload/")) {
