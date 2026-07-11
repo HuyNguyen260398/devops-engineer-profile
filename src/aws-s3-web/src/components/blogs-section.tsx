@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { ArrowUpRight, CalendarDays, Clock3, FileText } from "lucide-react";
 
 import { SectionHeading } from "@/components/section-heading";
@@ -36,9 +37,9 @@ export function BlogsSection() {
           ))}
         </div>
       )}
-      <a className="view-all-link" href="https://blogs.nghuy.link" target="_blank" rel="noreferrer">
+      <Link className="view-all-link" href="/blogs">
         Visit the blog <ArrowUpRight aria-hidden="true" size={15} />
-      </a>
+      </Link>
     </section>
   );
 }

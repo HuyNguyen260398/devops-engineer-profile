@@ -20,7 +20,7 @@ export default function LoginPage() {
     try {
       if (needsNewPassword) {
         await completeNewPassword(newPassword);
-        window.location.href = "/editor";
+        window.location.href = "/blogs/editor";
         return;
       }
       const res = await signIn(email, password);
@@ -28,7 +28,7 @@ export default function LoginPage() {
         setNeedsNewPassword(true);
         return;
       }
-      window.location.href = "/editor";
+      window.location.href = "/blogs/editor";
     } catch (e) {
       setErr((e as Error).message);
     } finally {

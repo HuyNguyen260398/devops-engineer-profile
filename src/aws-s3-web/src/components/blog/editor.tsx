@@ -47,8 +47,8 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
       const saved = initial
         ? await updatePost(initial.id, input, token)
         : await createPost(input, token);
-      // Published posts land on their public detail page; drafts return to the list.
-      window.location.href = saved && saved.status === "published" ? `/blogs/${saved.slug}` : "/blogs";
+      // Published posts land on their public detail page; drafts return to the private draft list.
+      window.location.href = saved && saved.status === "published" ? `/blogs/${saved.slug}` : "/blogs-draft";
     } catch (e) {
       setErr((e as Error).message);
       setSaving(false);

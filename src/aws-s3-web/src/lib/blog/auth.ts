@@ -11,7 +11,7 @@ import {
 
 // Local dev bypass: when NEXT_PUBLIC_DEV_AUTH=1 (set only in .env.development),
 // skip Cognito entirely and hand out the "local-dev" token the in-memory backend
-// accepts, so /login and the /editor routes work without AWS.
+// accepts, so /login and the /blogs/editor routes work without AWS.
 const DEV_AUTH = process.env.NEXT_PUBLIC_DEV_AUTH === "1";
 
 let configured = false;
