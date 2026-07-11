@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ExternalLink, FolderGit2, GitFork, Star } from "lucide-react";
+import { ArrowUpRight, ExternalLink, FolderGit2, GitFork, Star } from "lucide-react";
 import { SiGithub } from "react-icons/si";
 
 import { SectionHeading } from "@/components/section-heading";
@@ -121,6 +121,14 @@ export function ProjectsSection() {
             ))}
           </div>
       </div>
+      <a
+        className="view-all-link"
+        href="https://github.com/HuyNguyen260398"
+        target="_blank"
+        rel="noreferrer"
+      >
+        Visit my GitHub <ArrowUpRight aria-hidden="true" size={15} />
+      </a>
     </section>
   );
 }
