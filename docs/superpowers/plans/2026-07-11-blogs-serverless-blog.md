@@ -1,10 +1,33 @@
-# Serverless Blog at `blogs.nghuy.link` Implementation Plan
+# Serverless Blog at `nghuy.link/blogs` Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Ship a dynamic, self-managed blog on `blogs.nghuy.link` — public read, single-admin write — on a VPC-attached AWS serverless stack (Cognito → CloudFront → S3/API Gateway → Lambda → DynamoDB + S3), with a Confluence-style TipTap editor, all provisioned in Terraform.
+> **Revision (2026-07-11): path-based routing.** The blog was moved off the
+> dedicated `blogs.nghuy.link` subdomain to a **path under the apex domain**. The
+> `aws-blog-serverless` CloudFront distribution now owns `nghuy.link` itself and
+> serves the whole app same-origin: portfolio home at `/`, blog under `/blogs`,
+> API at `/api/*`, images at `/media/*`. The frontend lives in the existing
+> `src/aws-s3-web/` Next app (and ships via `aws-s3-web-sync-prod.yml` to the
+> existing `s3.nghuy.link` website bucket); the Lambda backend lives in
+> `src/aws-s3-web/backend/`. Final routes:
+>
+> | Path | Access | Purpose |
+> |------|--------|---------|
+> | `/blogs` | public | list published posts |
+> | `/blogs/<slug>` | public | post detail |
+> | `/login` | public | Cognito sign-in (auth entry) |
+> | `/blogs-draft` | private | list draft posts |
+> | `/blogs/editor` | private | create a post |
+> | `/blogs/editor/<slug>` | private | edit a post |
+>
+> Private routes are gated client-side (redirect to `/login`); real enforcement is
+> the API Gateway Cognito authorizer on writes and draft reads. Sections below that
+> predate this revision (references to `blogs.nghuy.link`, `/admin`, a dedicated
+> site bucket, or `src/blog-backend/`) are superseded by this note.
 
-**Architecture:** CloudFront fronts a Next.js static-export SPA (reusing the terminal-themed portfolio app in `src/aws-s3-web/`) and, same-origin under `/api/*`, an API Gateway REST API with a Cognito authorizer on write methods. A single Node 20 Lambda (attached to VPC private subnets) performs CRUD; post metadata lives in DynamoDB, post bodies (ProseMirror JSON) and images live in an S3 media bucket. Lambda reaches AWS services through VPC endpoints (DynamoDB + S3 gateway, CloudWatch Logs interface) — no NAT Gateway.
+**Goal:** Ship a dynamic, self-managed blog at `nghuy.link/blogs` — public read, single-admin write — on a VPC-attached AWS serverless stack (Cognito → CloudFront → S3/API Gateway → Lambda → DynamoDB + S3), with a Confluence-style TipTap editor, all provisioned in Terraform.
+
+**Architecture:** A single CloudFront distribution owns the apex `nghuy.link` and fronts a Next.js static-export app (the terminal-themed portfolio in `src/aws-s3-web/`, which also contains the blog UI) and, same-origin under `/api/*`, an API Gateway REST API with a Cognito authorizer on write methods. A single Node 20 Lambda (attached to VPC private subnets) performs CRUD; post metadata lives in DynamoDB, post bodies (ProseMirror JSON) and images live in an S3 media bucket. Lambda reaches AWS services through VPC endpoints (DynamoDB + S3 gateway, CloudWatch Logs interface) — no NAT Gateway. The site origin is the existing `s3.nghuy.link` website bucket (built + synced by `aws-s3-web-sync-prod.yml`); a viewer-request CloudFront Function maps clean routes onto the flat static-export layout.
 
 **Tech Stack:** Terraform (AWS provider ~> 5.0), AWS Lambda (Node.js 20 + TypeScript, AWS SDK v3), API Gateway REST, Cognito, DynamoDB (on-demand), S3, CloudFront + OAC + CloudFront Functions, ACM (us-east-1), Route53; Next.js 16 App Router static export, Tailwind 4, TipTap (ProseMirror), AWS Amplify v6 auth; GitHub Actions + OIDC; Vitest + Playwright.
 
@@ -21,7 +44,7 @@
 - Same-origin API (CloudFront `/api/*`) — no CORS in the browser path. (CORS still configured on API Gateway only as defense-in-depth for direct calls.)
 - CI/CD authenticates via GitHub OIDC → IAM role; no long-lived AWS credentials.
 - ACM certificate for CloudFront MUST be in `us-east-1`.
-- Domain: `blogs.nghuy.link`; Route53 hosted zone already exists (reference by `route53_zone_id`, matching `inf/terraform/aws-cloudfront-s3-oac-resume/`).
+- Domain: apex `nghuy.link` served under a path (`/blogs`); Route53 hosted zone already exists (reference by `route53_zone_id`). The `aws-blog-serverless` CloudFront distribution takes over the apex A/AAAA records, retiring the prior out-of-band distribution (`E3MGWTP58YX35G`). The site origin is the existing `s3.nghuy.link` website bucket (owned by the `aws-s3-web` stack), referenced via a data source — this stack does not create a site bucket.
 - Region for the stack: `ap-southeast-1` (matches repo default) except the CloudFront ACM cert which is `us-east-1`.
 
 ---
@@ -34,16 +57,16 @@
 - `locals.tf` — common tags, name prefix, derived domain.
 - `network.tf` — VPC, private subnets, route tables, security groups, VPC endpoints.
 - `data.tf` — DynamoDB table + GSIs.
-- `storage.tf` — S3 site bucket + media bucket (policies, OAC access, versioning).
+- `storage.tf` — S3 **media** bucket only (versioning, encryption, public-access block); the site bucket is external (`s3.nghuy.link`) and referenced via a data source in `cdn.tf`.
 - `cognito.tf` — user pool, app client, admin user.
 - `lambda.tf` — Lambda function, IAM role/policies, log group.
 - `api.tf` — API Gateway REST API, resources, methods, integrations, authorizer, stage.
-- `cdn.tf` — ACM cert (us-east-1) + validation, CloudFront Function, CloudFront distribution, Route53 records.
-- `outputs.tf` — cognito ids, api id, bucket names, distribution id/domain.
+- `cdn.tf` — ACM cert (us-east-1, apex `nghuy.link`) + validation, CloudFront Functions, CloudFront distribution (apex), Route53 records, media bucket policy; site origin = existing `s3.nghuy.link` website bucket (custom origin).
+- `outputs.tf` — cognito ids, api id, distribution id/domain.
 - `terraform.tfvars.example` — sample values.
 - `README.md` — stack usage.
 
-**Backend — `src/blog-backend/`** (new)
+**Backend — `src/aws-s3-web/backend/`** (co-located with the frontend app)
 - `package.json`, `tsconfig.json`, `vitest.config.ts`, `esbuild.config.mjs`.
 - `src/handler.ts` — Lambda entry + router.
 - `src/lib/response.ts` — HTTP response helpers.
@@ -51,17 +74,22 @@
 - `src/lib/validation.ts` — input validation + slug helpers.
 - `src/lib/types.ts` — shared types.
 - `test/*.test.ts` — unit tests.
+- `local/` — in-memory dev harness for the Lambda handler.
 
 **Frontend — inside `src/aws-s3-web/`**
-- `src/app/blogs/page.tsx`, `src/app/blogs/[slug]/page.tsx`.
-- `src/app/login/page.tsx`, `src/app/admin/page.tsx`, `src/app/admin/editor/[[...id]]/page.tsx`.
-- `src/lib/blog/api.ts` — typed fetch client.
-- `src/lib/blog/auth.ts` — Amplify config + session helpers.
-- `src/components/blog/*` — post-card, post-list, post-view, editor (TipTap), toolbar, image-upload, auth-guard.
+- `src/app/page.tsx` — portfolio home (apex `/`).
+- `src/app/blogs/page.tsx` — published list; `src/app/blogs/[slug]/page.tsx` — detail (`_` shell).
+- `src/app/blogs-draft/page.tsx` — private draft list (auth-guarded).
+- `src/app/blogs/editor/page.tsx` — create; `src/app/blogs/editor/[slug]/page.tsx` — edit (`_` shell).
+- `src/app/login/page.tsx` — Cognito sign-in.
+- `src/lib/blog/api.ts` — typed fetch client (same-origin `/api`).
+- `src/lib/blog/auth.ts` — Amplify config + session helpers (+ local dev-auth bypass).
+- `src/components/blog/*` — post-card, post-view, blog-shell, editor (TipTap), editor-toolbar, auth-guard.
 - `src/lib/blog/*.test.ts`, `src/components/blog/*.test.tsx`.
 
 **CI/CD**
-- `.github/workflows/blog-deploy.yml` — build + apply + sync + invalidate on `main`.
+- `.github/workflows/blog-deploy.yml` — backend/infra only: build Lambda bundle + `terraform apply` on `main`; reports outputs to wire as repo variables.
+- `.github/workflows/aws-s3-web-sync-prod.yml` — builds the static export (with Cognito config) and syncs it to `s3.nghuy.link`, then invalidates the apex distribution.
 - `.github/workflows/blog-ci.yml` — backend/frontend lint+test on PR (Terraform plan handled by existing `terraform-plan.yml` matrix).
 
 ---
@@ -77,7 +105,7 @@
 - Create: `inf/terraform/aws-blog-serverless/terraform.tfvars.example`
 
 **Interfaces:**
-- Produces: `local.common_tags`, `local.name_prefix` (`"blog"`), `local.domain` (`"${var.blog_subdomain}.${data.aws_route53_zone... }"` — zone name resolved in Task 9; here derive from `var.root_domain`), providers `aws` (default) and `aws.us_east_1`.
+- Produces: `local.common_tags`, `local.name_prefix` (`"blog"`), `local.domain` (`= var.root_domain`, the apex `nghuy.link`), providers `aws` (default) and `aws.us_east_1`.
 
 - [ ] **Step 1: Write `provider.tf`**
 
@@ -129,19 +157,13 @@ variable "root_domain" {
   type        = string
 }
 
-variable "blog_subdomain" {
-  description = "Subdomain label for the blog (produces <label>.<root_domain>)."
-  type        = string
-  default     = "blogs"
-}
-
 variable "route53_zone_id" {
   description = "Route53 hosted zone ID for root_domain."
   type        = string
 }
 
 variable "site_bucket_name" {
-  description = "Globally-unique S3 bucket name for the blog SPA."
+  description = "Name of the existing S3 website bucket serving the app (e.g. s3.nghuy.link); referenced as a CloudFront custom origin, not created here."
   type        = string
 }
 
@@ -167,7 +189,7 @@ variable "vpc_cidr" {
 ```hcl
 locals {
   name_prefix = "blog"
-  domain      = "${var.blog_subdomain}.${var.root_domain}"
+  domain      = var.root_domain # apex; blog served under /blogs path
 
   common_tags = {
     Environment = var.environment
@@ -183,9 +205,8 @@ locals {
 aws_region        = "ap-southeast-1"
 environment       = "production"
 root_domain       = "nghuy.link"
-blog_subdomain    = "blogs"
 route53_zone_id   = "Z0000000000000000000"
-site_bucket_name  = "blogs-nghuy-link-site-<account-id>"
+site_bucket_name  = "s3.nghuy.link" # existing website bucket (aws-s3-web stack)
 media_bucket_name = "blogs-nghuy-link-media-<account-id>"
 admin_email       = "huynguyen260398@gmail.com"
 ```
@@ -365,7 +386,13 @@ git add inf/terraform/aws-blog-serverless/data.tf
 git commit -m "feat(blog-infra): DynamoDB posts table with listing and slug GSIs"
 ```
 
-### Task 4: S3 buckets (site + media) with OAC-only access
+### Task 4: S3 media bucket (site bucket is external)
+
+> **Superseded by path-based revision:** only the **media** bucket is created here.
+> The site origin is the existing `s3.nghuy.link` website bucket (owned by the
+> `aws-s3-web` stack), referenced via `data "aws_s3_bucket" "site"` in `cdn.tf`.
+> Drop the `aws_s3_bucket.site` resource and its SSE/public-access-block below.
+
 
 **Files:**
 - Create: `inf/terraform/aws-blog-serverless/storage.tf`
@@ -1342,26 +1369,36 @@ git add inf/terraform/aws-blog-serverless/api.tf
 git commit -m "feat(blog-infra): API Gateway with Cognito authorizer on writes"
 ```
 
-### Task 13: ACM cert, CloudFront Function, CloudFront distribution, Route53, bucket policies
+### Task 13: ACM cert, CloudFront Function, CloudFront distribution (apex), Route53, media bucket policy
+
+> **Superseded by path-based revision.** This is the central change. Final `cdn.tf`:
+> - `data "aws_s3_bucket" "site"` looks up the existing `s3.nghuy.link` website bucket.
+> - ACM cert + validation for the apex `local.domain` (= `var.root_domain`, `nghuy.link`).
+> - CloudFront distribution `aliases = [local.domain]`, `default_root_object = "index.html"`, with three origins: **site** (S3 website endpoint, `http-only` custom origin), **media** (OAC), **api** (API Gateway). Behaviors: default → site (+ rewrite function), `/api/*` → api (+ api-strip function), `/media/*` → media.
+> - The viewer-request rewrite function maps clean routes onto the flat static export (see `cloudfront-rewrite.js` below). `/` → portfolio home.
+> - Route53 A/AAAA for the apex → this distribution. Only the **media** bucket policy is created here (site bucket is external, so no site OAC / site bucket policy / `site_bucket_name` output).
 
 **Files:**
 - Create: `inf/terraform/aws-blog-serverless/cdn.tf`
 - Create: `inf/terraform/aws-blog-serverless/cloudfront-rewrite.js`
 
 **Interfaces:**
-- Consumes: `aws_s3_bucket.site`, `aws_s3_bucket.media`, `aws_api_gateway_stage.blog`, `local.domain`, `var.route53_zone_id`.
-- Produces: `aws_cloudfront_distribution.blog` (aliased to `local.domain`), Route53 A/AAAA records, and site/media bucket policies granting OAC read.
+- Consumes: `data.aws_s3_bucket.site` (external `s3.nghuy.link`), `aws_s3_bucket.media`, `aws_api_gateway_stage.blog`, `local.domain`, `var.route53_zone_id`.
+- Produces: `aws_cloudfront_distribution.blog` (aliased to the apex `local.domain`), Route53 A/AAAA records, and the media bucket policy granting OAC read.
 
-- [ ] **Step 1: Write `cloudfront-rewrite.js`** (CloudFront Function — root/dir index + SPA routing)
+- [ ] **Step 1: Write `cloudfront-rewrite.js`** (viewer-request — map clean routes onto the flat static export)
 
 ```js
 function handler(event) {
   var req = event.request;
   var uri = req.uri;
-  if (uri === "/") { req.uri = "/blogs/index.html"; return req; }
-  if (uri.endsWith("/")) { req.uri = uri + "index.html"; return req; }
-  // extension-less path -> try its index.html (App Router export layout)
-  if (!uri.includes(".")) { req.uri = uri + "/index.html"; }
+  if (uri.includes(".")) return req;                       // real files pass through
+  if (uri.length > 1 && uri.endsWith("/")) uri = uri.slice(0, -1);
+  if (uri === "" || uri === "/") { req.uri = "/index.html"; return req; }        // portfolio home
+  if (/^\/blogs\/editor\/.+/.test(uri)) { req.uri = "/blogs/editor/_.html"; return req; }
+  if (uri === "/blogs/editor") { req.uri = "/blogs/editor.html"; return req; }
+  if (/^\/blogs\/.+/.test(uri)) { req.uri = "/blogs/_.html"; return req; }       // /blogs/<slug>
+  req.uri = uri + ".html";                                  // /blogs, /blogs-draft, /login, ...
   return req;
 }
 ```
@@ -1418,14 +1455,21 @@ resource "aws_cloudfront_origin_access_control" "media" {
 
 resource "aws_cloudfront_distribution" "blog" {
   enabled             = true
-  aliases             = [local.domain]
-  default_root_object = "blogs/index.html"
-  comment             = "blogs.nghuy.link"
+  aliases             = [local.domain]        # apex nghuy.link
+  default_root_object = "index.html"
+  comment             = local.domain
 
+  # Site origin = existing s3.nghuy.link website bucket. S3 website endpoints only
+  # speak HTTP, so this is a custom (http-only) origin, not OAC.
   origin {
-    origin_id                = "site"
-    domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
-    origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+    origin_id   = "site"
+    domain_name = data.aws_s3_bucket.site.website_endpoint
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
   }
   origin {
     origin_id                = "media"
@@ -1871,28 +1915,11 @@ git commit -m "feat(blog-web): blogs home page and post card"
 - Consumes: `getPost(slug)`, TipTap `generateHTML`.
 - Produces: statically-exported `[slug]` route. Because `output: "export"` requires `generateStaticParams` for dynamic routes, the route uses a catch-all rendered fully client-side: implement `[slug]/page.tsx` returning `generateStaticParams` empty + `dynamicParams` behavior via a single client component keyed off `window.location`.
 
-  > Static-export detail routing: `output: "export"` cannot pre-render unknown slugs. Implement the detail route as `src/app/blogs/[slug]/page.tsx` exporting `export function generateStaticParams() { return [{ slug: "_" }]; }` to satisfy the exporter, and have the client component read the real slug from the URL at runtime and fetch it. The single generated `/blogs/_/index.html` is served for any `/blogs/<slug>/` path via the CloudFront rewrite (map `/blogs/<slug>/` → the `[slug]` shell). Adjust `cloudfront-rewrite.js` to route `/blogs/<anything>/` to `/blogs/_/index.html`.
+  > Static-export detail routing: `output: "export"` cannot pre-render unknown slugs. Implement the detail route as `src/app/blogs/[slug]/page.tsx` exporting `export function generateStaticParams() { return [{ slug: "_" }]; }` to satisfy the exporter, and have the client component read the real slug from the URL at runtime and fetch it. The export is **flat** (no `trailingSlash`): the single shell is `blogs/_.html`, served for any `/blogs/<slug>` path by the CloudFront rewrite.
 
-- [ ] **Step 1: Update `cloudfront-rewrite.js`** to route blog detail paths to the shell
+- [ ] **Step 1: Blog-detail routing is handled by the consolidated rewrite in Task 13.**
 
-```js
-function handler(event) {
-  var req = event.request;
-  var uri = req.uri;
-  if (uri === "/") { req.uri = "/blogs/index.html"; return req; }
-  var m = uri.match(/^\/blogs\/([^\/]+)\/?$/);
-  if (m && m[1] !== "index.html") { req.uri = "/blogs/_/index.html"; return req; }
-  if (uri.endsWith("/")) { req.uri = uri + "index.html"; return req; }
-  if (!uri.includes(".")) { req.uri = uri + "/index.html"; }
-  return req;
-}
-```
-
-Commit the infra change:
-```bash
-git add inf/terraform/aws-blog-serverless/cloudfront-rewrite.js
-git commit -m "feat(blog-infra): route blog detail paths to client shell"
-```
+The final `cloudfront-rewrite.js` (see Task 13) maps `/blogs/<slug>` → `/blogs/_.html`, `/blogs/editor/<slug>` → `/blogs/editor/_.html`, and `/` → `/index.html` (portfolio home). No separate rewrite edit is needed here.
 
 - [ ] **Step 2: Write `post-view.tsx`**
 
@@ -2010,7 +2037,7 @@ export default function LoginPage() {
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     setErr("");
-    try { await signIn(email, password); window.location.href = "/admin"; }
+    try { await signIn(email, password); window.location.href = "/blogs/editor"; }
     catch (e) { setErr((e as Error).message); }
   }
   return (
@@ -2038,7 +2065,15 @@ git add src/components/blog/auth-guard.tsx src/app/login/page.tsx
 git commit -m "feat(blog-web): login page and client auth guard"
 ```
 
-### Task 20: Admin dashboard
+### Task 20: Private draft list (`/blogs-draft`)
+
+> **Superseded by path-based revision.** There is no `/admin`. The private listing
+> is `src/app/blogs-draft/page.tsx`, wrapped in `<AuthGuard>` + `<BlogShell>`. It
+> calls `getIdToken()` then `listPosts(token)` (an authenticated `GET /posts`
+> returns every status) and filters to `status !== "published"`. Draft cards link
+> to `/blogs/editor/<slug>` (drafts are not publicly reachable). The stale `/admin`
+> markup below is illustrative only.
+
 
 **Files:**
 - Create: `src/aws-s3-web/src/app/admin/page.tsx`
@@ -2102,6 +2137,12 @@ git commit -m "feat(blog-web): admin dashboard"
 ```
 
 ### Task 21: TipTap editor (Confluence-style) with image upload
+
+> **Superseded by path-based revision.** Editor routes are `src/app/blogs/editor/page.tsx`
+> (create) and `src/app/blogs/editor/[slug]/page.tsx` (edit, `_` shell + client that
+> reads the slug from the URL), both `<AuthGuard>`-wrapped. After save: published →
+> `/blogs/<slug>`, draft → `/blogs-draft`.
+
 
 **Files:**
 - Create: `src/aws-s3-web/src/components/blog/editor.tsx`
@@ -2191,7 +2232,7 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
       };
       if (initial) await updatePost(initial.id, input, token);
       else await createPost(input, token);
-      window.location.href = "/admin";
+      window.location.href = saved && saved.status === "published" ? `/blogs/${saved.slug}` : "/blogs-draft";
     } finally { setSaving(false); }
   }
 
@@ -2256,7 +2297,7 @@ git commit -m "feat(blog-web): TipTap Confluence-style editor with image upload"
 ### Task 22: Link the blog from the portfolio + env example
 
 **Files:**
-- Modify: `src/aws-s3-web/src/components/blogs-section.tsx` (add a link to `https://blogs.nghuy.link`)
+- Modify: `src/aws-s3-web/src/components/blogs-section.tsx` (add a link to the `/blogs` path)
 - Create: `src/aws-s3-web/.env.example`
 
 **Interfaces:**
@@ -2270,14 +2311,14 @@ NEXT_PUBLIC_USER_POOL_ID=
 NEXT_PUBLIC_USER_POOL_CLIENT_ID=
 ```
 
-- [ ] **Step 2: Add a "Visit the blog" link** in `blogs-section.tsx` pointing to `https://blogs.nghuy.link` (match existing markup/styles in that component; read it first and append a link element).
+- [ ] **Step 2: Add a "Visit the blog" link** in `blogs-section.tsx` pointing to the same-origin `/blogs` path (match existing markup/styles in that component; read it first and append a link element).
 
 - [ ] **Step 3: Build + commit**
 
 Run: `pnpm build`
 ```bash
 git add src/components/blogs-section.tsx .env.example
-git commit -m "feat(blog-web): link portfolio blog section to blogs.nghuy.link"
+git commit -m "feat(blog-web): link portfolio blog section to /blogs"
 ```
 
 ---
@@ -2337,7 +2378,12 @@ git add .github/workflows/blog-ci.yml
 git commit -m "ci(blog): PR checks for backend and frontend"
 ```
 
-### Task 24: Deploy workflow (main) — apply + sync + invalidate
+### Task 24: Deploy workflows (main)
+
+> **Superseded by path-based revision.** Deploy is split in two:
+> - `blog-deploy.yml` (paths `src/aws-s3-web/backend/**` + `inf/terraform/aws-blog-serverless/**`): builds the Lambda bundle and runs `terraform apply` (backend + infra only). It reports the outputs to set as repo variables: `BLOG_USER_POOL_ID`, `BLOG_USER_POOL_CLIENT_ID`, `PROD_CLOUDFRONT_DISTRIBUTION_ID`. No frontend build/sync/invalidate, and no `site_bucket_name` output.
+> - `aws-s3-web-sync-prod.yml`: builds the static export (with `NEXT_PUBLIC_USER_POOL_ID` / `NEXT_PUBLIC_USER_POOL_CLIENT_ID`) and syncs it to `s3.nghuy.link`, then invalidates `PROD_CLOUDFRONT_DISTRIBUTION_ID` (the apex distribution).
+
 
 **Files:**
 - Create: `.github/workflows/blog-deploy.yml`
@@ -2436,21 +2482,22 @@ git commit -m "ci(blog): deploy workflow (apply + sync + invalidate)"
 **Interfaces:**
 - Produces: setup/teardown docs and the manual verification checklist below.
 
-- [ ] **Step 1: Write `README.md`** documenting: prerequisites, the new repo variables to set (`BLOG_*`), the IAM deploy-role permissions needed (add `ec2:*Vpc*/*Subnet*/*SecurityGroup*/*NetworkInterface*/*RouteTable*/*VpcEndpoint*`, `cognito-idp:*`, `apigateway:*`, `lambda:*`, `dynamodb:*`, `cloudfront:*`, `acm:*`, `route53:*`, `s3:*` for the two buckets, `iam:*Role*` for the Lambda role), and the teardown steps (empty both buckets, then `terraform destroy`).
+- [ ] **Step 1: Write `README.md`** documenting: prerequisites, the new repo variables to set (`BLOG_*`), the IAM deploy-role permissions needed (add `ec2:*Vpc*/*Subnet*/*SecurityGroup*/*NetworkInterface*/*RouteTable*/*VpcEndpoint*`, `cognito-idp:*`, `apigateway:*`, `lambda:*`, `dynamodb:*`, `cloudfront:*`, `acm:*`, `route53:*`, `s3:*` for the two buckets, `iam:*Role*` for the Lambda role), and the teardown steps (empty the media bucket — the site bucket is external — then `terraform destroy`).
 
 - [ ] **Step 2: Manual verification checklist** (run once after first deploy)
 
 ```
-[ ] terraform apply completes; ACM cert validates (DNS).
-[ ] https://blogs.nghuy.link loads the blogs home (empty list).
+[ ] terraform apply completes; ACM cert validates (DNS); apex A/AAAA point at the new distribution (E3MGWTP58YX35G retired); sync workflow's CLOUDFRONT_DISTRIBUTION_ID repointed.
+[ ] https://nghuy.link/ still loads the portfolio home.
+[ ] https://nghuy.link/blogs loads the blogs home (empty list).
 [ ] Set admin password (console) or complete NEW_PASSWORD challenge at /login.
-[ ] /login → sign in → redirected to /admin.
+[ ] /login → sign in → redirected to /blogs/editor.
 [ ] Create a post with text + an image → publish.
 [ ] Image PUT to presigned URL succeeds; image renders via /media/*.
-[ ] Home list shows the published post; detail page renders body + image.
-[ ] Draft post is hidden from public list but visible in /admin.
-[ ] curl https://blogs.nghuy.link/api/posts returns published JSON (200).
-[ ] curl -XPOST https://blogs.nghuy.link/api/posts (no token) returns 401.
+[ ] /blogs shows the published post; detail page renders body + image.
+[ ] A draft is hidden from /blogs but visible in /blogs-draft.
+[ ] curl https://nghuy.link/api/posts returns published JSON (200).
+[ ] curl -XPOST https://nghuy.link/api/posts (no token) returns 401.
 ```
 
 - [ ] **Step 3: Commit**
