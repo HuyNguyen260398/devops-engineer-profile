@@ -2486,53 +2486,6 @@ html[data-theme="light"] .commit-branch {
   width: min(100%, 720px);
 }
 
-.blog-topbar {
-  position: sticky;
-  top: 0;
-  z-index: 40;
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 24px;
-  border-bottom: 1px solid var(--border);
-  background: var(--overlay);
-  backdrop-filter: blur(16px);
-  font: 0.72rem "Geist Mono", monospace;
-}
-
-.blog-topbar a.blog-brand {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  color: var(--accent-bright);
-  text-decoration: none;
-}
-
-.blog-topbar .blog-topbar-spacer {
-  margin-left: auto;
-}
-
-.blog-topbar nav {
-  display: flex;
-  gap: 14px;
-  align-items: center;
-}
-
-.blog-topbar nav a,
-.blog-topbar nav button {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  color: var(--muted);
-  font: inherit;
-  text-decoration: none;
-}
-
-.blog-topbar nav a:hover,
-.blog-topbar nav button:hover {
-  color: var(--accent-bright);
-}
-
 .blog-prompt-heading {
   margin: 0 0 8px;
   color: var(--text);
@@ -2693,11 +2646,38 @@ html[data-theme="light"] .commit-branch {
   border-radius: 8px;
 }
 
+/* Login screen — centered terminal window */
+.blog-login-screen {
+  position: relative;
+  z-index: 1;
+  display: grid;
+  min-height: 100dvh;
+  place-items: center;
+  padding: 24px;
+}
+
+.blog-login-window {
+  width: min(100%, 420px);
+}
+
+.blog-login-body {
+  display: grid;
+  gap: 18px;
+  padding: 26px 24px 28px;
+  font-family: "Geist Mono", monospace;
+}
+
+.blog-login-motd {
+  margin: 0;
+  color: var(--faint);
+  font-size: 0.72rem;
+}
+
 /* Forms (login) */
 .blog-form {
   display: grid;
   gap: 14px;
-  max-width: 380px;
+  width: 100%;
 }
 
 .blog-field {

@@ -44,9 +44,11 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
         status,
         body: editor.getJSON(),
       };
-      if (initial) await updatePost(initial.id, input, token);
-      else await createPost(input, token);
-      window.location.href = "/admin";
+      const saved = initial
+        ? await updatePost(initial.id, input, token)
+        : await createPost(input, token);
+      // Published posts land on their public detail page; drafts return to the list.
+      window.location.href = saved && saved.status === "published" ? `/blogs/${saved.slug}` : "/blogs";
     } catch (e) {
       setErr((e as Error).message);
       setSaving(false);

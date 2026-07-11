@@ -3,7 +3,7 @@
 import { useState } from "react";
 
 import { signIn, completeNewPassword } from "@/lib/blog/auth";
-import { BlogShell } from "@/components/blog/blog-shell";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function LoginPage() {
   const [email, setEmail] = useState("");
@@ -20,7 +20,7 @@ export default function LoginPage() {
     try {
       if (needsNewPassword) {
         await completeNewPassword(newPassword);
-        window.location.href = "/admin";
+        window.location.href = "/editor";
         return;
       }
       const res = await signIn(email, password);
@@ -28,7 +28,7 @@ export default function LoginPage() {
         setNeedsNewPassword(true);
         return;
       }
-      window.location.href = "/admin";
+      window.location.href = "/editor";
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -37,50 +37,69 @@ export default function LoginPage() {
   }
 
   return (
-    <BlogShell narrow>
-      <h1 className="blog-prompt-heading">login</h1>
-      <p className="blog-subhead"># Admin access only.</p>
-      <form className="blog-form" onSubmit={onSubmit}>
-        {!needsNewPassword ? (
-          <>
-            <label className="blog-field">
-              <span>email</span>
-              <input
-                className="blog-input"
-                type="email"
-                autoComplete="username"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </label>
-            <label className="blog-field">
-              <span>password</span>
-              <input
-                className="blog-input"
-                type="password"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </label>
-          </>
-        ) : (
-          <label className="blog-field">
-            <span>new password</span>
-            <input
-              className="blog-input"
-              type="password"
-              autoComplete="new-password"
-              value={newPassword}
-              onChange={(e) => setNewPassword(e.target.value)}
-            />
-          </label>
-        )}
-        <button className="terminal-button terminal-button-primary" type="submit" disabled={busy}>
-          {needsNewPassword ? "set password" : "sign in"}
-        </button>
-        {err && <p className="blog-error">{err}</p>}
-      </form>
-    </BlogShell>
+    <div className="site-shell">
+      <div className="grid-backdrop" aria-hidden="true" />
+      <ThemeToggle />
+      <div className="blog-login-screen">
+        <div className="code-window blog-login-window">
+          <div className="window-titlebar">
+            <span className="window-dots">
+              <span />
+              <span />
+              <span />
+            </span>
+            <span className="window-file">
+              <span />
+              login.sh
+            </span>
+            <span className="window-spacer" />
+          </div>
+          <div className="blog-login-body">
+            <p className="blog-login-motd"># authenticate to manage posts</p>
+            <form className="blog-form" onSubmit={onSubmit}>
+              {!needsNewPassword ? (
+                <>
+                  <label className="blog-field">
+                    <span>email</span>
+                    <input
+                      className="blog-input"
+                      type="email"
+                      autoComplete="username"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                    />
+                  </label>
+                  <label className="blog-field">
+                    <span>password</span>
+                    <input
+                      className="blog-input"
+                      type="password"
+                      autoComplete="current-password"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </label>
+                </>
+              ) : (
+                <label className="blog-field">
+                  <span>new password</span>
+                  <input
+                    className="blog-input"
+                    type="password"
+                    autoComplete="new-password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                  />
+                </label>
+              )}
+              <button className="terminal-button terminal-button-primary" type="submit" disabled={busy}>
+                {needsNewPassword ? "./set-password" : "./login"}
+              </button>
+              {err && <p className="blog-error">{err}</p>}
+            </form>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }

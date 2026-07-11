@@ -11,10 +11,14 @@ function handler(event) {
     return req;
   }
 
-  // Any blog detail path maps to the single exported client shell, which reads
-  // the real slug from the URL at runtime and fetches the post.
+  // Blog detail and editor-by-slug paths each map to their single exported
+  // client shell, which reads the real slug from the URL at runtime.
   if (/^\/blogs\/.+/.test(uri)) {
     req.uri = "/blogs/_.html";
+    return req;
+  }
+  if (/^\/editor\/.+/.test(uri)) {
+    req.uri = "/editor/_.html";
     return req;
   }
 

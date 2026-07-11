@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 import { listPosts, type PostMeta } from "@/lib/blog/api";
 import { PostCard } from "@/components/blog/post-card";
@@ -21,7 +20,7 @@ export default function BlogsPage() {
   }, []);
 
   return (
-    <BlogShell actions={<Link href="/admin">admin</Link>}>
+    <BlogShell>
       <h1 className="blog-prompt-heading">ls -la ~/blogs</h1>
       <p className="blog-subhead"># Notes on DevOps, cloud architecture, and platform engineering.</p>
 

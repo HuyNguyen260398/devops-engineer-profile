@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
 
 import { getPost, type PostRecord } from "@/lib/blog/api";
 import { PostView } from "@/components/blog/post-view";
@@ -22,7 +21,7 @@ export function BlogDetailClient() {
   }, []);
 
   return (
-    <BlogShell narrow actions={<Link href="/blogs">← all posts</Link>}>
+    <BlogShell narrow>
       {state === "loading" && <p className="blog-state">loading…</p>}
       {state === "error" && <p className="blog-state is-error">post not found</p>}
       {state === "ok" && post && <PostView post={post} />}
