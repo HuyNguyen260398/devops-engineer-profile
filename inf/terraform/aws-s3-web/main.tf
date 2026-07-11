@@ -1,15 +1,6 @@
 # AWS S3 Static Website Hosting
-# This configuration creates and manages S3 buckets for static website hosting
-
-terraform {
-  required_version = ">= 1.0"
-  required_providers {
-    aws = {
-      source  = "hashicorp/aws"
-      version = "~> 5.0"
-    }
-  }
-}
+# This configuration creates and manages S3 buckets for static website hosting.
+# Terraform settings + providers live in provider.tf (shared with the blog stack).
 
 # S3 Bucket for static website
 resource "aws_s3_bucket" "website" {

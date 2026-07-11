@@ -1,7 +1,7 @@
-# The portfolio + blog static export is served from an existing website bucket
-# (var.site_bucket_name, e.g. s3.nghuy.link) managed by the aws-s3-web stack. This
-# stack only owns the media bucket; the site bucket is referenced as a CloudFront
-# custom origin in cdn.tf.
+# The portfolio + blog static export is served from the website bucket defined in
+# main.tf (aws_s3_bucket.website, e.g. s3.nghuy.link), fronted as a CloudFront
+# custom origin in cdn.tf. This file owns the private media bucket that holds post
+# bodies and images.
 resource "aws_s3_bucket" "media" {
   bucket = var.media_bucket_name
   tags   = merge(local.common_tags, { Name = var.media_bucket_name, Type = "BlogMedia" })

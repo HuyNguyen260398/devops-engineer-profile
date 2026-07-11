@@ -1,9 +1,3 @@
-# Existing website bucket (managed by the aws-s3-web stack) that holds the
-# portfolio + blog static export. Fronted here as a CloudFront custom origin.
-data "aws_s3_bucket" "site" {
-  bucket = var.site_bucket_name
-}
-
 resource "aws_acm_certificate" "blog" {
   provider          = aws.us_east_1
   domain_name       = local.domain
@@ -64,11 +58,11 @@ resource "aws_cloudfront_distribution" "blog" {
   default_root_object = "index.html"
   comment             = local.domain
 
-  # Site origin is the existing s3.nghuy.link website bucket. S3 website endpoints
-  # only speak HTTP, so this is a custom (http-only) origin rather than OAC.
+  # Site origin is the portfolio/blog website bucket managed in main.tf. S3 website
+  # endpoints only speak HTTP, so this is a custom (http-only) origin rather than OAC.
   origin {
     origin_id   = "site"
-    domain_name = data.aws_s3_bucket.site.website_endpoint
+    domain_name = aws_s3_bucket_website_configuration.website.website_endpoint
     custom_origin_config {
       http_port              = 80
       https_port             = 443

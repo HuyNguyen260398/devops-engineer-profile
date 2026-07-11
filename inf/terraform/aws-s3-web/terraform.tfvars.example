@@ -1,0 +1,12 @@
+aws_region      = "ap-southeast-1"
+environment     = "production"
+root_domain     = "nghuy.link"
+route53_zone_id = "Z0000000000000000000"
+
+# Website bucket that serves the portfolio + blog static export. Managed by this
+# stack (main.tf) and fronted by CloudFront; the sync workflow deploys the build
+# into it. On first apply this bucket is imported (see README / blog-deploy.yml).
+bucket_name = "s3.nghuy.link"
+
+media_bucket_name = "blogs-nghuy-link-media-<account-id>"
+admin_email       = "huynguyen260398@gmail.com"
