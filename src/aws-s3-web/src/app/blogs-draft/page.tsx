@@ -1,13 +1,12 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import Link from "next/link";
-import { CalendarDays } from "lucide-react";
 
 import { listPosts, type PostMeta } from "@/lib/blog/api";
 import { getIdToken } from "@/lib/blog/auth";
 import { AuthGuard } from "@/components/blog/auth-guard";
 import { BlogShell } from "@/components/blog/blog-shell";
+import { PostCard } from "@/components/blog/post-card";
 
 function DraftList() {
   const [posts, setPosts] = useState<PostMeta[]>([]);
@@ -36,20 +35,7 @@ function DraftList() {
         <div className="blog-grid">
           {posts.map((post) => (
             // Drafts are not publicly reachable; open them in the editor instead.
-            <Link key={post.id} href={`/blogs/editor/${post.slug}`} className="blog-post-card">
-              <h3>{post.title}</h3>
-              <p>{post.excerpt}</p>
-              <div className="blog-meta">
-                <span>
-                  <CalendarDays aria-hidden="true" size={13} />
-                  {new Date(post.updatedAt).toISOString().slice(0, 10)}
-                </span>
-                <span className="blog-status-tag">{post.status}</span>
-                {post.tags.map((t) => (
-                  <span key={t}>#{t}</span>
-                ))}
-              </div>
-            </Link>
+            <PostCard key={post.id} post={post} href={`/blogs/editor/${post.slug}`} />
           ))}
         </div>
       )}

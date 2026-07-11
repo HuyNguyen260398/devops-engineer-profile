@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
+import NextImage from "next/image";
 import { generateHTML } from "@tiptap/html";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
@@ -23,6 +24,11 @@ export function PostView({ post }: { post: PostRecord }) {
 
   return (
     <article className="blog-post-view">
+      {post.coverImage && (
+        <div className="blog-post-cover">
+          <NextImage src={post.coverImage} alt="" fill sizes="(max-width: 820px) 100vw, 820px" priority />
+        </div>
+      )}
       <h1>{post.title}</h1>
       <p className="blog-post-byline">
         {post.publishedAt ? new Date(post.publishedAt).toISOString().slice(0, 10) : "draft"}

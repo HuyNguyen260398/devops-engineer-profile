@@ -2,21 +2,7 @@
 
 import type { Editor } from "@tiptap/react";
 
-import { getIdToken } from "@/lib/blog/auth";
-import { presignUpload } from "@/lib/blog/api";
-
-async function uploadImage(file: File): Promise<string> {
-  const token = await getIdToken();
-  if (!token) throw new Error("not authenticated");
-  const { url, key } = await presignUpload(file.type, token);
-  const put = await fetch(url, {
-    method: "PUT",
-    headers: { "content-type": file.type },
-    body: file,
-  });
-  if (!put.ok) throw new Error("upload failed");
-  return `/${key}`; // served via CloudFront /media/*
-}
+import { uploadImage } from "@/lib/blog/upload";
 
 export function EditorToolbar({ editor }: { editor: Editor }) {
   async function onPickImage(e: React.ChangeEvent<HTMLInputElement>) {
