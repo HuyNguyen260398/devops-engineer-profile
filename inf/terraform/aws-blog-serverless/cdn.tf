@@ -1,3 +1,9 @@
+# Existing website bucket (managed by the aws-s3-web stack) that holds the
+# portfolio + blog static export. Fronted here as a CloudFront custom origin.
+data "aws_s3_bucket" "site" {
+  bucket = var.site_bucket_name
+}
+
 resource "aws_acm_certificate" "blog" {
   provider          = aws.us_east_1
   domain_name       = local.domain
@@ -43,13 +49,6 @@ resource "aws_cloudfront_function" "api_strip" {
   code    = "function handler(event){var r=event.request;r.uri=r.uri.replace(/^\\/api/,'');return r;}"
 }
 
-resource "aws_cloudfront_origin_access_control" "site" {
-  name                              = "${local.name_prefix}-site-oac"
-  origin_access_control_origin_type = "s3"
-  signing_behavior                  = "always"
-  signing_protocol                  = "sigv4"
-}
-
 resource "aws_cloudfront_origin_access_control" "media" {
   name                              = "${local.name_prefix}-media-oac"
   origin_access_control_origin_type = "s3"
@@ -60,15 +59,22 @@ resource "aws_cloudfront_origin_access_control" "media" {
 resource "aws_cloudfront_distribution" "blog" {
   enabled = true
   aliases = [local.domain]
-  # The viewer-request rewrite function maps "/" to /blogs.html; this default is
-  # only a fallback and points at a real exported object.
-  default_root_object = "blogs.html"
+  # The viewer-request rewrite function maps clean routes onto the flat static
+  # export; "/" serves the portfolio home. This default is only a fallback.
+  default_root_object = "index.html"
   comment             = local.domain
 
+  # Site origin is the existing s3.nghuy.link website bucket. S3 website endpoints
+  # only speak HTTP, so this is a custom (http-only) origin rather than OAC.
   origin {
-    origin_id                = "site"
-    domain_name              = aws_s3_bucket.site.bucket_regional_domain_name
-    origin_access_control_id = aws_cloudfront_origin_access_control.site.id
+    origin_id   = "site"
+    domain_name = data.aws_s3_bucket.site.website_endpoint
+    custom_origin_config {
+      http_port              = 80
+      https_port             = 443
+      origin_protocol_policy = "http-only"
+      origin_ssl_protocols   = ["TLSv1.2"]
+    }
   }
   origin {
     origin_id                = "media"
@@ -157,27 +163,6 @@ resource "aws_route53_record" "aaaa" {
     zone_id                = aws_cloudfront_distribution.blog.hosted_zone_id
     evaluate_target_health = false
   }
-}
-
-data "aws_iam_policy_document" "site" {
-  statement {
-    actions   = ["s3:GetObject"]
-    resources = ["${aws_s3_bucket.site.arn}/*"]
-    principals {
-      type        = "Service"
-      identifiers = ["cloudfront.amazonaws.com"]
-    }
-    condition {
-      test     = "StringEquals"
-      variable = "AWS:SourceArn"
-      values   = [aws_cloudfront_distribution.blog.arn]
-    }
-  }
-}
-
-resource "aws_s3_bucket_policy" "site" {
-  bucket = aws_s3_bucket.site.id
-  policy = data.aws_iam_policy_document.site.json
 }
 
 # Only image objects (media/*) are readable through CloudFront; post body

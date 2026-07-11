@@ -1,15 +1,36 @@
-# Serverless Blog — `blogs.nghuy.link`
+# Serverless Blog — `nghuy.link/blogs`
 
-Terraform root module for the self-managed blog on `blogs.nghuy.link`. It maps
-to the AWS Well-Architected serverless web-application reference, adapted to run
-the backend **inside a VPC** using VPC endpoints (no NAT Gateway).
+Terraform root module for the self-managed blog served under a path on the apex
+domain (`nghuy.link/blogs`). It maps to the AWS Well-Architected serverless
+web-application reference, adapted to run the backend **inside a VPC** using VPC
+endpoints (no NAT Gateway).
+
+This distribution owns the **apex `nghuy.link`** and serves the whole app
+same-origin: the portfolio home at `/`, the blog under `/blogs`, its API at
+`/api/*`, and post images at `/media/*`. The site origin is the existing
+`s3.nghuy.link` website bucket (built + synced by the `aws-s3-web` workflow); this
+stack does **not** create the site bucket.
 
 ```
-Cognito ── CloudFront (blogs.nghuy.link) ┬─ /        → S3 (Next.js static-export SPA)
-                                          ├─ /media/* → S3 media bucket (images, OAC)
-                                          └─ /api/*   → API Gateway → Lambda (VPC) → DynamoDB + S3
+Cognito ── CloudFront (nghuy.link) ┬─ /*       → S3 website bucket s3.nghuy.link (Next.js static export)
+                                    ├─ /media/* → S3 media bucket (images, OAC)
+                                    └─ /api/*   → API Gateway → Lambda (VPC) → DynamoDB + S3
    Lambda reaches AWS via VPC endpoints: DynamoDB (gateway), S3 (gateway), CloudWatch Logs (interface).
 ```
+
+**Routing** (resolved at the edge by `cloudfront-rewrite.js`):
+
+| Path | Access | Purpose |
+|------|--------|---------|
+| `/blogs` | public | list published posts |
+| `/blogs/<slug>` | public | post detail |
+| `/login` | public | Cognito sign-in (auth entry) |
+| `/blogs-draft` | private | list draft posts |
+| `/blogs/editor` | private | create a post |
+| `/blogs/editor/<slug>` | private | edit a post |
+
+Private routes are gated client-side (redirect to `/login`); real enforcement is
+the API Gateway Cognito authorizer on writes and draft reads.
 
 - **Public read / admin write.** `GET /api/posts` and `GET /api/posts/{key}` are
   open; `POST/PUT/DELETE` and `POST /api/uploads` require a Cognito JWT.
@@ -25,11 +46,11 @@ Cognito ── CloudFront (blogs.nghuy.link) ┬─ /        → S3 (Next.js sta
 | `provider.tf` | Terraform + AWS providers (default region + aliased `us_east_1`), S3 backend |
 | `network.tf` | VPC, 2 private subnets, route table, security groups, VPC endpoints |
 | `data.tf` | DynamoDB `blog-posts` table + `gsi1` (listing) / `gsi2` (slug lookup) |
-| `storage.tf` | Private site + media S3 buckets |
+| `storage.tf` | Private media S3 bucket (site bucket is external, referenced via data source) |
 | `cognito.tf` | User pool (admin-only signup), SPA app client, admin user |
 | `lambda.tf` | VPC-attached Lambda + least-privilege IAM + log group |
 | `api.tf` | API Gateway REST API, Cognito authorizer on writes, `v1` stage |
-| `cdn.tf` | ACM cert (us-east-1), CloudFront + OAC + rewrite functions, Route53, bucket policies |
+| `cdn.tf` | ACM cert (us-east-1), CloudFront (apex) + media OAC + rewrite functions, Route53, media bucket policy |
 | `cloudfront-rewrite.js` | Viewer-request function mapping clean URLs to the flat Next export layout |
 
 ## Prerequisites
@@ -54,7 +75,7 @@ Set these **repository variables** and **secret** (OIDC, no static keys):
 | var | `LOCK_TABLE_NAME` | existing Terraform lock table |
 | var | `BLOG_ROOT_DOMAIN` | `nghuy.link` |
 | var | `BLOG_ROUTE53_ZONE_ID` | hosted zone ID for `nghuy.link` |
-| var | `BLOG_SITE_BUCKET_NAME` | new globally-unique bucket for the SPA |
+| var | `BLOG_SITE_BUCKET_NAME` | existing website bucket serving the app (`s3.nghuy.link`) |
 | var | `BLOG_MEDIA_BUCKET_NAME` | new globally-unique bucket for bodies + images |
 | var | `BLOG_ADMIN_EMAIL` | admin login email |
 | secret | `AWS_DEPLOY_ROLE_ARN` | IAM role the workflow assumes via GitHub OIDC |
@@ -82,26 +103,34 @@ terraform plan
 
 ## Post-deploy verification
 
+This distribution takes over the apex `nghuy.link`. After `terraform apply`, the
+Route53 A/AAAA records for `nghuy.link` point at this distribution, retiring the
+previous out-of-band distribution (`E3MGWTP58YX35G`). Repoint the
+`aws-s3-web-sync-*` workflows' `CLOUDFRONT_DISTRIBUTION_ID` to the new
+`distribution_id` output.
+
 ```
 [ ] terraform apply completes; ACM cert validates (DNS).
-[ ] https://blogs.nghuy.link loads the blogs home (empty list).
+[ ] https://nghuy.link/ still loads the portfolio home.
+[ ] https://nghuy.link/blogs loads the blogs home (empty list).
 [ ] Set admin password: sign in at /login with the temporary password Cognito
     emailed, then complete the new-password prompt (or set one in the console).
-[ ] /login → sign in → redirected to /admin.
+[ ] /login → sign in → redirected to /blogs/editor.
 [ ] Create a post with text + an image → publish.
 [ ] Image PUT to the presigned URL succeeds; image renders via /media/*.
-[ ] Home list shows the published post; the detail page renders body + image.
-[ ] A draft post is hidden from the public list but visible in /admin.
-[ ] curl https://blogs.nghuy.link/api/posts returns published JSON (200).
-[ ] curl -XPOST https://blogs.nghuy.link/api/posts (no token) returns 401.
+[ ] /blogs shows the published post; the detail page renders body + image.
+[ ] A draft is hidden from /blogs but visible in /blogs-draft.
+[ ] curl https://nghuy.link/api/posts returns published JSON (200).
+[ ] curl -XPOST https://nghuy.link/api/posts (no token) returns 401.
 ```
 
 ## Tear down
 
-Both S3 buckets must be emptied before `terraform destroy` (no `force_destroy`):
+The media bucket must be emptied before `terraform destroy` (no `force_destroy`).
+The site bucket (`s3.nghuy.link`) is external and owned by the `aws-s3-web` stack —
+do not delete it here.
 
 ```bash
-aws s3 rm "s3://<BLOG_SITE_BUCKET_NAME>" --recursive
 aws s3 rm "s3://<BLOG_MEDIA_BUCKET_NAME>" --recursive
 terraform destroy   # same -backend-config + -var flags as apply
 ```

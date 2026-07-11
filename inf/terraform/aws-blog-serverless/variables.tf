@@ -1,4 +1,4 @@
-# Variable definitions for the serverless blog stack (blogs.nghuy.link)
+# Variable definitions for the serverless blog stack (path-based at nghuy.link/blogs)
 
 variable "aws_region" {
   description = "Primary AWS region for the blog stack."
@@ -28,19 +28,13 @@ variable "root_domain" {
   type        = string
 }
 
-variable "blog_subdomain" {
-  description = "Subdomain label for the blog (produces <label>.<root_domain>)."
-  type        = string
-  default     = "blogs"
-}
-
 variable "route53_zone_id" {
   description = "Route53 hosted zone ID for root_domain."
   type        = string
 }
 
 variable "site_bucket_name" {
-  description = "Globally-unique S3 bucket name for the blog SPA."
+  description = "Name of the existing S3 website bucket that serves the portfolio + blog static export (e.g. s3.nghuy.link). Referenced as a CloudFront custom origin; not created by this stack."
   type        = string
 }
 

@@ -1,6 +1,8 @@
 locals {
   name_prefix = "blog"
-  domain      = "${var.blog_subdomain}.${var.root_domain}"
+  # The blog is served under a path (nghuy.link/blogs); the distribution owns the
+  # apex domain itself, not a dedicated subdomain.
+  domain = var.root_domain
 
   common_tags = {
     Environment = var.environment

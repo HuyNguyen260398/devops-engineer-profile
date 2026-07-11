@@ -10,12 +10,7 @@ output "distribution_domain" {
 
 output "blog_url" {
   description = "Public blog URL."
-  value       = "https://${local.domain}"
-}
-
-output "site_bucket_name" {
-  description = "Blog SPA bucket name."
-  value       = aws_s3_bucket.site.id
+  value       = "https://${local.domain}/blogs"
 }
 
 output "user_pool_id" {

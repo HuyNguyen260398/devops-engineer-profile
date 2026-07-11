@@ -1,8 +1,9 @@
 aws_region        = "ap-southeast-1"
 environment       = "production"
 root_domain       = "nghuy.link"
-blog_subdomain    = "blogs"
 route53_zone_id   = "Z0000000000000000000"
-site_bucket_name  = "blogs-nghuy-link-site-<account-id>"
+# Existing website bucket that serves the portfolio + blog static export
+# (the aws-s3-web stack / sync workflow already deploy the build here).
+site_bucket_name  = "s3.nghuy.link"
 media_bucket_name = "blogs-nghuy-link-media-<account-id>"
 admin_email       = "huynguyen260398@gmail.com"

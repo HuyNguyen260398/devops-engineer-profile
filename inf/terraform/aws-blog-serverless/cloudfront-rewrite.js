@@ -1,36 +1,49 @@
-// Maps clean viewer URLs onto the Next.js static-export layout, which emits
-// flat files: /blogs -> blogs.html, /blogs/<slug> -> blogs/_.html (a single
-// client shell), /login -> login.html, /admin -> admin.html, etc.
+// Maps clean viewer URLs onto the Next.js static-export layout served from the
+// apex domain. The export is flat: / -> index.html (portfolio home),
+// /blogs -> blogs.html, /blogs/<slug> -> blogs/_.html (a single client shell),
+// /blogs/editor -> blogs/editor.html, /blogs/editor/<slug> -> blogs/editor/_.html,
+// /blogs-draft -> blogs-draft.html, /login -> login.html.
 function handler(event) {
   var req = event.request;
   var uri = req.uri;
-
-  // Root and the blog home both serve the exported blog list page.
-  if (uri === "/" || uri === "/blogs" || uri === "/blogs/") {
-    req.uri = "/blogs.html";
-    return req;
-  }
-
-  // Blog detail and editor-by-slug paths each map to their single exported
-  // client shell, which reads the real slug from the URL at runtime.
-  if (/^\/blogs\/.+/.test(uri)) {
-    req.uri = "/blogs/_.html";
-    return req;
-  }
-  if (/^\/editor\/.+/.test(uri)) {
-    req.uri = "/editor/_.html";
-    return req;
-  }
 
   // Real files (assets, _next chunks, images, the .html targets) pass through.
   if (uri.includes(".")) {
     return req;
   }
 
-  // Every other clean route -> its exported <route>.html file.
-  if (uri.endsWith("/")) {
+  // Normalize a trailing slash (except the root itself).
+  if (uri.length > 1 && uri.endsWith("/")) {
     uri = uri.slice(0, -1);
   }
+
+  // Root serves the portfolio home.
+  if (uri === "" || uri === "/") {
+    req.uri = "/index.html";
+    return req;
+  }
+
+  // Editor-by-slug maps to its single exported client shell. Must be tested
+  // before the generic /blogs/<slug> rule below.
+  if (/^\/blogs\/editor\/.+/.test(uri)) {
+    req.uri = "/blogs/editor/_.html";
+    return req;
+  }
+
+  // The editor index is a real static route.
+  if (uri === "/blogs/editor") {
+    req.uri = "/blogs/editor.html";
+    return req;
+  }
+
+  // Any other /blogs/<slug> maps to the blog detail client shell, which reads
+  // the real slug from the URL at runtime.
+  if (/^\/blogs\/.+/.test(uri)) {
+    req.uri = "/blogs/_.html";
+    return req;
+  }
+
+  // Every remaining clean route (/blogs, /blogs-draft, /login, ...) -> <route>.html.
   req.uri = uri + ".html";
   return req;
 }
