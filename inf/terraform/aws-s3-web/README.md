@@ -1,176 +1,154 @@
-# AWS S3 Static Website Hosting - Terraform Configuration
+# aws-s3-web — Portfolio Static Site + Serverless Blog
 
-This Terraform configuration manages AWS S3 buckets for static website hosting across multiple environments (staging and production).
+Single Terraform root module for **`nghuy.link`**. It owns both:
 
-## 📋 Prerequisites
+1. **The portfolio static-site bucket** (`s3.nghuy.link`) — a public S3 website
+   holding the Next.js static export (portfolio home + blog UI).
+2. **The serverless blog** served same-origin under `/blogs` — a CloudFront apex
+   distribution, API Gateway → Lambda (in a VPC) → DynamoDB + a private media
+   bucket, with Cognito for the single admin user.
 
-- [Terraform](https://www.terraform.io/downloads.html) >= 1.0
-- [AWS CLI](https://aws.amazon.com/cli/) configured with appropriate credentials
-- AWS account with permissions to create S3 buckets and related resources
-
-## 🏗️ Architecture
-
-This configuration creates:
-
-- **S3 Bucket**: Static website hosting bucket
-- **Bucket Versioning**: Version control for website files
-- **Website Configuration**: Index and error document settings
-- **Public Access Policy**: Read-only public access for website content
-- **Encryption**: Server-side encryption (AES256)
-- **Lifecycle Rules**: Automated cleanup of old versions
-- **CORS Configuration**: Cross-origin resource sharing rules (optional)
-- **Logging**: Access logging (optional, production only)
-
-## 📁 Project Structure
+Everything lives in **one state**. The module is **production-only**: the apex
+domain, ACM cert, and Route53 records only make sense for production. Staging
+remains a plain out-of-band `aws s3 sync` (see `aws-s3-web-sync-staging.yml`) and
+is not managed here.
 
 ```
-inf/aws-s3-web/
-├── main.tf                    # Main resource definitions
-├── variables.tf               # Variable declarations
-├── provider.tf                # AWS provider configuration
-├── locals.tf                  # Local values
-├── outputs.tf                 # Output values
-├── README.md                  # This file
-└── environments/
-    ├── staging.tfvars         # Staging environment variables
-    └── production.tfvars      # Production environment variables
+Cognito ── CloudFront (nghuy.link) ┬─ /*       → S3 website bucket s3.nghuy.link (Next.js static export)
+                                    ├─ /media/* → S3 media bucket (images, OAC)
+                                    └─ /api/*   → API Gateway → Lambda (VPC) → DynamoDB + S3
+   Lambda reaches AWS via VPC endpoints: DynamoDB (gateway), S3 (gateway), CloudWatch Logs (interface).
 ```
 
-## 🚀 Usage
+**Routing** (resolved at the edge by `cloudfront-rewrite.js`):
 
-### Initialize Terraform
+| Path | Access | Purpose |
+|------|--------|---------|
+| `/` | public | portfolio home |
+| `/blogs` | public | list published posts |
+| `/blogs/<slug>` | public | post detail |
+| `/login` | public | Cognito sign-in (auth entry) |
+| `/blogs-draft` | private | list draft posts |
+| `/blogs/editor` | private | create a post |
+| `/blogs/editor/<slug>` | private | edit a post |
+
+Private routes are gated client-side (redirect to `/login`); real enforcement is
+the API Gateway Cognito authorizer on writes and draft reads.
+
+## Layout
+
+| File | Contents |
+|------|----------|
+| `provider.tf` | Terraform + AWS providers (default region + aliased `us_east_1`), S3 backend |
+| `main.tf` | Portfolio static-website S3 bucket (public website, versioning, policy, encryption) |
+| `variables.tf` | All inputs (site bucket knobs + blog inputs) |
+| `locals.tf` | `common_tags`, `name_prefix`, apex `domain` |
+| `outputs.tf` | Site bucket outputs + blog outputs (distribution/user-pool/api IDs) |
+| `network.tf` | VPC, 2 private subnets, route table, security groups, VPC endpoints |
+| `dynamodb.tf` | DynamoDB `blog-posts` table + `gsi1` (listing) / `gsi2` (slug lookup) |
+| `storage.tf` | Private media S3 bucket |
+| `cognito.tf` | User pool (admin-only signup), SPA app client, admin user |
+| `lambda.tf` | VPC-attached Lambda + least-privilege IAM + log group |
+| `api.tf` | API Gateway REST API, Cognito authorizer on writes, `v1` stage |
+| `cdn.tf` | ACM cert (us-east-1), CloudFront (apex) + media OAC + rewrite functions, Route53, media bucket policy |
+| `cloudfront-rewrite.js` | Viewer-request function mapping clean URLs to the flat Next export layout |
+
+## Prerequisites
+
+- The Lambda bundle must be built before `terraform apply` (the deploy workflow
+  does this): `cd src/aws-s3-web/backend && pnpm install && pnpm build` → produces
+  `dist/handler.mjs`, which `archive_file` zips.
+- A Route53 hosted zone for the apex domain (`root_domain`); pass its ID as
+  `route53_zone_id`.
+- Remote state backend (reuses the repo's existing state bucket + lock table)
+  configured via `-backend-config` at `terraform init`.
+
+### First apply: import the existing site bucket
+
+`s3.nghuy.link` already exists out-of-band (created/synced by the sync workflow
+before this module managed it). Import it once so the first apply doesn't collide:
 
 ```bash
-terraform init
+terraform import aws_s3_bucket.website s3.nghuy.link
 ```
 
-### Plan Changes
+The `blog-deploy.yml` workflow does this idempotently
+(`terraform state list | grep -q aws_s3_bucket.website || terraform import ...`).
+Only the bucket itself needs importing; the sub-config resources (versioning,
+encryption, public-access-block, policy, website config) apply cleanly over the
+existing bucket.
 
-**Staging Environment:**
+## Deploy (CI)
+
+`.github/workflows/blog-deploy.yml` runs on pushes to `main` under this path or
+`src/aws-s3-web/backend/**`. Set these **repository variables** and **secret**
+(OIDC, no static keys):
+
+| Kind | Name | Value |
+|------|------|-------|
+| var | `AWS_REGION` | e.g. `ap-southeast-1` |
+| var | `STATE_BUCKET_NAME` | existing Terraform state bucket |
+| var | `LOCK_TABLE_NAME` | existing Terraform lock table |
+| var | `BLOG_ROOT_DOMAIN` | `nghuy.link` |
+| var | `BLOG_ROUTE53_ZONE_ID` | hosted zone ID for `nghuy.link` |
+| var | `BLOG_SITE_BUCKET_NAME` | website bucket serving the app (`s3.nghuy.link`) |
+| var | `BLOG_MEDIA_BUCKET_NAME` | new globally-unique bucket for bodies + images |
+| var | `BLOG_ADMIN_EMAIL` | admin login email |
+| secret | `AWS_DEPLOY_ROLE_ARN` | IAM role the workflow assumes via GitHub OIDC |
+
+The deploy role's policy must allow (in addition to read/write on the state
+bucket + lock table): `ec2:*` for VPCs/subnets/route-tables/security-groups/
+network-interfaces/VPC-endpoints, plus `dynamodb:*`, `lambda:*`,
+`cognito-idp:*`, `apigateway:*`, `cloudfront:*`, `acm:*`, `route53:*`, `logs:*`,
+`s3:*` (scoped to the site bucket `s3.nghuy.link` **and** the media bucket), and
+`iam:*Role*`/`iam:PassRole` for the Lambda execution role.
+
+## Local plan
+
 ```bash
-terraform plan -var-file="environments/staging.tfvars"
+cd src/aws-s3-web/backend && pnpm install && pnpm build && cd -
+cd inf/terraform/aws-s3-web
+cp terraform.tfvars.example terraform.tfvars   # fill in real values
+terraform init \
+  -backend-config="bucket=<STATE_BUCKET>" \
+  -backend-config="key=aws-s3-web/terraform.tfstate" \
+  -backend-config="region=<REGION>" \
+  -backend-config="dynamodb_table=<LOCK_TABLE>"
+terraform import aws_s3_bucket.website s3.nghuy.link   # first time only
+terraform plan
 ```
 
-**Production Environment:**
+## Post-deploy verification
+
+This distribution takes over the apex `nghuy.link`. After `terraform apply`, the
+Route53 A/AAAA records for `nghuy.link` point at this distribution, retiring the
+previous out-of-band distribution (`E3MGWTP58YX35G`). Repoint the
+`aws-s3-web-sync-prod` workflow's `PROD_CLOUDFRONT_DISTRIBUTION_ID` to the new
+`distribution_id` output.
+
+```
+[ ] terraform apply completes; ACM cert validates (DNS).
+[ ] https://nghuy.link/ still loads the portfolio home.
+[ ] https://nghuy.link/blogs loads the blogs home (empty list).
+[ ] Set admin password: sign in at /login with the temporary password Cognito
+    emailed, then complete the new-password prompt (or set one in the console).
+[ ] /login → sign in → redirected to /blogs/editor.
+[ ] Create a post with text + an image → publish.
+[ ] Image PUT to the presigned URL succeeds; image renders via /media/*.
+[ ] /blogs shows the published post; the detail page renders body + image.
+[ ] A draft is hidden from /blogs but visible in /blogs-draft.
+[ ] curl https://nghuy.link/api/posts returns published JSON (200).
+[ ] curl -XPOST https://nghuy.link/api/posts (no token) returns 401.
+```
+
+## Tear down
+
+The media bucket must be emptied before `terraform destroy` (no `force_destroy`).
+
 ```bash
-terraform plan -var-file="environments/production.tfvars"
+aws s3 rm "s3://<BLOG_MEDIA_BUCKET_NAME>" --recursive
+terraform destroy   # same -backend-config + -var flags as apply
 ```
 
-### Apply Configuration
-
-**Staging Environment:**
-```bash
-terraform apply -var-file="environments/staging.tfvars"
-```
-
-**Production Environment:**
-```bash
-terraform apply -var-file="environments/production.tfvars"
-```
-
-### Destroy Resources
-
-```bash
-terraform destroy -var-file="environments/staging.tfvars"
-# or
-terraform destroy -var-file="environments/production.tfvars"
-```
-
-## 🔧 Configuration
-
-### Environment-Specific Variables
-
-Each environment has its own `.tfvars` file in the `environments/` directory:
-
-- `staging.tfvars`: Staging environment configuration
-- `production.tfvars`: Production environment configuration
-
-### Key Variables
-
-| Variable | Description | Default |
-|----------|-------------|---------|
-| `aws_region` | AWS region for resources | `ap-southeast-1` |
-| `environment` | Environment name | - |
-| `bucket_name` | S3 bucket name | - |
-| `index_document` | Index document | `index.html` |
-| `error_document` | Error document | `error.html` |
-| `enable_versioning` | Enable bucket versioning | `true` |
-| `enable_logging` | Enable access logging | `false` |
-| `enable_lifecycle_rules` | Enable lifecycle rules | `true` |
-
-## 📤 Outputs
-
-After applying the configuration, the following outputs are available:
-
-- `bucket_id`: S3 bucket name
-- `bucket_arn`: S3 bucket ARN
-- `website_endpoint`: Website endpoint URL
-- `website_url`: Full HTTP URL of the website
-
-View outputs:
-```bash
-terraform output
-```
-
-## 🔐 Security Considerations
-
-- The S3 bucket is configured for **public read access** (required for static websites)
-- Server-side encryption is **enabled by default** (AES256)
-- Versioning is **enabled** to protect against accidental deletions
-- Lifecycle rules automatically clean up old versions
-- Production environment has **logging enabled** for audit trails
-
-## 📊 Cost Optimization
-
-- Lifecycle rules delete noncurrent versions after 30 days (staging) / 90 days (production)
-- Incomplete multipart uploads are automatically aborted after 7 days
-- Consider using S3 Intelligent-Tiering for cost savings on larger sites
-
-## 🔄 CI/CD Integration
-
-This configuration can be integrated with GitHub Actions or other CI/CD pipelines:
-
-1. **Terraform Plan**: Run on pull requests
-2. **Terraform Apply**: Run on merge to main branch
-3. **Content Sync**: Use AWS CLI or GitHub Actions to sync website content
-
-Example GitHub Actions workflow:
-```yaml
-- name: Terraform Apply
-  run: |
-    terraform init
-    terraform apply -var-file="environments/${{ matrix.environment }}.tfvars" -auto-approve
-```
-
-## 🔗 Related Resources
-
-- [Terraform AWS Provider Documentation](https://registry.terraform.io/providers/hashicorp/aws/latest/docs)
-- [AWS S3 Static Website Hosting Guide](https://docs.aws.amazon.com/AmazonS3/latest/userguide/WebsiteHosting.html)
-- [AWS S3 Best Practices](https://docs.aws.amazon.com/AmazonS3/latest/userguide/best-practices.html)
-
-## 📝 Notes
-
-- Bucket names must be globally unique across all AWS accounts
-- Update `bucket_name` in `.tfvars` files to match your naming convention
-- For custom domains, configure Route 53 or CloudFront separately
-- CORS rules can be customized in the `.tfvars` files
-
-## 🛠️ Troubleshooting
-
-### Issue: Bucket name already exists
-**Solution**: S3 bucket names must be globally unique. Change the `bucket_name` in your `.tfvars` file.
-
-### Issue: Access denied when accessing website
-**Solution**: Ensure the bucket policy allows public read access and public access block settings are configured correctly.
-
-### Issue: 404 errors for all pages
-**Solution**: Verify that `index.html` exists in the bucket and the website configuration is correct.
-
-## 📄 License
-
-This configuration is part of the devops-engineer-profile project.
-
----
-
-**Maintained by:** DevOps Team  
-**Last Updated:** February 2026
+> ⚠️ `terraform destroy` will also delete the site bucket `s3.nghuy.link` (now
+> managed here). Empty it first if you intend to keep the objects.

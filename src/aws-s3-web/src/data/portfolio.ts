@@ -244,7 +244,6 @@ export const portfolio = {
       href: "https://github.com/HuyNguyen260398/aws-serverless-webapp",
     },
   ],
-  blogs: [] as PortfolioContent["blogs"],
   socials: [
     { label: "GitHub", value: "@HuyNguyen260398", href: "https://github.com/HuyNguyen260398" },
     { label: "LinkedIn", value: "huy-nguyen-966488189", href: "https://www.linkedin.com/in/huy-nguyen-966488189" },

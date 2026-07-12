@@ -1,0 +1,66 @@
+import { describe, it, expect, vi } from "vitest";
+import { createHandler } from "../src/handler";
+
+function evt(method: string, resource: string, opts: Partial<any> = {}) {
+  return {
+    httpMethod: method,
+    resource,
+    pathParameters: null,
+    body: null,
+    requestContext: { authorizer: null },
+    ...opts,
+  } as any;
+}
+
+describe("router", () => {
+  it("GET /posts returns published list", async () => {
+    const repo = { listPublished: vi.fn().mockResolvedValue([{ slug: "a" }]) } as any;
+    const res = await createHandler(repo)(evt("GET", "/posts"));
+    expect(res.statusCode).toBe(200);
+    expect(JSON.parse(res.body)).toEqual([{ slug: "a" }]);
+  });
+
+  it("POST /posts without authorizer claims is 401", async () => {
+    const repo = {} as any;
+    const res = await createHandler(repo)(evt("POST", "/posts", { body: "{}" }));
+    expect(res.statusCode).toBe(401);
+  });
+
+  it("POST /posts with claims and valid body creates", async () => {
+    const repo = { create: vi.fn().mockResolvedValue({ id: "1", slug: "new" }) } as any;
+    const body = JSON.stringify({
+      title: "New",
+      slug: "new",
+      excerpt: "",
+      tags: [],
+      coverImage: null,
+      status: "published",
+      body: { type: "doc", content: [] },
+    });
+    const res = await createHandler(repo)(
+      evt("POST", "/posts", { body, requestContext: { authorizer: { claims: { sub: "u1" } } } }),
+    );
+    expect(res.statusCode).toBe(201);
+  });
+
+  it("GET /posts/{key} treats key as slug", async () => {
+    const repo = { getBySlug: vi.fn().mockResolvedValue({ slug: "a", title: "A" }) } as any;
+    const res = await createHandler(repo)(
+      evt("GET", "/posts/{key}", { pathParameters: { key: "a" } }),
+    );
+    expect(res.statusCode).toBe(200);
+    expect(repo.getBySlug).toHaveBeenCalledWith("a", false);
+  });
+
+  it("DELETE /posts/{key} treats key as id and requires auth", async () => {
+    const repo = { remove: vi.fn().mockResolvedValue(true) } as any;
+    const res = await createHandler(repo)(
+      evt("DELETE", "/posts/{key}", {
+        pathParameters: { key: "id-1" },
+        requestContext: { authorizer: { claims: { sub: "u1" } } },
+      }),
+    );
+    expect(res.statusCode).toBe(204);
+    expect(repo.remove).toHaveBeenCalledWith("id-1");
+  });
+});

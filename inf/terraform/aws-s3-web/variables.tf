@@ -9,6 +9,7 @@ variable "aws_region" {
 variable "environment" {
   description = "Environment name (e.g., staging, production)"
   type        = string
+  default     = "production"
 
   validation {
     condition     = contains(["staging", "production"], var.environment)
@@ -94,4 +95,35 @@ variable "tags" {
   description = "Additional tags to apply to resources"
   type        = map(string)
   default     = {}
+}
+
+# ---------------------------------------------------------------------------
+# Serverless blog (nghuy.link/blogs) — apex CloudFront, API, Lambda, Cognito,
+# DynamoDB, and the private media bucket. Production-only.
+# ---------------------------------------------------------------------------
+
+variable "root_domain" {
+  description = "Apex domain that owns the Route53 hosted zone and is served by the blog CloudFront distribution, e.g. nghuy.link."
+  type        = string
+}
+
+variable "route53_zone_id" {
+  description = "Route53 hosted zone ID for root_domain."
+  type        = string
+}
+
+variable "media_bucket_name" {
+  description = "Globally-unique S3 bucket name for blog post bodies and images."
+  type        = string
+}
+
+variable "admin_email" {
+  description = "Email of the single admin user seeded in Cognito."
+  type        = string
+}
+
+variable "vpc_cidr" {
+  description = "CIDR block for the blog VPC."
+  type        = string
+  default     = "10.42.0.0/16"
 }

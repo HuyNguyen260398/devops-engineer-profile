@@ -15,6 +15,6 @@ export default defineConfig({
       jsdom: { url: "http://localhost/" },
     },
     setupFiles: ["./vitest.setup.ts"],
-    exclude: ["e2e/**", "node_modules/**"],
+    exclude: ["e2e/**", "node_modules/**", "backend/**"],
   },
 });

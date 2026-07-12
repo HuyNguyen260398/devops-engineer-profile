@@ -1,0 +1,93 @@
+name: Deploy aws-s3-web infra (site + blog)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      # Backend + infra only. The frontend (portfolio + blog UI) ships via
+      # aws-s3-web-sync-prod.yml, which deploys the whole static export to
+      # s3.nghuy.link and invalidates the apex distribution.
+      - "src/aws-s3-web/backend/**"
+      - "inf/terraform/aws-s3-web/**"
+      - ".github/workflows/blog-deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 11
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.9.0
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Build Lambda bundle
+        working-directory: src/aws-s3-web/backend
+        run: |
+          pnpm install --frozen-lockfile
+          pnpm build
+
+      - name: Terraform apply
+        working-directory: inf/terraform/aws-s3-web
+        run: |
+          terraform init \
+            -backend-config="bucket=${{ vars.STATE_BUCKET_NAME }}" \
+            -backend-config="key=aws-s3-web/terraform.tfstate" \
+            -backend-config="region=${{ vars.AWS_REGION }}" \
+            -backend-config="dynamodb_table=${{ vars.LOCK_TABLE_NAME }}"
+
+          TF_VARS=(
+            -var="aws_region=${{ vars.AWS_REGION }}"
+            -var="environment=production"
+            -var="root_domain=${{ vars.BLOG_ROOT_DOMAIN }}"
+            -var="route53_zone_id=${{ vars.BLOG_ROUTE53_ZONE_ID }}"
+            -var="bucket_name=${{ vars.BLOG_SITE_BUCKET_NAME }}"
+            -var="media_bucket_name=${{ vars.BLOG_MEDIA_BUCKET_NAME }}"
+            -var="admin_email=${{ vars.BLOG_ADMIN_EMAIL }}"
+          )
+
+          # First apply only: adopt the pre-existing site bucket (s3.nghuy.link)
+          # into state so the managed aws_s3_bucket.website doesn't collide with
+          # the live bucket. Idempotent — skipped once it's tracked.
+          if ! terraform state list | grep -qx 'aws_s3_bucket.website'; then
+            echo "Importing existing site bucket ${{ vars.BLOG_SITE_BUCKET_NAME }}..."
+            terraform import "${TF_VARS[@]}" aws_s3_bucket.website "${{ vars.BLOG_SITE_BUCKET_NAME }}"
+          fi
+
+          terraform apply -auto-approve "${TF_VARS[@]}"
+
+      # Surface the outputs an operator needs to wire the frontend deploy. Set
+      # these as repo variables so aws-s3-web-sync-prod.yml bakes Cognito config
+      # into the static export and invalidates the correct distribution:
+      #   BLOG_USER_POOL_ID, BLOG_USER_POOL_CLIENT_ID, PROD_CLOUDFRONT_DISTRIBUTION_ID
+      - name: Report Terraform outputs
+        working-directory: inf/terraform/aws-s3-web
+        run: |
+          {
+            echo "## Blog stack outputs"
+            echo ""
+            echo "Set these as repository variables for aws-s3-web-sync-prod.yml:"
+            echo ""
+            echo "- \`BLOG_USER_POOL_ID\` = $(terraform output -raw user_pool_id)"
+            echo "- \`BLOG_USER_POOL_CLIENT_ID\` = $(terraform output -raw user_pool_client_id)"
+            echo "- \`PROD_CLOUDFRONT_DISTRIBUTION_ID\` = $(terraform output -raw distribution_id)"
+          } >> "$GITHUB_STEP_SUMMARY"
