@@ -142,6 +142,14 @@ resource "aws_iam_policy" "blog_deploy" {
         ]
       },
       {
+        # DescribeLogGroups is a list action that cannot be scoped to a specific
+        # log-group ARN; the provider calls it to read the lambda log group.
+        Sid      = "LogsDescribe"
+        Effect   = "Allow"
+        Action   = ["logs:DescribeLogGroups"]
+        Resource = "*"
+      },
+      {
         Sid    = "IamLambdaExecutionRole"
         Effect = "Allow"
         Action = [
