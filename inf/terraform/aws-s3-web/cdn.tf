@@ -136,10 +136,13 @@ resource "aws_cloudfront_distribution" "blog" {
   tags = merge(local.common_tags, { Name = local.domain })
 }
 
+# allow_overwrite: the apex A/AAAA records already exist (pointing at the retired
+# distribution); this repoints them to the new distribution in place.
 resource "aws_route53_record" "a" {
-  zone_id = var.route53_zone_id
-  name    = local.domain
-  type    = "A"
+  zone_id         = var.route53_zone_id
+  name            = local.domain
+  type            = "A"
+  allow_overwrite = true
   alias {
     name                   = aws_cloudfront_distribution.blog.domain_name
     zone_id                = aws_cloudfront_distribution.blog.hosted_zone_id
@@ -148,9 +151,10 @@ resource "aws_route53_record" "a" {
 }
 
 resource "aws_route53_record" "aaaa" {
-  zone_id = var.route53_zone_id
-  name    = local.domain
-  type    = "AAAA"
+  zone_id         = var.route53_zone_id
+  name            = local.domain
+  type            = "AAAA"
+  allow_overwrite = true
   alias {
     name                   = aws_cloudfront_distribution.blog.domain_name
     zone_id                = aws_cloudfront_distribution.blog.hosted_zone_id
