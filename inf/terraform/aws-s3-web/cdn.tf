@@ -8,19 +8,18 @@ resource "aws_acm_certificate" "blog" {
   tags = merge(local.common_tags, { Name = local.domain })
 }
 
+# for_each keys must be resolvable at plan time. On the first apply the cert's
+# domain_validation_options are unknown, so we key on the statically-known domain
+# set and read the (apply-time) validation record values via a lookup.
 resource "aws_route53_record" "cert_validation" {
-  for_each = {
-    for dvo in aws_acm_certificate.blog.domain_validation_options : dvo.domain_name => {
-      name   = dvo.resource_record_name
-      type   = dvo.resource_record_type
-      record = dvo.resource_record_value
-    }
-  }
-  zone_id = var.route53_zone_id
-  name    = each.value.name
-  type    = each.value.type
-  records = [each.value.record]
-  ttl     = 60
+  for_each = toset([local.domain])
+
+  zone_id         = var.route53_zone_id
+  allow_overwrite = true
+  ttl             = 60
+  name            = one([for dvo in aws_acm_certificate.blog.domain_validation_options : dvo.resource_record_name if dvo.domain_name == each.key])
+  type            = one([for dvo in aws_acm_certificate.blog.domain_validation_options : dvo.resource_record_type if dvo.domain_name == each.key])
+  records         = [one([for dvo in aws_acm_certificate.blog.domain_validation_options : dvo.resource_record_value if dvo.domain_name == each.key])]
 }
 
 resource "aws_acm_certificate_validation" "blog" {
