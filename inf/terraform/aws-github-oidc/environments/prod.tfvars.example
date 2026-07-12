@@ -1,29 +1,46 @@
-# Example Terraform variables file for production environment
+# Example Terraform variables for the aws-github-oidc project (production).
 # Usage: terraform apply -var-file="environments/prod.tfvars"
+#        (prefer passing github_token via TF_VAR_github_token; never commit a real token)
 
-github_owner       = "your-github-org-or-username"
-github_repository  = "devops-engineer-profile"
-github_token       = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"  # Use environment variable or secrets manager in CI/CD
+github_owner      = "HuyNguyen260398"
+github_repository = "devops-engineer-profile"
+github_token      = "ghp_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" # use TF_VAR_github_token / secrets manager in CI
 
-aws_region         = "ap-southeast-1"
-aws_account_id     = "aws-account-id"
-aws_role_name      = "github-actions-s3-sync-role"
-s3_bucket_name     = "your-prod-s3-bucket-name"
-cloudfront_distribution_id_prod = "your-cloudfront-distribution-id"
+aws_region    = "ap-southeast-1"
+aws_role_name = "github-actions-s3-sync-role"
 
-environment        = "production"
-project_name       = "devops-engineer-profile"
+# S3 buckets the sync role may read/write (production + staging site buckets).
+s3_bucket_name_prod    = "s3.nghuy.link"
+s3_bucket_name_staging = "s3-nghuy-link"
 
-# OIDC Authentication (Recommended - do not provide access keys)
+# CloudFront distribution the sync role may invalidate after each production sync.
+# This MUST be the distribution currently serving apex nghuy.link. The serverless
+# blog deploy (2026-07-12) repointed the apex to a NEW distribution and retired the
+# previous one (E3MGWTP58YX35G) — keep this in sync with the repo variable
+# PROD_CLOUDFRONT_DISTRIBUTION_ID:
+cloudfront_distribution_id_prod = "E344PIZPEIRDFM"
+
+environment  = "production"
+project_name = "devops-engineer-profile"
+
+# OIDC authentication (recommended — do not provide access keys).
 enable_oidc_authentication = true
 
-# Fallback authentication (only use if OIDC is not available)
-# aws_access_key_id     = ""  # Use environment variable
-# aws_secret_access_key = ""  # Use environment variable
+# GitHub Actions variables/secrets management (requires a token with repo + workflow).
+create_github_variables = true
+create_github_secrets   = false
 
-# Additional tags for resource identification
+# --- Blog deploy role (github-actions-blog-deploy; see blog-deploy-role.tf) ---
+# All of these have defaults; override only if the corresponding resource names change.
+# blog_deploy_role_name  = "github-actions-blog-deploy"
+# blog_site_bucket_name  = "s3.nghuy.link"
+# blog_media_bucket_name = "blogs-nghuy-link-media-010382427026"
+# tf_state_bucket_name   = "aws-github-oidc-tfstate-010382427026"
+# tf_lock_table_name     = "aws-github-oidc-tfstate-lock"
+
+# Additional tags for resource identification.
 tags = {
-  Owner       = "DevOps Team"
-  CostCenter  = "Engineering"
-  Compliance  = "SOC2"
+  Owner      = "DevOps Team"
+  CostCenter = "Engineering"
+  Compliance = "SOC2"
 }
