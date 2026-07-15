@@ -55,6 +55,9 @@ export const listPosts = (token?: string) => req<PostMeta[]>("/posts", "GET", to
 // returns published posts, so drafts must be fetched from /drafts with a token.
 export const listDrafts = (token: string) => req<PostMeta[]>("/drafts", "GET", token);
 export const getPost = (slug: string, token?: string) => req<PostRecord>(`/posts/${slug}`, "GET", token);
+// Authenticated read used by the editor: returns a post of any status (incl.
+// drafts), whereas the public getPost only resolves published posts.
+export const getDraft = (slug: string, token: string) => req<PostRecord>(`/drafts/${slug}`, "GET", token);
 export const createPost = (input: PostInput, token: string) => req<PostMeta>("/posts", "POST", token, input);
 export const updatePost = (id: string, input: PostInput, token: string) =>
   req<PostMeta>(`/posts/${id}`, "PUT", token, input);

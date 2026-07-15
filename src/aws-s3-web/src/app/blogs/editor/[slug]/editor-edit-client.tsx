@@ -6,7 +6,7 @@ import { AuthGuard } from "@/components/blog/auth-guard";
 import { BlogShell } from "@/components/blog/blog-shell";
 import { BlogEditor } from "@/components/blog/editor";
 import { getIdToken } from "@/lib/blog/auth";
-import { getPost, type PostRecord } from "@/lib/blog/api";
+import { getDraft, type PostRecord } from "@/lib/blog/api";
 
 function EditScreen() {
   const [initial, setInitial] = useState<PostRecord | null>(null);
@@ -15,7 +15,10 @@ function EditScreen() {
   useEffect(() => {
     const slug = window.location.pathname.split("/").filter(Boolean).pop() ?? "";
     getIdToken()
-      .then((token) => getPost(slug, token ?? undefined))
+      .then((token) => {
+        if (!token) throw new Error("not authenticated");
+        return getDraft(slug, token);
+      })
       .then((p) => {
         setInitial(p);
         setState("ok");

@@ -40,6 +40,9 @@ function buildEvent(
   } else if (/^\/posts\/[^/]+$/.test(path)) {
     resource = "/posts/{key}";
     pathParameters = { key: decodeURIComponent(path.split("/")[2]) };
+  } else if (/^\/drafts\/[^/]+$/.test(path)) {
+    resource = "/drafts/{key}";
+    pathParameters = { key: decodeURIComponent(path.split("/")[2]) };
   } else if (path === "/uploads") {
     resource = "/uploads";
   }
@@ -93,7 +96,8 @@ const server = createServer(async (req, res) => {
             routes: {
               "GET /posts": "list published posts (public)",
               "GET /drafts": "list draft posts (auth)",
-              "GET /posts/{slug}": "read one post with body",
+              "GET /drafts/{slug}": "read one post of any status with body (auth)",
+              "GET /posts/{slug}": "read one published post with body",
               "POST /posts": "create (auth)",
               "PUT /posts/{id}": "update (auth)",
               "DELETE /posts/{id}": "delete (auth)",

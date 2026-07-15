@@ -43,11 +43,21 @@ resource "aws_api_gateway_resource" "drafts" {
   path_part   = "drafts"
 }
 
+# Authenticated single-post read for the editor. GET /posts/{key} is public and
+# only returns published posts, so the editor cannot load a draft through it;
+# this route returns a post of any status to an authenticated caller.
+resource "aws_api_gateway_resource" "draft_key" {
+  rest_api_id = aws_api_gateway_rest_api.blog.id
+  parent_id   = aws_api_gateway_resource.drafts.id
+  path_part   = "{key}"
+}
+
 locals {
   # method key -> { resource_id, http verb, auth (true = Cognito required) }
   methods = {
     list_posts  = { resource = aws_api_gateway_resource.posts.id, http = "GET", auth = false }
     list_drafts = { resource = aws_api_gateway_resource.drafts.id, http = "GET", auth = true }
+    get_draft   = { resource = aws_api_gateway_resource.draft_key.id, http = "GET", auth = true }
     create_post = { resource = aws_api_gateway_resource.posts.id, http = "POST", auth = true }
     get_post    = { resource = aws_api_gateway_resource.post_key.id, http = "GET", auth = false }
     update_post = { resource = aws_api_gateway_resource.post_key.id, http = "PUT", auth = true }
