@@ -31,6 +31,10 @@ export function createHandler(repo: Repository) {
       if (httpMethod === "GET" && resource === "/drafts") {
         return json(200, await repo.listDrafts());
       }
+      if (httpMethod === "GET" && resource === "/drafts/{key}") {
+        const post = await repo.getBySlug(event.pathParameters!.key!, true);
+        return post ? json(200, post) : error(404, "not found");
+      }
       if (httpMethod === "POST" && resource === "/posts") {
         const v = validatePostInput(JSON.parse(event.body ?? "{}"));
         if (!v.ok) return error(400, v.error);

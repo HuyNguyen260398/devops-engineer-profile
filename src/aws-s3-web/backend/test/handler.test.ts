@@ -36,6 +36,27 @@ describe("router", () => {
     expect(JSON.parse(res.body)).toEqual([{ slug: "d", status: "draft" }]);
   });
 
+  it("GET /drafts/{key} without authorizer claims is 401", async () => {
+    const repo = { getBySlug: vi.fn() } as any;
+    const res = await createHandler(repo)(
+      evt("GET", "/drafts/{key}", { pathParameters: { key: "test" } }),
+    );
+    expect(res.statusCode).toBe(401);
+    expect(repo.getBySlug).not.toHaveBeenCalled();
+  });
+
+  it("GET /drafts/{key} with claims reads any status by slug", async () => {
+    const repo = { getBySlug: vi.fn().mockResolvedValue({ slug: "test", status: "draft" }) } as any;
+    const res = await createHandler(repo)(
+      evt("GET", "/drafts/{key}", {
+        pathParameters: { key: "test" },
+        requestContext: { authorizer: { claims: { sub: "u1" } } },
+      }),
+    );
+    expect(res.statusCode).toBe(200);
+    expect(repo.getBySlug).toHaveBeenCalledWith("test", true);
+  });
+
   it("POST /posts without authorizer claims is 401", async () => {
     const repo = {} as any;
     const res = await createHandler(repo)(evt("POST", "/posts", { body: "{}" }));

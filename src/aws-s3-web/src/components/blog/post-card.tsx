@@ -9,7 +9,11 @@ import type { PostMeta } from "@/lib/blog/api";
 export function PostCard({ post, href }: { post: PostMeta; href?: string }) {
   const date = post.publishedAt ?? post.updatedAt;
   return (
-    <Link href={href ?? `/blogs/${post.slug}`} className="blog-post-card">
+    // prefetch is disabled: in the static export, prefetching a dynamic route
+    // requests an RSC payload (…/__next._tree.txt) that isn't emitted, so it 404s
+    // in the console. Navigation still works via the CloudFront rewrite to the
+    // `_` shell.
+    <Link href={href ?? `/blogs/${post.slug}`} prefetch={false} className="blog-post-card">
       {post.coverImage && (
         <div className="blog-card-cover">
           <NextImage src={post.coverImage} alt="" fill sizes="(max-width: 640px) 100vw, 360px" />
