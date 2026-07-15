@@ -28,6 +28,9 @@ export function createHandler(repo: Repository) {
 
       if (!isAuthed(event)) return error(401, "unauthorized");
 
+      if (httpMethod === "GET" && resource === "/drafts") {
+        return json(200, await repo.listDrafts());
+      }
       if (httpMethod === "POST" && resource === "/posts") {
         const v = validatePostInput(JSON.parse(event.body ?? "{}"));
         if (!v.ok) return error(400, v.error);

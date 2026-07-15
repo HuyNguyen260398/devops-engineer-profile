@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 
-import { listPosts, type PostMeta } from "@/lib/blog/api";
+import { listDrafts, type PostMeta } from "@/lib/blog/api";
 import { getIdToken } from "@/lib/blog/auth";
 import { AuthGuard } from "@/components/blog/auth-guard";
 import { BlogShell } from "@/components/blog/blog-shell";
@@ -13,11 +13,14 @@ function DraftList() {
   const [state, setState] = useState<"loading" | "error" | "ok">("loading");
 
   useEffect(() => {
-    // An authenticated GET /posts returns every status; keep only drafts here.
+    // Drafts come from the Cognito-required GET /drafts route; a token is required.
     getIdToken()
-      .then((token) => listPosts(token ?? undefined))
+      .then((token) => {
+        if (!token) throw new Error("not authenticated");
+        return listDrafts(token);
+      })
       .then((p) => {
-        setPosts(p.filter((post) => post.status !== "published"));
+        setPosts(p);
         setState("ok");
       })
       .catch(() => setState("error"));

@@ -51,6 +51,9 @@ async function req<T>(path: string, method: string, token?: string, body?: unkno
 }
 
 export const listPosts = (token?: string) => req<PostMeta[]>("/posts", "GET", token);
+// Drafts live behind a Cognito-required route; GET /posts is public and only ever
+// returns published posts, so drafts must be fetched from /drafts with a token.
+export const listDrafts = (token: string) => req<PostMeta[]>("/drafts", "GET", token);
 export const getPost = (slug: string, token?: string) => req<PostRecord>(`/posts/${slug}`, "GET", token);
 export const createPost = (input: PostInput, token: string) => req<PostMeta>("/posts", "POST", token, input);
 export const updatePost = (id: string, input: PostInput, token: string) =>

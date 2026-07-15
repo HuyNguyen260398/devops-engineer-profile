@@ -32,10 +32,22 @@ resource "aws_api_gateway_resource" "uploads" {
   path_part   = "uploads"
 }
 
+# GET /posts must stay public (auth = false) because the homepage and /blogs list
+# fetch it anonymously from the browser. A Cognito authorizer is binary — it either
+# rejects anonymous requests or never validates the token — so it can't
+# conditionally reveal drafts on that same method. Drafts therefore live behind a
+# dedicated Cognito-required route.
+resource "aws_api_gateway_resource" "drafts" {
+  rest_api_id = aws_api_gateway_rest_api.blog.id
+  parent_id   = aws_api_gateway_rest_api.blog.root_resource_id
+  path_part   = "drafts"
+}
+
 locals {
   # method key -> { resource_id, http verb, auth (true = Cognito required) }
   methods = {
     list_posts  = { resource = aws_api_gateway_resource.posts.id, http = "GET", auth = false }
+    list_drafts = { resource = aws_api_gateway_resource.drafts.id, http = "GET", auth = true }
     create_post = { resource = aws_api_gateway_resource.posts.id, http = "POST", auth = true }
     get_post    = { resource = aws_api_gateway_resource.post_key.id, http = "GET", auth = false }
     update_post = { resource = aws_api_gateway_resource.post_key.id, http = "PUT", auth = true }
