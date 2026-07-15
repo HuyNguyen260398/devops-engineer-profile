@@ -35,6 +35,8 @@ function buildEvent(
 
   if (path === "/posts") {
     resource = "/posts";
+  } else if (path === "/drafts") {
+    resource = "/drafts";
   } else if (/^\/posts\/[^/]+$/.test(path)) {
     resource = "/posts/{key}";
     pathParameters = { key: decodeURIComponent(path.split("/")[2]) };
@@ -89,7 +91,8 @@ const server = createServer(async (req, res) => {
             service: "blog backend (in-memory dev harness)",
             authHeader: `Authorization: Bearer ${DEV_TOKEN}`,
             routes: {
-              "GET /posts": "list published (add auth header to include drafts)",
+              "GET /posts": "list published posts (public)",
+              "GET /drafts": "list draft posts (auth)",
               "GET /posts/{slug}": "read one post with body",
               "POST /posts": "create (auth)",
               "PUT /posts/{id}": "update (auth)",

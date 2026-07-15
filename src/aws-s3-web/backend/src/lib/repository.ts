@@ -69,6 +69,21 @@ export class Repository {
     return (r.Items ?? []).map(META);
   }
 
+  async listDrafts(): Promise<PostMeta[]> {
+    const r = await this.d.doc.send(
+      new QueryCommand({
+        TableName: this.d.table,
+        IndexName: "gsi1",
+        KeyConditionExpression: "GSI1PK = :p",
+        FilterExpression: "#s = :draft",
+        ExpressionAttributeNames: { "#s": "status" },
+        ExpressionAttributeValues: { ":p": "POST", ":draft": "draft" },
+        ScanIndexForward: false,
+      }),
+    );
+    return (r.Items ?? []).map(META);
+  }
+
   async getBySlug(slug: string, includeDraft: boolean): Promise<PostRecord | null> {
     const q = await this.d.doc.send(
       new QueryCommand({

@@ -35,6 +35,13 @@ export class InMemoryRepository {
       .map((p) => this.toMeta(p));
   }
 
+  async listDrafts(): Promise<PostMeta[]> {
+    return [...this.posts.values()]
+      .filter((p) => p.status === "draft")
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+      .map((p) => this.toMeta(p));
+  }
+
   async getBySlug(slug: string, includeDraft: boolean): Promise<PostRecord | null> {
     const p = [...this.posts.values()].find((x) => x.slug === slug);
     if (!p) return null;
