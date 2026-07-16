@@ -72,11 +72,29 @@ spec:
               limits:
                 cpu: "2"
                 memory: "2Gi"
+        guardrails:
+          quota:
+            hard:
+              requests.cpu: "4"
+              requests.memory: 8Gi
+              limits.cpu: "16"
+              limits.memory: 16Gi
+              persistentvolumeclaims: "10"
+              requests.storage: 200Gi
+              pods: "50"
   destination:
     server: https://kubernetes.default.svc
     namespace: jenkins-TENANT_NAME          # Dedicated namespace per premium tenant
   # Manual sync for production safety – no automated sync
   syncPolicy:
+    # PSS: enforce baseline now; warn+audit restricted to surface violations
+    # in tenant agent podTemplates before tightening enforcement.
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: baseline
+        pod-security.kubernetes.io/warn: restricted
+        pod-security.kubernetes.io/audit: restricted
+        app.kubernetes.io/part-of: gitops-platform
     automated: null
     syncOptions:
       - CreateNamespace=true

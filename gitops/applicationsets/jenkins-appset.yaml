@@ -105,6 +105,14 @@ spec:
         server: https://kubernetes.default.svc
         namespace: "{{ .spec.destination.namespace }}"
       syncPolicy:
+        # PSS: enforce baseline now; warn+audit restricted to surface violations
+        # in tenant agent podTemplates before tightening enforcement.
+        managedNamespaceMetadata:
+          labels:
+            pod-security.kubernetes.io/enforce: baseline
+            pod-security.kubernetes.io/warn: restricted
+            pod-security.kubernetes.io/audit: restricted
+            app.kubernetes.io/part-of: gitops-platform
         syncOptions:
           - CreateNamespace=true
           - PrunePropagationPolicy=foreground
