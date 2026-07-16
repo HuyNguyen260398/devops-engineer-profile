@@ -157,3 +157,25 @@ variable "enable_secret_encryption" {
   type        = bool
   default     = true
 }
+# VPC Endpoints
+variable "enable_vpc_endpoints" {
+  description = "Create S3 gateway + interface VPC endpoints so node/pod AWS API traffic (image pulls, STS, logs) stays on the AWS backbone instead of traversing the NAT gateway"
+  type        = bool
+  default     = true
+}
+
+variable "vpc_interface_endpoint_services" {
+  description = "AWS services to create interface VPC endpoints for (each costs ~USD 7/month + data — trim on staging if needed). The secretsmanager endpoint serves External Secrets Operator."
+  type        = list(string)
+  default = [
+    "ecr.api",
+    "ecr.dkr",
+    "sts",
+    "ec2",
+    "elasticloadbalancing",
+    "logs",
+    "autoscaling",
+    "eks",
+    "secretsmanager",
+  ]
+}
