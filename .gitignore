@@ -105,3 +105,6 @@ test-results/
 playwright-report/
 coverage/
 *.tsbuildinfo
+# Helm dependency build artifacts (wrapper charts fetch deps at validate/sync time)
+gitops/helm-charts/*/charts/
+gitops/helm-charts/*/Chart.lock
