@@ -79,3 +79,13 @@ variable "additional_tags" {
   type        = map(string)
   default     = {}
 }
+
+# ============================================================================
+# External Secrets Operator
+# ============================================================================
+
+variable "enable_external_secrets" {
+  description = "Create the IRSA role for External Secrets Operator (read-only Secrets Manager access under gitops/<environment>/*)"
+  type        = bool
+  default     = true
+}
