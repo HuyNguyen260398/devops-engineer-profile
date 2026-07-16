@@ -184,11 +184,11 @@ kube-prometheus-stack:
   grafana:
     enabled: true
 
-    # Admin credentials – MUST be overridden per environment.
-    # Production: use External Secrets Operator with AWS Secrets Manager.
-    # Staging/local: set adminPassword in Application helm.values override.
-    adminUser: admin
-    adminPassword: "CHANGE_ME_PER_ENVIRONMENT"  # Never commit real credentials
+    # Admin credentials:
+    #   AWS (staging/production): sourced from AWS Secrets Manager via the
+    #     grafana-admin-credentials ExternalSecret — set admin.existingSecret
+    #     in the Application helm.values (see externalSecrets below).
+    #   Local: chart default credentials (local-only, no override committed).
 
     # Pod Security Context (PSS restricted – Grafana runs as UID 472)
     securityContext:
@@ -418,3 +418,9 @@ kube-prometheus-stack:
       limits:
         cpu: "100m"
         memory: "128Mi"
+
+# ── External Secrets (wrapper-rendered, AWS environments only) ─────────────
+externalSecrets:
+  enabled: false
+  environment: ""              # staging | production
+  storeName: aws-secrets-manager
