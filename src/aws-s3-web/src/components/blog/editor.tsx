@@ -8,6 +8,8 @@ import Image from "@tiptap/extension-image";
 import Placeholder from "@tiptap/extension-placeholder";
 
 import { EditorToolbar } from "./editor-toolbar";
+import { PostView } from "./post-view";
+import { useEditorDirty } from "@/context/editor-dirty";
 import { getIdToken } from "@/lib/blog/auth";
 import { uploadImage } from "@/lib/blog/upload";
 import { createPost, updatePost, type PostRecord, type PostStatus } from "@/lib/blog/api";
@@ -22,6 +24,8 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
   const [coverBusy, setCoverBusy] = useState(false);
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState("");
+  const [preview, setPreview] = useState(false);
+  const { setDirty } = useEditorDirty();
 
   async function onPickCover(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
@@ -30,6 +34,7 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
     setErr("");
     try {
       setCoverImage(await uploadImage(file));
+      setDirty(true);
     } catch (ex) {
       setErr((ex as Error).message);
     } finally {
@@ -42,6 +47,7 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
     extensions: [StarterKit, Image, Placeholder.configure({ placeholder: "Write your post…" })],
     content: (initial?.body as Record<string, unknown>) ?? EMPTY_DOC,
     immediatelyRender: false,
+    onUpdate: () => setDirty(true),
   });
 
   async function save(status: PostStatus) {
@@ -66,6 +72,7 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
       const saved = initial
         ? await updatePost(initial.id, input, token)
         : await createPost(input, token);
+      setDirty(false);
       // Published posts land on their public detail page; drafts return to the private draft list.
       window.location.href = saved && saved.status === "published" ? `/blogs/${saved.slug}` : "/blogs-draft";
     } catch (e) {
@@ -74,6 +81,14 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
     }
   }
 
+  const previewData = {
+    title,
+    tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+    coverImage,
+    publishedAt: null,
+    body: editor?.getJSON() ?? EMPTY_DOC,
+  };
+
   return (
     <>
       <div className="blog-editor-titles">
@@ -81,19 +96,19 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
           className="blog-editor-title"
           placeholder="Post title"
           value={title}
-          onChange={(e) => setTitle(e.target.value)}
+          onChange={(e) => { setTitle(e.target.value); setDirty(true); }}
         />
         <input
           className="blog-input"
           placeholder="Excerpt"
           value={excerpt}
-          onChange={(e) => setExcerpt(e.target.value)}
+          onChange={(e) => { setExcerpt(e.target.value); setDirty(true); }}
         />
         <input
           className="blog-input"
           placeholder="tags (comma separated)"
           value={tags}
-          onChange={(e) => setTags(e.target.value)}
+          onChange={(e) => { setTags(e.target.value); setDirty(true); }}
         />
 
         <div className="blog-editor-cover">
@@ -103,7 +118,7 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
               <button
                 type="button"
                 className="blog-editor-cover-remove"
-                onClick={() => setCoverImage(null)}
+                onClick={() => { setCoverImage(null); setDirty(true); }}
                 aria-label="remove cover image"
               >
                 ✕ remove
@@ -124,10 +139,28 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
         </div>
       </div>
 
-      {editor && <EditorToolbar editor={editor} />}
-      <div className="blog-editor-surface">
-        <EditorContent editor={editor} />
+      <div className="blog-editor-actions">
+        <button
+          type="button"
+          className={`terminal-button${preview ? " terminal-button-primary" : ""}`}
+          onClick={() => setPreview((p) => !p)}
+        >
+          {preview ? "edit" : "preview"}
+        </button>
       </div>
+
+      {preview ? (
+        <div className="blog-editor-surface">
+          <PostView post={previewData} />
+        </div>
+      ) : (
+        <>
+          {editor && <EditorToolbar editor={editor} />}
+          <div className="blog-editor-surface">
+            <EditorContent editor={editor} />
+          </div>
+        </>
+      )}
 
       <div className="blog-editor-actions">
         <button type="button" className="terminal-button" disabled={saving} onClick={() => save("draft")}>
