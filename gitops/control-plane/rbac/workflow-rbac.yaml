@@ -5,10 +5,10 @@
 # required for the tenant onboarding/offboarding/deployment WorkflowTemplates.
 #
 # Permissions granted (least-privilege):
-#   • Read ArgoCD Applications (monitor sync status)
-#   • Manage Namespaces (create/delete tenant namespaces)
-#   • Read Pods, Services, Deployments (health verification)
-#   • Read/write ConfigMaps in argo-workflows (workflow coordination)
+#   • ClusterRole  – read ArgoCD Applications, manage Namespaces,
+#                    read workload health (cluster-wide by necessity)
+#   • Role         – ConfigMap read/write + Workflow engine CRUD,
+#                    scoped to the argo-workflows namespace only
 #
 # Apply: kubectl apply -f gitops/control-plane/rbac/workflow-rbac.yaml
 # ============================================================================
@@ -64,16 +64,6 @@ rules:
   - apiGroups: ["apps"]
     resources: ["deployments", "statefulsets", "replicasets"]
     verbs: ["get", "list", "watch"]
-
-  # Read/write ConfigMaps in argo-workflows namespace for workflow coordination
-  - apiGroups: [""]
-    resources: ["configmaps"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
-
-  # Argo Workflows engine permissions
-  - apiGroups: ["argoproj.io"]
-    resources: ["workflows", "workflowtemplates", "workflowartifactgctasks"]
-    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -88,6 +78,50 @@ roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
   name: gitops-workflow-role
+subjects:
+  - kind: ServiceAccount
+    name: gitops-workflow-sa
+    namespace: argo-workflows
+---
+# Namespaced permissions: workflow coordination ConfigMaps and the Argo
+# Workflows engine resources live only in argo-workflows. Granting these
+# via a Role (not the ClusterRole) prevents the workflow ServiceAccount
+# from writing ConfigMaps or Workflows in any other namespace.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: gitops-workflow-ns-role
+  namespace: argo-workflows
+  labels:
+    app.kubernetes.io/name: gitops-workflow-ns-role
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/managed-by: argocd
+rules:
+  # Read/write ConfigMaps for workflow coordination
+  - apiGroups: [""]
+    resources: ["configmaps"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+
+  # Argo Workflows engine permissions
+  - apiGroups: ["argoproj.io"]
+    resources: ["workflows", "workflowtemplates", "workflowartifactgctasks"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: gitops-workflow-ns-rolebinding
+  namespace: argo-workflows
+  labels:
+    app.kubernetes.io/name: gitops-workflow-ns-rolebinding
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: control-plane
+    app.kubernetes.io/managed-by: argocd
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: gitops-workflow-ns-role
 subjects:
   - kind: ServiceAccount
     name: gitops-workflow-sa
