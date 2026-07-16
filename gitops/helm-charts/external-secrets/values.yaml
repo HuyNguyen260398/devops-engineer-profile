@@ -1,0 +1,75 @@
+# ============================================================================
+# External Secrets Operator – Secure Base Defaults
+# ============================================================================
+# The IRSA role ARN is environment-specific and injected via the ArgoCD
+# Application helm.values block (see application-plane/<env>/infrastructure/
+# external-secrets.yaml). It comes from:
+#   terraform -chdir=inf/terraform/aws-eks-argocd output -raw external_secrets_irsa_role_arn
+external-secrets:
+  installCRDs: true
+
+  serviceAccount:
+    create: true
+    name: external-secrets
+    annotations:
+      eks.amazonaws.com/role-arn: ""  # Set per environment — UPDATE THIS
+
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+
+  securityContext:
+    runAsNonRoot: true
+    allowPrivilegeEscalation: false
+    readOnlyRootFilesystem: true
+    seccompProfile:
+      type: RuntimeDefault
+    capabilities:
+      drop:
+        - ALL
+
+  webhook:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    securityContext:
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      seccompProfile:
+        type: RuntimeDefault
+      capabilities:
+        drop:
+          - ALL
+
+  certController:
+    resources:
+      requests:
+        cpu: 25m
+        memory: 32Mi
+      limits:
+        cpu: 100m
+        memory: 128Mi
+    securityContext:
+      runAsNonRoot: true
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      seccompProfile:
+        type: RuntimeDefault
+      capabilities:
+        drop:
+          - ALL
+
+# ── Platform ClusterSecretStore (rendered by this wrapper) ─────────────────
+clusterSecretStore:
+  enabled: false        # Enabled per environment via the ArgoCD Application
+  name: aws-secrets-manager
+  region: ap-southeast-1
