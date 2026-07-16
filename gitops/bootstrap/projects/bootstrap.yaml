@@ -1,0 +1,40 @@
+# ============================================================================
+# ArgoCD AppProject – Bootstrap (Root App-of-Apps)
+# ============================================================================
+# Owns ONLY the root app-of-apps Applications. Root apps are the most
+# privileged layer of the platform: they watch application-plane directories
+# and create child Applications from whatever is merged there. Scoping them
+# to this project (instead of the unrestricted built-in `default` project)
+# means a merged YAML can only ever create ArgoCD Application resources in
+# the argocd namespace — never arbitrary cluster resources.
+#
+# NOTE: If you run this platform from a fork, update sourceRepos to your
+# fork's URL (same convention as the repoURL "UPDATE THIS" markers).
+apiVersion: argoproj.io/v1alpha1
+kind: AppProject
+metadata:
+  name: bootstrap
+  namespace: argocd
+  labels:
+    app.kubernetes.io/name: bootstrap
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/managed-by: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  description: "Root app-of-apps Applications (bootstrap layer)"
+
+  sourceRepos:
+    - https://github.com/HuyNguyen260398/devops-engineer-profile.git
+
+  destinations:
+    - server: https://kubernetes.default.svc
+      namespace: argocd
+
+  # Root apps create no cluster-scoped resources.
+  clusterResourceWhitelist: []
+
+  # Root apps may only create other ArgoCD Applications.
+  namespaceResourceWhitelist:
+    - group: argoproj.io
+      kind: Application
