@@ -6,14 +6,20 @@ import { generateHTML } from "@tiptap/html";
 import StarterKit from "@tiptap/starter-kit";
 import Image from "@tiptap/extension-image";
 
-import type { PostRecord } from "@/lib/blog/api";
-
 // StarterKit (v3) already bundles Link, Underline, code blocks, lists, etc.;
 // only Image is added on top. Keeping the extension list minimal means no raw
 // HTML node can be serialized in from stored ProseMirror JSON.
 const extensions = [StarterKit, Image];
 
-export function PostView({ post }: { post: PostRecord }) {
+export interface PostViewData {
+  title: string;
+  tags: string[];
+  coverImage: string | null;
+  publishedAt: string | null;
+  body: unknown;
+}
+
+export function PostView({ post }: { post: PostViewData }) {
   const html = useMemo(() => {
     try {
       return generateHTML(post.body as Record<string, unknown>, extensions);
