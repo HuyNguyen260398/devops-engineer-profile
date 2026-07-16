@@ -1,0 +1,160 @@
+{{- /*
+Tenant namespace network isolation:
+  1. default-deny            – blocks all ingress + egress
+  2. allow-dns               – DNS to kube-system
+  3. allow-intra-namespace   – agents <-> controller inside the namespace
+  4. allow-ingress-controller– controller ports from the ingress controller
+                               namespace and (on AWS) ALB ENI CIDRs
+  5. allow-egress-https      – git clones, plugin downloads, k8s API
+  6. extra                   – per-tier additions from values
+*/ -}}
+{{- if .Values.guardrails.networkPolicy.enabled }}
+{{- $np := .Values.guardrails.networkPolicy }}
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-default-deny
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: tenant-guardrails
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-dns
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: tenant-guardrails
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: kube-system
+      ports:
+        - protocol: UDP
+          port: 53
+        - protocol: TCP
+          port: 53
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-intra-namespace
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: tenant-guardrails
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector: {}
+  egress:
+    - to:
+        - podSelector: {}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-ingress-controller
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: tenant-guardrails
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/component: jenkins-controller
+  policyTypes:
+    - Ingress
+  ingress:
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: {{ $np.ingressControllerNamespace }}
+      ports:
+        {{- range $np.controllerPorts }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- if $np.allowLoadBalancerCidrs }}
+    - from:
+        {{- range $np.allowLoadBalancerCidrs }}
+        - ipBlock:
+            cidr: {{ . }}
+        {{- end }}
+      ports:
+        {{- range $np.controllerPorts }}
+        - protocol: TCP
+          port: {{ . }}
+        {{- end }}
+    {{- end }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-allow-egress-https
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: tenant-guardrails
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+      ports:
+        - protocol: TCP
+          port: 443
+{{- if $np.extraIngress }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-extra-ingress
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: tenant-guardrails
+spec:
+  podSelector: {}
+  policyTypes:
+    - Ingress
+  ingress:
+    {{- toYaml $np.extraIngress | nindent 4 }}
+{{- end }}
+{{- if $np.extraEgress }}
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: {{ .Release.Name }}-extra-egress
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: tenant-guardrails
+spec:
+  podSelector: {}
+  policyTypes:
+    - Egress
+  egress:
+    {{- toYaml $np.extraEgress | nindent 4 }}
+{{- end }}
+{{- end }}
