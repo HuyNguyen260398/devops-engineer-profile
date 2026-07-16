@@ -112,3 +112,20 @@ terraform destroy -var-file environments/staging.tfvars
 
 > Destroying this module only removes the IAM role. ArgoCD pods and the ALB
 > remain until you run `bash ops/argocd/deploy-aws.sh uninstall`.
+
+## External Secrets Operator IRSA
+
+`external_secrets.tf` creates an IRSA role for the ESO controller
+(`external-secrets/external-secrets` service account) with read-only access
+to Secrets Manager entries under `gitops/<environment>/*`. Disable with
+`enable_external_secrets = false`.
+
+After `terraform apply`, feed the role ARN to the GitOps layer:
+
+```bash
+terraform output -raw external_secrets_irsa_role_arn
+# → paste into gitops/application-plane/<env>/infrastructure/external-secrets.yaml
+```
+
+Secrets Manager entries are created out-of-band (never in Terraform) so
+secret values stay out of state — see `gitops/README.md` for the commands.

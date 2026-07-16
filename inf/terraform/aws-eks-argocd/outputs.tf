@@ -22,3 +22,8 @@ output "aws_lb_controller_role_arn" {
   description = "IAM role ARN for AWS Load Balancer Controller"
   value       = var.enable_aws_lb_controller ? module.aws_lb_controller_irsa[0].iam_role_arn : null
 }
+
+output "external_secrets_irsa_role_arn" {
+  description = "IAM role ARN for the External Secrets Operator service account (annotate external-secrets/external-secrets with this)"
+  value       = try(module.external_secrets_irsa[0].iam_role_arn, null)
+}

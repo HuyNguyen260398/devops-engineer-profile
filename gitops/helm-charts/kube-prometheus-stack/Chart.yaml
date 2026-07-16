@@ -6,7 +6,7 @@
 # Pod Security Standards (restricted) and per-environment value overrides
 # injected via the ArgoCD Application's helm.values block.
 #
-# Chart version:          1.0.0 (wrapper)
+# Chart version:          1.1.0 (wrapper)
 # Upstream chart version: 67.9.0 (pinned – update deliberately via PR)
 # Upstream repo:          https://prometheus-community.github.io/helm-charts
 # ArtifactHub:            https://artifacthub.io/packages/helm/prometheus-community/kube-prometheus-stack
@@ -33,7 +33,7 @@ description: >-
   Wraps upstream prometheus-community/kube-prometheus-stack:67.9.0 with
   Pod Security Standards (restricted) defaults for all environments.
 type: application
-version: 1.0.0
+version: 1.1.0
 appVersion: "v0.80.2"
 keywords:
   - prometheus

@@ -1,0 +1,25 @@
+# ============================================================================
+# External Secrets Operator Wrapper Chart
+# ============================================================================
+# Thin wrapper around the upstream external-secrets chart providing secure
+# defaults and the platform ClusterSecretStore (AWS Secrets Manager via IRSA).
+# Deployed only to AWS environments (staging, production) — local clusters
+# have no AWS credentials and keep manually created secrets.
+apiVersion: v2
+name: external-secrets
+description: >-
+  External Secrets Operator for the GitOps platform. Syncs AWS Secrets
+  Manager entries (gitops/<environment>/*) into Kubernetes Secrets.
+type: application
+version: 1.0.0
+appVersion: "v2.7.0"
+keywords:
+  - secrets
+  - external-secrets
+  - gitops
+maintainers:
+  - name: devops-platform-team
+dependencies:
+  - name: external-secrets
+    version: "2.7.0"
+    repository: https://charts.external-secrets.io

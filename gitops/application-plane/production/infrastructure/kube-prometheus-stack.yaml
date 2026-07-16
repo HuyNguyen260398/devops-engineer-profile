@@ -15,7 +15,7 @@
 #   • Prometheus:         retention 30d, 50Gi storage, full resources
 #   • Grafana:            ClusterIP (behind ALB), 10Gi storage, production URL
 #   • Alertmanager:       HA (2 replicas), PagerDuty + Slack routing, 5Gi storage
-#   • adminPassword:      managed via External Secrets Operator (AWS Secrets Manager)
+#   • Secrets:            Grafana admin, PagerDuty key, Slack webhooks via ESO (gitops/production/*)
 #   • Automated prune:    DISABLED – prevents accidental deletion of monitoring data
 # ============================================================================
 apiVersion: argoproj.io/v1alpha1
@@ -69,12 +69,14 @@ spec:
                         storage: "50Gi"
 
           # ── Grafana ──────────────────────────────────────────────────────
-          # adminPassword sourced from External Secrets Operator:
-          #   externalSecret targeting AWS Secrets Manager key: grafana/admin-password
-          # Replace adminPassword below with ESO-managed Secret reference once
-          # External Secrets Operator is deployed to the cluster.
+          # Grafana admin credentials sourced from AWS Secrets Manager
+          # (gitops/production/grafana-admin) via the grafana-admin-credentials
+          # ExternalSecret rendered by this wrapper chart.
           grafana:
-            adminPassword: "REPLACE_WITH_EXTERNAL_SECRET"
+            admin:
+              existingSecret: grafana-admin-credentials
+              userKey: admin-user
+              passwordKey: admin-password
             service:
               type: ClusterIP
             resources:
@@ -100,6 +102,8 @@ spec:
             enabled: true
             alertmanagerSpec:
               replicas: 2    # HA for production
+              secrets:
+                - alertmanager-receivers   # Mounted at /etc/alertmanager/secrets/alertmanager-receivers/
               storage:
                 volumeClaimTemplate:
                   spec:
@@ -154,18 +158,18 @@ spec:
                 - name: "null"
                 - name: "pagerduty-production"
                   pagerduty_configs:
-                    - service_key: "REPLACE_WITH_PAGERDUTY_SERVICE_KEY"  # UPDATE THIS
+                    - service_key_file: /etc/alertmanager/secrets/alertmanager-receivers/pagerduty-service-key
                       description: '{{ template "pagerduty.default.description" . }}'
                       severity: '{{ if .CommonLabels.severity }}{{ .CommonLabels.severity }}{{ else }}warning{{ end }}'
                 - name: "slack-critical"
                   slack_configs:
-                    - api_url: "https://hooks.slack.com/services/REPLACE/WITH/WEBHOOK"  # UPDATE THIS
+                    - api_url_file: /etc/alertmanager/secrets/alertmanager-receivers/slack-webhook-critical
                       channel: "#devops-critical-alerts"
                       title: '[CRITICAL] {{ .GroupLabels.alertname }}'
                       text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
                 - name: "slack-production"
                   slack_configs:
-                    - api_url: "https://hooks.slack.com/services/REPLACE/WITH/WEBHOOK"  # UPDATE THIS
+                    - api_url_file: /etc/alertmanager/secrets/alertmanager-receivers/slack-webhook-production
                       channel: "#devops-production-alerts"
                       title: '[PRODUCTION] {{ .GroupLabels.alertname }}'
                       text: "{{ range .Alerts }}{{ .Annotations.summary }}\n{{ end }}"
@@ -179,6 +183,10 @@ spec:
               limits:
                 cpu: "200m"
                 memory: "256Mi"
+
+        externalSecrets:
+          enabled: true
+          environment: production
 
   destination:
     server: https://kubernetes.default.svc
