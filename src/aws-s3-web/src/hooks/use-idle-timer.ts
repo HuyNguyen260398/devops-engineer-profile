@@ -22,11 +22,15 @@ export interface IdleTimerState {
 export function useIdleTimer({ timeoutMs, warnMs, onExpire, enabled = true }: IdleTimerOptions): IdleTimerState {
   const [warning, setWarning] = useState(false);
   const [secondsLeft, setSecondsLeft] = useState(Math.ceil(warnMs / 1000));
-  const deadlineRef = useRef(Date.now() + timeoutMs);
+  const deadlineRef = useRef(0);
   const warningRef = useRef(false);
   const lastWriteRef = useRef(0);
   const onExpireRef = useRef(onExpire);
-  onExpireRef.current = onExpire;
+
+  // Keep the latest onExpire callback without re-running the timer effect.
+  useEffect(() => {
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
 
   const reset = useCallback(() => {
     deadlineRef.current = Date.now() + timeoutMs;
@@ -38,7 +42,10 @@ export function useIdleTimer({ timeoutMs, warnMs, onExpire, enabled = true }: Id
 
   useEffect(() => {
     if (!enabled) return;
-    reset();
+    // Arm the timer without touching React state (warning starts false; the
+    // interval below is the only path that raises it).
+    deadlineRef.current = Date.now() + timeoutMs;
+    warningRef.current = false;
 
     const markActivity = () => {
       if (warningRef.current) return; // once warning shows, only the button resets
@@ -82,7 +89,7 @@ export function useIdleTimer({ timeoutMs, warnMs, onExpire, enabled = true }: Id
       window.removeEventListener("storage", onStorage);
       window.clearInterval(interval);
     };
-  }, [enabled, warnMs, reset]);
+  }, [enabled, warnMs, timeoutMs, reset]);
 
   return { warning, secondsLeft, stayActive };
 }

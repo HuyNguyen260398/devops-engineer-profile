@@ -16,7 +16,6 @@ function DraftPreview() {
 
   useEffect(() => {
     const s = window.location.pathname.split("/").filter(Boolean).pop() ?? "";
-    setSlug(s);
     getIdToken()
       .then((token) => {
         if (!token) throw new Error("not authenticated");
@@ -24,6 +23,7 @@ function DraftPreview() {
       })
       .then((p) => {
         setPost(p);
+        setSlug(s);
         setState("ok");
       })
       .catch(() => setState("error"));
