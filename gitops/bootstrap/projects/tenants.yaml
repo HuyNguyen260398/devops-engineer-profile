@@ -17,8 +17,13 @@ metadata:
 spec:
   description: "Tenant-scoped application deployments across tiers"
 
+  # Pinned to the platform repository. sourceRepos constrains
+  # Application.spec.source.repoURL only — Helm chart dependencies
+  # (charts.jenkins.io etc.) are fetched by the repo-server during
+  # rendering and are NOT checked against this list, so wrapper charts
+  # keep working. If running from a fork, update the URL.
   sourceRepos:
-    - "*"
+    - https://github.com/HuyNguyen260398/devops-engineer-profile.git
 
   destinations:
     # Tenant namespaces follow pattern: tenant-<id> or pool-<id>
@@ -42,6 +47,11 @@ spec:
       kind: ServiceAccount
     - group: ""
       kind: PersistentVolumeClaim
+    # Tenant guardrails rendered by the jenkins wrapper chart
+    - group: ""
+      kind: ResourceQuota
+    - group: ""
+      kind: LimitRange
     - group: apps
       kind: Deployment
     - group: apps

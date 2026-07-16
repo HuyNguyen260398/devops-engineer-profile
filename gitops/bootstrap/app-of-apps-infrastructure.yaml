@@ -39,7 +39,7 @@ metadata:
     argocd.argoproj.io/manifest-generate-paths: .
     description: "Root App-of-Apps for local infrastructure components"
 spec:
-  project: default
+  project: bootstrap
 
   source:
     repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
@@ -92,7 +92,7 @@ metadata:
     notifications.argoproj.io/subscribe.on-sync-failed.slack: devops-alerts
     description: "Root App-of-Apps for staging infrastructure components"
 spec:
-  project: default
+  project: bootstrap
 
   source:
     repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS
@@ -145,7 +145,7 @@ metadata:
     notifications.argoproj.io/subscribe.on-health-degraded.slack: devops-critical-alerts
     description: "Root App-of-Apps for production infrastructure components"
 spec:
-  project: default
+  project: bootstrap
 
   source:
     repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git  # UPDATE THIS

@@ -120,3 +120,43 @@ jenkins:
       limits:
         cpu: "500m"
         memory: "512Mi"
+
+# ============================================================================
+# Tenant Namespace Guardrails
+# ============================================================================
+# Rendered by this wrapper chart (not the upstream jenkins chart).
+# Defaults are sized for the BASIC tier; advanced/premium tiers override
+# guardrails.quota.hard in their ArgoCD Application helm.values block.
+guardrails:
+  networkPolicy:
+    enabled: true
+    # Ports tenants' agents / ingress reach on the controller
+    controllerPorts:
+      - 8080
+      - 50000
+    # Namespace running the ingress controller (nginx or ALB controller pods)
+    ingressControllerNamespace: ingress-nginx
+    # AWS ALB target-type=ip sends traffic from ALB ENI IPs, not pods.
+    # Set to the VPC CIDR on AWS environments, e.g. ["10.0.0.0/16"].
+    allowLoadBalancerCidrs: []
+    # Extra raw NetworkPolicy ingress/egress rule lists appended per tier
+    extraIngress: []
+    extraEgress: []
+  quota:
+    enabled: true
+    hard:
+      requests.cpu: "2"
+      requests.memory: 4Gi
+      limits.cpu: "4"
+      limits.memory: 8Gi
+      persistentvolumeclaims: "5"
+      requests.storage: 50Gi
+      pods: "30"
+  limitRange:
+    enabled: true
+    containerDefault:
+      cpu: 500m
+      memory: 512Mi
+    containerDefaultRequest:
+      cpu: 100m
+      memory: 128Mi

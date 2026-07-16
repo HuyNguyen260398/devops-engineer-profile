@@ -30,7 +30,7 @@ metadata:
     argocd.argoproj.io/manifest-generate-paths: .
     description: "Root App-of-Apps for local environment"
 spec:
-  project: default
+  project: bootstrap
 
   source:
     repoURL: https://github.com/HuyNguyen260398/devops-engineer-profile.git

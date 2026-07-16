@@ -4,7 +4,7 @@
 # Thin wrapper around the upstream jenkins/jenkins chart providing opinionated
 # security defaults and tier-based value overrides for the GitOps platform.
 #
-# Chart version:  1.0.0
+# Chart version:  1.1.0
 # Upstream chart: jenkins/jenkins:5.8.139 (https://charts.jenkins.io)
 # Tiers:          basic (pool) | advanced (dedicated) | premium (silo)
 # ============================================================================
@@ -15,7 +15,7 @@ description: >-
   Wraps upstream jenkins/jenkins:5.8.139 with secure defaults for
   basic (pool), advanced (dedicated), and premium (silo) tiers.
 type: application
-version: 1.0.0
+version: 1.1.0
 appVersion: "2.504"
 keywords:
   - jenkins

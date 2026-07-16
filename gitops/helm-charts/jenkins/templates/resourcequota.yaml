@@ -1,0 +1,13 @@
+{{- if .Values.guardrails.quota.enabled }}
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: {{ .Release.Name }}-quota
+  labels:
+    app.kubernetes.io/name: {{ .Release.Name }}
+    app.kubernetes.io/part-of: gitops-platform
+    app.kubernetes.io/component: tenant-guardrails
+spec:
+  hard:
+    {{- toYaml .Values.guardrails.quota.hard | nindent 4 }}
+{{- end }}

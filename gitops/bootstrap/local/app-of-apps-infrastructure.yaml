@@ -40,7 +40,7 @@ metadata:
     argocd.argoproj.io/manifest-generate-paths: .
     description: "Root App-of-Apps for local infrastructure components"
 spec:
-  project: default
+  project: bootstrap
 
   source:
     repoURL: ${GIT_REPO_URL}

@@ -60,10 +60,28 @@ spec:
             persistence:
               storageClass: "gp3"
               size: "20Gi"
+        guardrails:
+          quota:
+            hard:
+              requests.cpu: "2"
+              requests.memory: 4Gi
+              limits.cpu: "6"
+              limits.memory: 8Gi
+              persistentvolumeclaims: "5"
+              requests.storage: 100Gi
+              pods: "30"
   destination:
     server: https://kubernetes.default.svc
     namespace: jenkins-TENANT_NAME-staging  # Dedicated namespace per advanced tenant
   syncPolicy:
+    # PSS: enforce baseline now; warn+audit restricted to surface violations
+    # in tenant agent podTemplates before tightening enforcement.
+    managedNamespaceMetadata:
+      labels:
+        pod-security.kubernetes.io/enforce: baseline
+        pod-security.kubernetes.io/warn: restricted
+        pod-security.kubernetes.io/audit: restricted
+        app.kubernetes.io/part-of: gitops-platform
     automated:
       prune: true
       selfHeal: true
