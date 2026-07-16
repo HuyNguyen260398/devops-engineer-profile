@@ -53,6 +53,11 @@ spec:
       kind: ServiceAccount
     - group: ""
       kind: PersistentVolumeClaim
+    # Tenant guardrails rendered by the jenkins wrapper chart
+    - group: ""
+      kind: ResourceQuota
+    - group: ""
+      kind: LimitRange
     - group: apps
       kind: Deployment
     - group: apps
