@@ -124,6 +124,9 @@ spec:
       kind: AWXBackup
     - group: awx.ansible.com
       kind: AWXRestore
+    # ── External Secrets Operator ────────────────────────────────────────
+    - group: external-secrets.io
+      kind: ClusterSecretStore
 
   namespaceResourceWhitelist:
     - group: "*"
