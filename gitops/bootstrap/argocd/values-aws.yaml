@@ -1,8 +1,18 @@
 # ============================================================================
 # ArgoCD Helm Values - AWS EKS Overrides
 # ============================================================================
-# Uses envsubst for IRSA role ARN injection.
-# Required env vars: ARGOCD_IRSA_ROLE_ARN
+# Uses envsubst for environment-specific injection.
+# Required env vars:
+#   ARGOCD_IRSA_ROLE_ARN   IAM role for ArgoCD service accounts (ECR read)
+#   ARGOCD_HOSTNAME        e.g. argocd.staging.example.com
+#   ARGOCD_ALB_SCHEME      internal (default, VPN/private access) |
+#                          internet-facing (pair with tight ALLOWED_CIDRS + WAF)
+#   ARGOCD_CERT_ARN        ACM certificate ARN for ARGOCD_HOSTNAME
+#   ARGOCD_ALLOWED_CIDRS   comma-separated CIDRs allowed to reach the ALB,
+#                          e.g. 10.0.0.0/16 — never 0.0.0.0/0
+#
+# TLS is terminated at the ALB (ACM) and re-encrypted to argocd-server
+# (backend-protocol HTTPS; server.insecure stays false in values-base.yaml).
 
 server:
   serviceAccount:
@@ -10,7 +20,19 @@ server:
       eks.amazonaws.com/role-arn: "${ARGOCD_IRSA_ROLE_ARN}"
 
   ingress:
-    enabled: false  # Managed separately via ALB Ingress
+    enabled: true
+    ingressClassName: alb
+    hostname: "${ARGOCD_HOSTNAME}"
+    annotations:
+      alb.ingress.kubernetes.io/scheme: "${ARGOCD_ALB_SCHEME}"
+      alb.ingress.kubernetes.io/target-type: ip
+      alb.ingress.kubernetes.io/listen-ports: '[{"HTTPS":443}]'
+      alb.ingress.kubernetes.io/certificate-arn: "${ARGOCD_CERT_ARN}"
+      alb.ingress.kubernetes.io/ssl-policy: ELBSecurityPolicy-TLS13-1-2-2021-06
+      alb.ingress.kubernetes.io/inbound-cidrs: "${ARGOCD_ALLOWED_CIDRS}"
+      alb.ingress.kubernetes.io/backend-protocol: HTTPS
+      alb.ingress.kubernetes.io/healthcheck-path: /healthz
+      alb.ingress.kubernetes.io/healthcheck-protocol: HTTPS
 
 repoServer:
   serviceAccount:
