@@ -17,8 +17,13 @@ metadata:
 spec:
   description: "Application workloads deployed via GitOps tier strategy"
 
+  # Pinned to the platform repository. sourceRepos constrains
+  # Application.spec.source.repoURL only — Helm chart dependencies
+  # (charts.jenkins.io etc.) are fetched by the repo-server during
+  # rendering and are NOT checked against this list, so wrapper charts
+  # keep working. If running from a fork, update the URL.
   sourceRepos:
-    - "*"
+    - https://github.com/HuyNguyen260398/devops-engineer-profile.git
 
   destinations:
     # Application namespaces follow pattern: <app>-<tier> or <tenant-id>
