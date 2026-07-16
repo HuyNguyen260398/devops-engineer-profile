@@ -59,6 +59,19 @@ export async function signOut() {
   return amplifySignOut();
 }
 
+// Called when the user chooses "stay signed in" from the idle-timeout warning:
+// proactively refreshes the Cognito tokens so the extended session has valid
+// credentials. No-op under the local dev-auth bypass.
+export async function refreshSession(): Promise<void> {
+  if (DEV_AUTH) return;
+  configureAuth();
+  try {
+    await fetchAuthSession({ forceRefresh: true });
+  } catch {
+    /* the idle timer reset is the primary effect; a failed refresh is non-fatal */
+  }
+}
+
 export async function currentUser(): Promise<{ email: string } | null> {
   if (DEV_AUTH) return { email: "admin@local" };
   configureAuth();
