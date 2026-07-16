@@ -2,7 +2,9 @@
 // apex domain. The export is flat: / -> index.html (portfolio home),
 // /blogs -> blogs.html, /blogs/<slug> -> blogs/_.html (a single client shell),
 // /blogs/editor -> blogs/editor.html, /blogs/editor/<slug> -> blogs/editor/_.html,
-// /blogs-draft -> blogs-draft.html, /login -> login.html.
+// /blogs-draft -> blogs-draft.html,
+// /blogs-draft/<slug> -> blogs-draft/_.html (a single client shell),
+// /login -> login.html.
 function handler(event) {
   var req = event.request;
   var uri = req.uri;
@@ -40,6 +42,14 @@ function handler(event) {
   // the real slug from the URL at runtime.
   if (/^\/blogs\/.+/.test(uri)) {
     req.uri = "/blogs/_.html";
+    return req;
+  }
+
+  // A /blogs-draft/<slug> maps to the draft-preview client shell (private,
+  // AuthGuard-gated at runtime). Must be tested before the generic fallback so
+  // "/blogs-draft" itself still falls through to /blogs-draft.html.
+  if (/^\/blogs-draft\/.+/.test(uri)) {
+    req.uri = "/blogs-draft/_.html";
     return req;
   }
 
