@@ -3,6 +3,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 
 import { currentUser } from "@/lib/blog/auth";
+import { EditorDirtyProvider } from "@/context/editor-dirty";
+import { SessionTimeout } from "@/components/blog/session-timeout";
 
 export function AuthGuard({ children }: { children: ReactNode }) {
   const [ok, setOk] = useState<boolean | null>(null);
@@ -18,5 +20,10 @@ export function AuthGuard({ children }: { children: ReactNode }) {
   }, []);
 
   if (ok === null) return <p className="blog-state">checking session…</p>;
-  return <>{children}</>;
+  return (
+    <EditorDirtyProvider>
+      {children}
+      <SessionTimeout />
+    </EditorDirtyProvider>
+  );
 }

@@ -2911,3 +2911,28 @@ html[data-theme="light"] .commit-branch {
   gap: 12px;
   margin-top: 18px;
 }
+
+.blog-session-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: grid;
+  place-items: center;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 1rem;
+}
+
+.blog-session-modal {
+  max-width: 420px;
+  width: 100%;
+  background: var(--color-surface, #0c0f14);
+  border: 1px solid var(--color-border, #2a2f3a);
+  border-radius: 10px;
+  padding: 1.25rem 1.5rem;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+}
+
+.blog-session-modal h2 {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+}
