@@ -905,3 +905,36 @@ This `gitops/` directory is the **recommended successor** to the existing `ops/`
 ## License
 
 This project is licensed under the same terms as the parent repository. See the root [LICENSE](../LICENSE) file.
+
+## Secrets Management (AWS environments)
+
+Secrets never live in Git. External Secrets Operator (deployed at sync-wave -1
+from `application-plane/<env>/infrastructure/external-secrets.yaml`) syncs
+AWS Secrets Manager entries into Kubernetes Secrets.
+
+**Naming convention:** `gitops/<environment>/<name>`
+
+| Secrets Manager key | Kubernetes Secret (namespace) | Consumer |
+|---|---|---|
+| `gitops/<env>/grafana-admin` | `grafana-admin-credentials` (monitoring) | Grafana `admin.existingSecret` |
+| `gitops/<env>/alertmanager-receivers` | `alertmanager-receivers` (monitoring) | Alertmanager `*_file` receiver refs |
+| `gitops/<env>/git-credentials` | `git-credentials` (argo-workflows) | Lifecycle workflows |
+
+**Creating the entries** (values shown are examples — use real ones):
+
+```bash
+aws secretsmanager create-secret --name gitops/production/grafana-admin \
+  --secret-string '{"username":"admin","password":"<GENERATED>"}'
+aws secretsmanager create-secret --name gitops/production/alertmanager-receivers \
+  --secret-string '{"pagerduty-service-key":"<KEY>","slack-webhook-critical":"<URL>","slack-webhook-production":"<URL>"}'
+aws secretsmanager create-secret --name gitops/staging/alertmanager-receivers \
+  --secret-string '{"slack-webhook-staging":"<URL>"}'
+aws secretsmanager create-secret --name gitops/production/git-credentials \
+  --secret-string '{"username":"git-bot","token":"<FINE_GRAINED_PAT>"}'
+```
+
+**Rollout order:** create the Secrets Manager entries → `terraform apply` in
+`inf/terraform/aws-eks-argocd` → paste the `external_secrets_irsa_role_arn`
+output into `application-plane/<env>/infrastructure/external-secrets.yaml` →
+commit and let ArgoCD sync. Local clusters do not run ESO; create local
+secrets manually (see `control-plane/rbac/git-credentials-template.yaml`).
