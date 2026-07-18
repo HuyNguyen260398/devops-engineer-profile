@@ -37,8 +37,9 @@ function DraftList() {
       {state === "ok" && posts.length > 0 && (
         <div className="blog-grid">
           {posts.map((post) => (
-            // Drafts are not publicly reachable; open them in the editor instead.
-            <PostCard key={post.id} post={post} href={`/blogs/editor/${post.slug}`} />
+            // Drafts are not publicly reachable; open the read-only preview,
+            // which links onward to the editor.
+            <PostCard key={post.id} post={post} href={`/blogs-draft/${post.slug}`} />
           ))}
         </div>
       )}
