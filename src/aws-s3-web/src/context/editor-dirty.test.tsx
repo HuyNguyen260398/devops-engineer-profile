@@ -21,4 +21,30 @@ describe("EditorDirtyContext", () => {
     fireEvent.click(btn);
     expect(btn).toHaveTextContent("dirty");
   });
+
+  it("guards unload only while dirty", () => {
+    render(
+      <EditorDirtyProvider>
+        <Probe />
+      </EditorDirtyProvider>,
+    );
+    const btn = screen.getByRole("button");
+
+    // Clean: no prompt.
+    let event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+
+    // Dirty: prompt.
+    fireEvent.click(btn);
+    event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(true);
+
+    // Cleared (e.g. saved): the guard releases synchronously, no prompt on navigate.
+    fireEvent.click(btn);
+    event = new Event("beforeunload", { cancelable: true });
+    window.dispatchEvent(event);
+    expect(event.defaultPrevented).toBe(false);
+  });
 });

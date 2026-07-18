@@ -35,12 +35,12 @@ function DraftPreview() {
       {state === "error" && <p className="blog-state is-error">draft not found</p>}
       {state === "ok" && post && (
         <>
+          <PostView post={post} />
           <div className="blog-editor-actions">
             <Link className="terminal-button" href={`/blogs/editor/${slug}`} prefetch={false}>
               edit
             </Link>
           </div>
-          <PostView post={post} />
         </>
       )}
     </BlogShell>

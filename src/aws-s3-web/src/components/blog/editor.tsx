@@ -139,30 +139,15 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
         </div>
       </div>
 
-      <div className="blog-editor-actions">
-        <button
-          type="button"
-          className={`terminal-button${preview ? " terminal-button-primary" : ""}`}
-          onClick={() => setPreview((p) => !p)}
-        >
-          {preview ? "edit" : "preview"}
-        </button>
+      {editor && <EditorToolbar editor={editor} />}
+      <div className="blog-editor-surface">
+        <EditorContent editor={editor} />
       </div>
 
-      {preview ? (
-        <div className="blog-editor-surface">
-          <PostView post={previewData} />
-        </div>
-      ) : (
-        <>
-          {editor && <EditorToolbar editor={editor} />}
-          <div className="blog-editor-surface">
-            <EditorContent editor={editor} />
-          </div>
-        </>
-      )}
-
       <div className="blog-editor-actions">
+        <button type="button" className="terminal-button" onClick={() => setPreview(true)}>
+          preview
+        </button>
         <button type="button" className="terminal-button" disabled={saving} onClick={() => save("draft")}>
           save draft
         </button>
@@ -176,6 +161,33 @@ export function BlogEditor({ initial }: { initial: PostRecord | null }) {
         </button>
       </div>
       {err && <p className="blog-error">{err}</p>}
+
+      {preview && (
+        <div
+          className="blog-session-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="blog-preview-title"
+          onClick={() => setPreview(false)}
+        >
+          <div className="blog-preview-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="blog-preview-modal-head">
+              <h2 id="blog-preview-title">preview</h2>
+              <button
+                type="button"
+                className="terminal-button"
+                onClick={() => setPreview(false)}
+                aria-label="close preview"
+              >
+                ✕ close
+              </button>
+            </div>
+            <div className="blog-preview-modal-body">
+              <PostView post={previewData} />
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
