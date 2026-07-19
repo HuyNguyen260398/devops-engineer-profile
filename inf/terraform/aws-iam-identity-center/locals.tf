@@ -82,3 +82,39 @@ locals {
   # User-supplied sets win outright on key collision.
   permission_sets = merge(local.baseline_permission_sets, var.permission_sets)
 }
+
+# ===========================================================================
+# Access Matrix Flattening
+# ===========================================================================
+# Turns the group-centric matrix in var.groups:
+#
+#   groups = {
+#     platform-admins = {
+#       permission_sets = { AdministratorAccess = ["prod", "staging"] }
+#     }
+#   }
+#
+# into one entry per (group, permission set, account) triple, keyed
+# "<group>/<permission_set>/<account_alias>".
+#
+# The key is a stable composite STRING, not a positional index. Reordering
+# var.groups, or adding a new group, therefore never re-creates existing
+# assignments — which would briefly revoke live access on apply.
+# ===========================================================================
+
+locals {
+  assignments = {
+    for triple in flatten([
+      for group_key, group in var.groups : [
+        for ps_name, account_aliases in group.permission_sets : [
+          for account_alias in account_aliases : {
+            key            = "${group_key}/${ps_name}/${account_alias}"
+            group_key      = group_key
+            permission_set = ps_name
+            account_alias  = account_alias
+          }
+        ]
+      ]
+    ]) : triple.key => triple
+  }
+}
