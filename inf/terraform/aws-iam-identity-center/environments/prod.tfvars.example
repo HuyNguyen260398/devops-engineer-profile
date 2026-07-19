@@ -1,5 +1,5 @@
-# Copy to prod.tfvars and fill in. prod.tfvars is gitignored.
-# REPLACE every <PLACEHOLDER> before applying.
+# Copy to prod.tfvars and fill in every <PLACEHOLDER>.
+# prod.tfvars is gitignored (.gitignore:113) — never commit it.
 #
 # This module runs in the AWS Organizations MANAGEMENT account.
 
@@ -12,65 +12,74 @@ tags = {
 }
 
 # Friendly alias -> 12-digit account ID. The access matrix below references
-# these aliases, never raw IDs.
+# aliases only; raw IDs scattered through an access matrix are unreviewable.
+#
+# Only the management account is managed today. Environment separation into
+# dedicated dev/staging/prod accounts is deferred — see
+# docs/superpowers/specs/2026-07-19-identity-center-management-account-users-design.md
 accounts = {
-  management = "<MANAGEMENT_ACCOUNT_ID>"
-  prod       = "<PROD_ACCOUNT_ID>"
-  staging    = "<STAGING_ACCOUNT_ID>"
-  sandbox    = "<SANDBOX_ACCOUNT_ID>"
+  main = "<MANAGEMENT_ACCOUNT_ID>"
 }
 
-# Extra permission sets on top of the baseline (AdministratorAccess,
-# PowerUserAccess, ReadOnlyAccess, BillingAccess, SecurityAudit).
-permission_sets = {
-  DeveloperAccess = {
-    description      = "Day-to-day developer access to workload accounts"
-    session_duration = "PT8H"
-    managed_policy_arns = [
-      "arn:aws:iam::aws:policy/PowerUserAccess",
-    ]
-    # Resolved BY NAME in each target account. Must already exist there —
-    # create it with the aws-iam module first. See README "Apply order".
-    customer_managed_policy_names = []
-  }
-}
+# No extra permission sets. All three used below come from the baseline in
+# locals.tf: AdministratorAccess, ReadOnlyAccess, DevOpsAccess.
+permission_sets = {}
 
+# Identity Store users. Each address must be unique and deliverable — AWS
+# emails every user an invitation to set their password. Plus-addressing
+# (user+tag@gmail.com) yields distinct addresses on a single inbox.
 users = {
-  "huy.nguyen" = {
-    display_name = "Huy Nguyen"
-    given_name   = "Huy"
-    family_name  = "Nguyen"
-    email        = "<EMAIL_ADDRESS>"
+  "main-admin" = {
+    display_name = "Main Admin"
+    given_name   = "Main"
+    family_name  = "Admin"
+    email        = "<ADMIN_EMAIL>"
+  }
+
+  "main-readonly" = {
+    display_name = "Main ReadOnly"
+    given_name   = "Main"
+    family_name  = "ReadOnly"
+    email        = "<READONLY_EMAIL>"
+  }
+
+  "main-devops" = {
+    display_name = "Main DevOps"
+    given_name   = "Main"
+    family_name  = "DevOps"
+    email        = "<DEVOPS_EMAIL>"
   }
 }
 
-# The access matrix. Read it as: this group holds this permission set in
-# these accounts.
+# The access matrix. Read each entry as: this group holds this permission set
+# in these accounts.
+#
+# One group per user is not redundancy — assignments.tf accepts only GROUP
+# principals and deliberately rejects per-user grants, so a group is the
+# only way to grant access. Groups also absorb a second person joining a
+# role without a matrix change.
 groups = {
-  "platform-admins" = {
-    description = "Platform engineering administrators"
-    members     = ["huy.nguyen"]
+  "main-admins" = {
+    description = "Full administrative access to the management account"
+    members     = ["main-admin"]
     permission_sets = {
-      AdministratorAccess = ["staging", "sandbox"]
-      PowerUserAccess     = ["prod"]
-      ReadOnlyAccess      = ["management"]
+      AdministratorAccess = ["main"]
     }
   }
 
-  "developers" = {
-    description = "Application developers"
-    members     = []
+  "main-readonly" = {
+    description = "Read-only access to the management account"
+    members     = ["main-readonly"]
     permission_sets = {
-      DeveloperAccess = ["staging", "sandbox"]
-      ReadOnlyAccess  = ["prod"]
+      ReadOnlyAccess = ["main"]
     }
   }
 
-  "finance" = {
-    description = "Finance and cost management"
-    members     = []
+  "main-devops" = {
+    description = "Platform engineering access to the management account"
+    members     = ["main-devops"]
     permission_sets = {
-      BillingAccess = ["management"]
+      DevOpsAccess = ["main"]
     }
   }
 }
