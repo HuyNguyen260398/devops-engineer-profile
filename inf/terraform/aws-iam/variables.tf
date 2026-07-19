@@ -154,3 +154,20 @@ variable "cross_account_roles" {
     error_message = "Each cross-account role must trust at least one account ID."
   }
 }
+
+variable "enable_break_glass_role" {
+  description = "Create the break-glass admin role. This role grants AdministratorAccess and should exist in production accounts as a last-resort access path when Identity Center is unavailable."
+  type        = bool
+  default     = false
+}
+
+variable "break_glass_max_session_duration" {
+  description = "Maximum session duration in seconds for the break-glass role. Kept short deliberately — this is an emergency path, not a working session."
+  type        = number
+  default     = 3600
+
+  validation {
+    condition     = var.break_glass_max_session_duration >= 3600 && var.break_glass_max_session_duration <= 14400
+    error_message = "break_glass_max_session_duration must be between 3600 and 14400 seconds. Longer emergency sessions are not justifiable."
+  }
+}
