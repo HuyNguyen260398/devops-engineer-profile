@@ -43,3 +43,43 @@ variable "accounts" {
     error_message = "At least one account must be defined, otherwise no assignment can target anything."
   }
 }
+
+variable "permission_sets" {
+  description = "Permission sets to create, merged over the built-in baseline. A key matching a baseline name replaces that baseline entry entirely."
+  type = map(object({
+    description = optional(string, "Managed by Terraform")
+    # ISO-8601 duration. Defaults to PT1H, matching the AWS default.
+    session_duration = optional(string, "PT1H")
+    # URL the user lands on after assuming this permission set.
+    relay_state = optional(string, null)
+    # ARNs of AWS-managed policies.
+    managed_policy_arns = optional(list(string), [])
+    # Customer-managed policies referenced BY NAME, resolved in each TARGET
+    # account at assignment time. The policy must already exist there —
+    # typically created by the aws-iam module.
+    customer_managed_policy_names = optional(list(string), [])
+    # Inline policy JSON. Supported but discouraged: inline policies are
+    # invisible in the IAM console of member accounts.
+    inline_policy = optional(string, null)
+    # Name of a customer-managed policy in the target account to use as the
+    # permissions boundary.
+    permissions_boundary_policy_name = optional(string, null)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for ps_name, ps in var.permission_sets :
+      can(regex("^PT([0-9]+H)?([0-9]+M)?$", ps.session_duration))
+    ])
+    error_message = "session_duration must be an ISO-8601 duration of the form PT<hours>H, PT<minutes>M, or PT<hours>H<minutes>M — e.g. PT1H, PT30M, PT2H30M."
+  }
+
+  validation {
+    condition = alltrue([
+      for ps_name, ps in var.permission_sets :
+      can(regex("^[\\w+=,.@-]{1,32}$", ps_name))
+    ])
+    error_message = "Permission set names must be 1-32 characters of alphanumerics and _+=,.@- (AWS limit)."
+  }
+}
