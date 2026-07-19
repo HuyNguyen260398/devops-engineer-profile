@@ -1,0 +1,76 @@
+# Copy to prod.tfvars and fill in. prod.tfvars is gitignored.
+# REPLACE every <PLACEHOLDER> before applying.
+#
+# This module runs in the AWS Organizations MANAGEMENT account.
+
+aws_region   = "ap-southeast-1"
+environment  = "prod"
+project_name = "dep"
+
+tags = {
+  Owner = "platform-team"
+}
+
+# Friendly alias -> 12-digit account ID. The access matrix below references
+# these aliases, never raw IDs.
+accounts = {
+  management = "<MANAGEMENT_ACCOUNT_ID>"
+  prod       = "<PROD_ACCOUNT_ID>"
+  staging    = "<STAGING_ACCOUNT_ID>"
+  sandbox    = "<SANDBOX_ACCOUNT_ID>"
+}
+
+# Extra permission sets on top of the baseline (AdministratorAccess,
+# PowerUserAccess, ReadOnlyAccess, BillingAccess, SecurityAudit).
+permission_sets = {
+  DeveloperAccess = {
+    description      = "Day-to-day developer access to workload accounts"
+    session_duration = "PT8H"
+    managed_policy_arns = [
+      "arn:aws:iam::aws:policy/PowerUserAccess",
+    ]
+    # Resolved BY NAME in each target account. Must already exist there —
+    # create it with the aws-iam module first. See README "Apply order".
+    customer_managed_policy_names = []
+  }
+}
+
+users = {
+  "huy.nguyen" = {
+    display_name = "Huy Nguyen"
+    given_name   = "Huy"
+    family_name  = "Nguyen"
+    email        = "<EMAIL_ADDRESS>"
+  }
+}
+
+# The access matrix. Read it as: this group holds this permission set in
+# these accounts.
+groups = {
+  "platform-admins" = {
+    description = "Platform engineering administrators"
+    members     = ["huy.nguyen"]
+    permission_sets = {
+      AdministratorAccess = ["staging", "sandbox"]
+      PowerUserAccess     = ["prod"]
+      ReadOnlyAccess      = ["management"]
+    }
+  }
+
+  "developers" = {
+    description = "Application developers"
+    members     = []
+    permission_sets = {
+      DeveloperAccess = ["staging", "sandbox"]
+      ReadOnlyAccess  = ["prod"]
+    }
+  }
+
+  "finance" = {
+    description = "Finance and cost management"
+    members     = []
+    permission_sets = {
+      BillingAccess = ["management"]
+    }
+  }
+}

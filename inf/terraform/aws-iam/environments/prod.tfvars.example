@@ -1,0 +1,60 @@
+# Copy to prod.tfvars and fill in. prod.tfvars is gitignored.
+# REPLACE every <PLACEHOLDER> before applying.
+aws_region   = "ap-southeast-1"
+environment  = "prod"
+project_name = "dep"
+
+tags = {
+  Owner      = "platform-team"
+  CostCenter = "<COST_CENTER>"
+}
+
+# Break-glass exists in prod as the last-resort path if Identity Center fails.
+enable_break_glass_role = true
+
+# Enable in exactly ONE stack per account, or stacks will fight on every apply.
+manage_account_password_policy = true
+
+password_policy = {
+  minimum_password_length   = 16
+  max_password_age          = 90
+  password_reuse_prevention = 24
+  # hard_expiry stays false — true locks out users whose password expires,
+  # including administrators.
+  hard_expiry = false
+}
+
+# Restrict boundary-carrying principals to the regions actually in use.
+boundary_allowed_regions = ["ap-southeast-1", "us-east-1"]
+
+policies = {
+  artifacts-read = {
+    description = "Read-only access to the build artifacts bucket"
+    statements = [{
+      sid     = "ReadArtifacts"
+      actions = ["s3:GetObject", "s3:ListBucket"]
+      resources = [
+        "arn:aws:s3:::dep-artifacts-prod",
+        "arn:aws:s3:::dep-artifacts-prod/*",
+      ]
+    }]
+  }
+}
+
+service_roles = {}
+
+cross_account_roles = {
+  auditor = {
+    description         = "Read-only access for the external audit vendor"
+    trusted_account_ids = ["<AUDIT_VENDOR_ACCOUNT_ID>"]
+    # Must be a high-entropy value supplied by the vendor. Without it this
+    # role is vulnerable to the confused-deputy attack.
+    external_id         = "<EXTERNAL_ID_FROM_VENDOR>"
+    require_mfa         = true
+    managed_policy_arns = ["arn:aws:iam::aws:policy/SecurityAudit"]
+    attach_boundary     = true
+  }
+}
+
+groups = {}
+users  = {}

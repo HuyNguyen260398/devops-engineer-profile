@@ -2,9 +2,10 @@
 # https://github.com/terraform-linters/tflint
 
 config {
-  # Module inspection is enabled by default for installed modules
-  module = true
-  
+  # Inspect called modules as well as the root module.
+  # Replaces the "module" attribute, which was removed in tflint v0.54.0.
+  call_module_type = "all"
+
   # Force the provider source to be declared
   force = false
   
@@ -55,9 +56,10 @@ rule "aws_elasticache_cluster_invalid_type" {
   enabled = true
 }
 
-rule "aws_s3_bucket_public_access" {
-  enabled = true
-}
+# NOTE: "aws_s3_bucket_public_access" was declared here previously. No such
+# rule exists in tflint-ruleset-aws 0.30.0, and its presence caused the whole
+# config to fail to load. Public-access blocking is asserted directly in the
+# S3 modules instead.
 
 # =============================================================================
 # Terraform Rules Configuration
@@ -122,8 +124,15 @@ rule "terraform_required_version" {
 }
 
 # Unused declarations
+# The exclude list was previously in a second, duplicate declaration of this
+# rule at the end of the file. Merged here — tflint rejects duplicate rule
+# blocks.
 rule "terraform_unused_declarations" {
   enabled = true
+  exclude = [
+    "**/examples/**",
+    "**/*.example.tf"
+  ]
 }
 
 # Deprecated syntax
@@ -143,17 +152,4 @@ rule "terraform_standard_module_structure" {
 # Workspace usage
 rule "terraform_workspace_remote" {
   enabled = true
-}
-
-# =============================================================================
-# Custom Ignore Patterns
-# =============================================================================
-
-# Ignore example files
-rule "terraform_unused_declarations" {
-  enabled = true
-  exclude = [
-    "**/examples/**",
-    "**/*.example.tf"
-  ]
 }
