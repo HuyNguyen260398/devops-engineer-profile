@@ -83,3 +83,42 @@ variable "permission_sets" {
     error_message = "Permission set names must be 1-32 characters of alphanumerics and _+=,.@- (AWS limit)."
   }
 }
+
+variable "users" {
+  description = "Identity Store users to create, keyed by username. Only valid when the identity source is the built-in Identity Center directory — if the org migrates to an external IdP with SCIM, this must be emptied and the resources removed from state."
+  type = map(object({
+    display_name = string
+    given_name   = string
+    family_name  = string
+    email        = string
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for user_key, user in var.users :
+      can(regex("^[^@]+@[^@]+\\.[^@]+$", user.email))
+    ])
+    error_message = "Each user's email must be a valid address."
+  }
+}
+
+variable "groups" {
+  description = "Identity Store groups and their access. The permission_sets field is the access matrix: permission set name -> list of account ALIASES (keys of var.accounts) where this group holds it."
+  type = map(object({
+    description = optional(string, "Managed by Terraform")
+    # Keys into var.users.
+    members = optional(list(string), [])
+    # Permission set name -> list of account aliases.
+    permission_sets = optional(map(list(string)), {})
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for group_key, group in var.groups :
+      can(regex("^[\\w+=,.@ -]{1,128}$", group_key))
+    ])
+    error_message = "Group names must be 1-128 characters of alphanumerics, spaces, and _+=,.@- (AWS limit)."
+  }
+}
