@@ -42,3 +42,43 @@ variable "boundary_allowed_regions" {
   type        = list(string)
   default     = []
 }
+
+variable "policies" {
+  description = "Customer-managed IAM policies to create, keyed by policy name suffix. Each statement is rendered into an aws_iam_policy_document."
+  type = map(object({
+    description = optional(string, "Managed by Terraform")
+    path        = optional(string, "/")
+    statements = list(object({
+      sid       = optional(string, null)
+      effect    = optional(string, "Allow")
+      actions   = list(string)
+      resources = list(string)
+      condition = optional(list(object({
+        test     = string
+        variable = string
+        values   = list(string)
+      })), [])
+    }))
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for policy_key, policy in var.policies : alltrue([
+        for statement in policy.statements :
+        !(contains(statement.actions, "*") && contains(statement.resources, "*"))
+      ])
+    ])
+    error_message = "A policy statement must not combine Action \"*\" with Resource \"*\". Scope at least one of them. This is the single most common IAM misconfiguration."
+  }
+
+  validation {
+    condition = alltrue([
+      for policy_key, policy in var.policies : alltrue([
+        for statement in policy.statements :
+        contains(["Allow", "Deny"], statement.effect)
+      ])
+    ])
+    error_message = "Policy statement effect must be exactly \"Allow\" or \"Deny\" (case-sensitive)."
+  }
+}
