@@ -1294,12 +1294,18 @@ resource "aws_iam_user_login_profile" "this" {
 
 - [ ] **Step 4: Assert no access-key resource exists anywhere in the module**
 
+Match `resource "aws_iam_access_key"` specifically, not the bare string — the
+string appears legitimately in the explanatory comment at the top of
+`users.tf`, and a bare grep produces a false positive.
+
 ```bash
 cd inf/terraform/aws-iam
-grep -rn "aws_iam_access_key" . && echo "FAIL: access key resource found" || echo "PASS: no access key resources"
+grep -rnE '^\s*resource\s+"aws_iam_access_key"' --include="*.tf" . \
+  && echo "FAIL: access key RESOURCE found" \
+  || echo "PASS: no aws_iam_access_key resource declared"
 ```
 
-Expected: `PASS: no access key resources`
+Expected: `PASS: no aws_iam_access_key resource declared`
 
 - [ ] **Step 5: Plan with a group and a user**
 

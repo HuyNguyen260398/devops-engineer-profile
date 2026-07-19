@@ -171,3 +171,41 @@ variable "break_glass_max_session_duration" {
     error_message = "break_glass_max_session_duration must be between 3600 and 14400 seconds. Longer emergency sessions are not justifiable."
   }
 }
+
+variable "groups" {
+  description = "IAM groups to create, keyed by group name suffix, with the policies attached to each."
+  type = map(object({
+    path                = optional(string, "/")
+    managed_policy_arns = optional(list(string), [])
+    custom_policy_keys  = optional(list(string), [])
+  }))
+  default = {}
+}
+
+variable "users" {
+  description = "IAM users to create, keyed by user name. Defaults to none by design — use Identity Center for humans and roles for workloads. Reserve IAM users for break-glass and legacy service accounts that cannot assume a role."
+  type = map(object({
+    path   = optional(string, "/")
+    groups = optional(list(string), [])
+    # Base64-encoded PGP public key, or a keybase:username reference. Required
+    # to create a console login profile — the encrypted password appears in
+    # state and is only decryptable by this key's holder.
+    pgp_key         = optional(string, null)
+    attach_boundary = optional(bool, true)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for user_key, user in var.users :
+      can(regex("^[a-zA-Z0-9._+=,@-]{1,64}$", user_key))
+    ])
+    error_message = "User names must match AWS's allowed pattern: alphanumerics and the characters _+=,.@- , max 64 characters."
+  }
+}
+
+variable "manage_account_password_policy" {
+  description = "Manage the account-wide IAM password policy. Defaults to false because this is an account singleton — if two Terraform stacks both manage it, they will fight on every apply."
+  type        = bool
+  default     = false
+}
