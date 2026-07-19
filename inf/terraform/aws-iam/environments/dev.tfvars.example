@@ -1,0 +1,42 @@
+# Copy to dev.tfvars and fill in. dev.tfvars is gitignored.
+aws_region   = "ap-southeast-1"
+environment  = "dev"
+project_name = "dep"
+
+tags = {
+  Owner = "platform-team"
+}
+
+# Break-glass is off in dev — Identity Center is sufficient here.
+enable_break_glass_role = false
+
+# Password policy is managed in exactly one stack per account.
+manage_account_password_policy = false
+
+policies = {
+  artifacts-read = {
+    description = "Read-only access to the build artifacts bucket"
+    statements = [{
+      sid     = "ReadArtifacts"
+      actions = ["s3:GetObject", "s3:ListBucket"]
+      resources = [
+        "arn:aws:s3:::dep-artifacts-dev",
+        "arn:aws:s3:::dep-artifacts-dev/*",
+      ]
+    }]
+  }
+}
+
+service_roles = {
+  lambda-etl = {
+    description         = "Execution role for the ETL Lambda"
+    service_principals  = ["lambda.amazonaws.com"]
+    managed_policy_arns = ["arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole"]
+    custom_policy_keys  = ["artifacts-read"]
+    attach_boundary     = true
+  }
+}
+
+cross_account_roles = {}
+groups              = {}
+users               = {}

@@ -108,3 +108,7 @@ coverage/
 # Helm dependency build artifacts (wrapper charts fetch deps at validate/sync time)
 gitops/helm-charts/*/charts/
 gitops/helm-charts/*/Chart.lock
+
+# Terraform variable files (may contain account IDs and external IDs)
+inf/terraform/**/environments/*.tfvars
+!inf/terraform/**/environments/*.tfvars.example
