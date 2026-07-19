@@ -25,9 +25,16 @@ accounts = {
 # locals.tf: AdministratorAccess, ReadOnlyAccess, DevOpsAccess.
 permission_sets = {}
 
-# Identity Store users. Each address must be unique and deliverable — AWS
-# emails every user an invitation to set their password. Plus-addressing
-# (user+tag@gmail.com) yields distinct addresses on a single inbox.
+# Identity Store users. Each address must be unique and deliverable.
+# Plus-addressing (user+tag@gmail.com) yields distinct addresses on a single
+# inbox: AWS compares the literal string, Gmail routes them all to one place.
+#
+# NOTE: creating a user through this API does NOT send an invitation email.
+# Only the console's "Add user" wizard does. Each user is created with no
+# password and no way to set one until an administrator triggers it from
+# IAM Identity Center -> Users -> <user> -> Reset password. There is no CLI
+# or API equivalent — `aws identitystore` and `aws sso-admin` expose no
+# password or invitation operation at all.
 users = {
   "main-admin" = {
     display_name = "Main Admin"

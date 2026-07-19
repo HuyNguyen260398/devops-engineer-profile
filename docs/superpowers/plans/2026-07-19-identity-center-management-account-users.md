@@ -327,9 +327,16 @@ accounts = {
 # locals.tf: AdministratorAccess, ReadOnlyAccess, DevOpsAccess.
 permission_sets = {}
 
-# Identity Store users. Each address must be unique and deliverable — AWS
-# emails every user an invitation to set their password. Plus-addressing
-# (user+tag@gmail.com) yields distinct addresses on a single inbox.
+# Identity Store users. Each address must be unique and deliverable.
+# Plus-addressing (user+tag@gmail.com) yields distinct addresses on a single
+# inbox: AWS compares the literal string, Gmail routes them all to one place.
+#
+# NOTE: creating a user through this API does NOT send an invitation email.
+# Only the console's "Add user" wizard does. Each user is created with no
+# password and no way to set one until an administrator triggers it from
+# IAM Identity Center -> Users -> <user> -> Reset password. There is no CLI
+# or API equivalent — `aws identitystore` and `aws sso-admin` expose no
+# password or invitation operation at all.
 users = {
   "main-admin" = {
     display_name = "Main Admin"
@@ -429,7 +436,7 @@ Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 
 **Interfaces:**
 - Consumes: `DevOpsAccess` (Task 1), the example structure (Task 2)
-- Produces: 25 live AWS resources; three invitation emails
+- Produces: 25 live AWS resources. **No invitation emails** — see Step 11.
 
 **Context the implementer needs:** `backend.tf` ships with the S3 backend block **commented out**, so this applies to *local* state. `terraform.tfstate` will be written to the module directory. That file maps every principal to every permission they hold and is gitignored (`.gitignore:2`) — verify that, never force-add it. Migrating to the S3 backend is a separate change and is out of scope here.
 
@@ -504,7 +511,9 @@ If the count is 13 rather than 25, an earlier reader of this plan assumed only a
 
 - [ ] **Step 5: Apply — REQUIRES USER CONFIRMATION**
 
-Ask the user to confirm before running. This creates real principals and sends three invitation emails.
+Ask the user to confirm before running. This creates real principals in a live account.
+
+Note: this sends **no** email. Users are created without passwords and cannot sign in until manually activated — see Step 11.
 
 Run:
 ```bash
@@ -597,6 +606,42 @@ local pending S3 backend migration.
 
 Co-Authored-By: Claude Opus 4.8 <noreply@anthropic.com>"
 ```
+
+- [ ] **Step 11: Activate each user and verify one can actually sign in**
+
+**This step was missing from the plan's first revision.** Steps 1–10 verify
+that the users *exist*. Existence is not usability, and reporting success on
+existence alone is how a broken deliverable gets signed off.
+
+Terraform sends no invitation email. Users are created without a password and
+cannot sign in until an administrator acts. There is no CLI path — confirmed:
+
+```bash
+aws identitystore help | grep -iE "password|verif|invit"   # no matches
+aws sso-admin help    | grep -iE "password|verif|invit"    # no matches
+```
+
+For each of `main-admin`, `main-readonly`, `main-devops`, in the console at
+IAM Identity Center → **Users** → *user* → **Reset password**:
+
+- **"Send an email…"** — mails a reset link, or
+- **"Generate a one-time password…"** — shows a password immediately
+
+The one-time password option is faster here because all three mailboxes belong
+to the same person.
+
+Then verify behaviour, not just existence:
+
+1. Sign in to the access portal as `main-readonly`
+2. Confirm `main` appears with the `ReadOnlyAccess` role
+3. Open the console and attempt any write — e.g. create an S3 bucket
+4. Expected: **AccessDenied**
+
+A permission set that exists but denies nothing is indistinguishable from a
+correct one until someone tries to use it. The access portal keeps one session
+per browser, so use a private window to test a second user.
+
+This step produces no commit — it changes no tracked file.
 
 ---
 

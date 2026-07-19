@@ -103,8 +103,15 @@ groups:  main-admins    [main-admin]     -> AdministratorAccess @ main
          main-devops    [main-devops]    -> DevOpsAccess        @ main
 ```
 
-Plus-addressing gives three unique, deliverable addresses on one inbox. Each
-user receives an AWS invitation email to set their password.
+Plus-addressing gives three unique, deliverable addresses on one inbox.
+
+**Correction (2026-07-19, post-apply):** an earlier revision of this spec
+claimed each user receives an AWS invitation email. That is false. Creating a
+user through the Identity Store API sends nothing — only the console's
+"Add user" wizard sends an invitation, and Terraform does not use that path.
+Activating each user is a manual, console-only step
+(Users → *user* → Reset password); no CLI or API equivalent exists.
+The users are therefore created but unusable until an administrator acts.
 
 One group per user: `assignments.tf` accepts only `GROUP` principals and
 deliberately rejects per-user grants, so groups are structural, not optional.
@@ -156,4 +163,8 @@ account.
    `aws identitystore list-users --identity-store-id d-96675c542b` returns the
    three users
 4. `terraform plan` a second time reports no changes
-5. Each user receives an invitation email
+5. Each user is activated manually (console → Users → *user* → Reset password)
+   and can then sign in to the access portal. **Terraform sends no invitation
+   email; this step is not automatable.**
+6. Signing in as `main-readonly` confirms read-only behaviour in practice —
+   existence of a permission set is not evidence that it works

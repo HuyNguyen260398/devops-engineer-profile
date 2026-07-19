@@ -173,8 +173,25 @@ Identity Center instance `ssoins-82102956e1ad3c22`, identity store
 module instantiates every entry in `local.permission_sets` whether or not an
 assignment references it — but only the three above are bound to a group.
 
-Each user receives an AWS invitation email to set their password. The three
-addresses are plus-addressed variants of a single inbox.
+The three addresses are plus-addressed variants of a single inbox — AWS
+compares the literal string, Gmail routes them all to one place.
+
+### Activating users — manual, console-only
+
+**Terraform does not send invitation emails, and neither does the API.** A user
+created via `aws_identitystore_user` has no password and no way to set one.
+Only the console's "Add user" wizard sends an invitation, and Terraform never
+uses that path. Neither `aws identitystore` nor `aws sso-admin` exposes any
+password or invitation operation, so this cannot be scripted.
+
+For each user, in IAM Identity Center → **Users** → *user* → **Reset password**:
+
+- **"Send an email…"** — mails a reset link to the user's address, or
+- **"Generate a one-time password…"** — displays a password on screen, no mail
+
+Until this is done the user exists and holds assignments but cannot sign in.
+`terraform plan` stays clean either way; password state is not in Terraform's
+model, so doing this creates no drift.
 
 ### Known conditions
 
