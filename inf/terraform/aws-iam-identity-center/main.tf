@@ -28,6 +28,6 @@ data "aws_ssoadmin_instances" "this" {
   }
 }
 
-data "aws_caller_identity" "current" {}
-
+# Used to build AWS-managed policy ARNs in the permission set baseline, so
+# the module works in non-commercial partitions (GovCloud, China).
 data "aws_partition" "current" {}
