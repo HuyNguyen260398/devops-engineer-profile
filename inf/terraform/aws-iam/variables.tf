@@ -116,3 +116,41 @@ variable "service_roles" {
     error_message = "service_principals must be AWS service principals ending in .amazonaws.com (e.g. lambda.amazonaws.com)."
   }
 }
+
+variable "cross_account_roles" {
+  description = "Roles assumable from other AWS accounts. Trust conditions (ExternalId, MFA) are enforced in HCL, not configurable per-role, so they remain visible in review."
+  type = map(object({
+    description = optional(string, "Managed by Terraform")
+    # 12-digit account IDs permitted to assume this role.
+    trusted_account_ids = list(string)
+    # Specific role/user ARNs in those accounts. If empty, the whole account root is trusted.
+    trusted_principal_arns = optional(list(string), [])
+    # sts:ExternalId value. Strongly recommended for third-party access (confused deputy).
+    external_id = optional(string, null)
+    # Require MFA on the assuming session.
+    require_mfa          = optional(bool, true)
+    managed_policy_arns  = optional(list(string), [])
+    custom_policy_keys   = optional(list(string), [])
+    max_session_duration = optional(number, 3600)
+    attach_boundary      = optional(bool, true)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for role_key, role in var.cross_account_roles : alltrue([
+        for account_id in role.trusted_account_ids :
+        can(regex("^\\d{12}$", account_id))
+      ])
+    ])
+    error_message = "trusted_account_ids entries must be exactly 12 digits."
+  }
+
+  validation {
+    condition = alltrue([
+      for role_key, role in var.cross_account_roles :
+      length(role.trusted_account_ids) > 0
+    ])
+    error_message = "Each cross-account role must trust at least one account ID."
+  }
+}
