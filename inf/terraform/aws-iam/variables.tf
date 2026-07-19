@@ -82,3 +82,37 @@ variable "policies" {
     error_message = "Policy statement effect must be exactly \"Allow\" or \"Deny\" (case-sensitive)."
   }
 }
+
+variable "service_roles" {
+  description = "IAM roles assumed by AWS services, keyed by role name suffix. Trust is a simple Service principal — for roles needing conditional trust (OIDC, cross-account), use explicit HCL instead."
+  type = map(object({
+    description = optional(string, "Managed by Terraform")
+    # Service principals permitted to assume the role, e.g. ["lambda.amazonaws.com"].
+    service_principals = list(string)
+    # ARNs of AWS-managed policies, e.g. ["arn:aws:iam::aws:policy/ReadOnlyAccess"].
+    managed_policy_arns = optional(list(string), [])
+    # Keys into var.policies for customer-managed policies created by this module.
+    custom_policy_keys   = optional(list(string), [])
+    max_session_duration = optional(number, 3600)
+    attach_boundary      = optional(bool, false)
+  }))
+  default = {}
+
+  validation {
+    condition = alltrue([
+      for role_key, role in var.service_roles :
+      role.max_session_duration >= 3600 && role.max_session_duration <= 43200
+    ])
+    error_message = "max_session_duration must be between 3600 and 43200 seconds (AWS limit)."
+  }
+
+  validation {
+    condition = alltrue([
+      for role_key, role in var.service_roles : alltrue([
+        for principal in role.service_principals :
+        endswith(principal, ".amazonaws.com")
+      ])
+    ])
+    error_message = "service_principals must be AWS service principals ending in .amazonaws.com (e.g. lambda.amazonaws.com)."
+  }
+}
