@@ -209,3 +209,29 @@ variable "manage_account_password_policy" {
   type        = bool
   default     = false
 }
+
+variable "password_policy" {
+  description = "Account-wide IAM password policy settings. Only applied when manage_account_password_policy is true."
+  type = object({
+    minimum_password_length        = optional(number, 14)
+    require_lowercase_characters   = optional(bool, true)
+    require_uppercase_characters   = optional(bool, true)
+    require_numbers                = optional(bool, true)
+    require_symbols                = optional(bool, true)
+    allow_users_to_change_password = optional(bool, true)
+    max_password_age               = optional(number, 90)
+    password_reuse_prevention      = optional(number, 24)
+    hard_expiry                    = optional(bool, false)
+  })
+  default = {}
+
+  validation {
+    condition     = var.password_policy.minimum_password_length >= 14
+    error_message = "minimum_password_length must be at least 14, per CIS AWS Foundations Benchmark."
+  }
+
+  validation {
+    condition     = var.password_policy.password_reuse_prevention >= 1 && var.password_policy.password_reuse_prevention <= 24
+    error_message = "password_reuse_prevention must be between 1 and 24 (AWS limit)."
+  }
+}
