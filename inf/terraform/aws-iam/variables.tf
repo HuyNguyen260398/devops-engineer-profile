@@ -24,3 +24,21 @@ variable "tags" {
   type        = map(string)
   default     = {}
 }
+
+variable "boundary_denied_actions" {
+  description = "Actions explicitly denied by the permissions boundary policy. Any principal carrying the boundary can never perform these, regardless of its own policies."
+  type        = list(string)
+  default = [
+    "organizations:*",
+    "account:*",
+    "iam:CreateUser",
+    "iam:CreateAccessKey",
+    "iam:DeleteAccountPasswordPolicy",
+  ]
+}
+
+variable "boundary_allowed_regions" {
+  description = "Regions in which boundary-carrying principals may operate. Empty list disables the region restriction. Global services (IAM, CloudFront, Route53) are exempted automatically."
+  type        = list(string)
+  default     = []
+}
