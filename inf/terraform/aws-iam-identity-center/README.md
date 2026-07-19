@@ -68,10 +68,33 @@ become unauditable.
 ## Permission sets
 
 A curated baseline ships in `locals.tf`: `AdministratorAccess`,
-`PowerUserAccess`, `ReadOnlyAccess`, `BillingAccess`, `SecurityAudit`.
+`PowerUserAccess`, `ReadOnlyAccess`, `BillingAccess`, `SecurityAudit`,
+`DevOpsAccess`.
 
 `var.permission_sets` is merged **over** the baseline, so a key of the same
 name replaces the baseline entry entirely. Nothing is unavoidably imposed.
+
+### `DevOpsAccess`
+
+`PT4H`. `PowerUserAccess` plus IAM role management, for engineers who run
+Terraform and maintain EKS and CI roles.
+
+`PowerUserAccess` is `NotAction [iam:*, organizations:*, account:*]` on `*` —
+it already grants EKS, ECR, SSM, CloudWatch Logs and CloudFormation in full.
+IAM is the only capability it withholds, so the inline `Allow` grants role,
+policy, instance profile and OIDC provider management, and nothing else.
+
+Three `Deny` statements fence it in: organization and billing control;
+long-lived credential creation (IAM users, access keys, login profiles); and
+`sso:*`/`identitystore:*`. That last one is load-bearing rather than
+decorative — this set is assigned in the **management account**, where a
+principal able to call the Identity Center APIs could otherwise assign itself
+`AdministratorAccess`.
+
+**Known gap:** `iam:PassRole` on `*` alongside `iam:CreateRole` remains a
+privilege-escalation path for a determined holder. Scoping it properly needs a
+role-naming convention this estate does not yet have. Tracked in
+`docs/superpowers/specs/2026-07-19-identity-center-management-account-users-design.md`.
 
 `AdministratorAccess` uses `session_duration = "PT1H"`, matching the AWS
 default. Lower-privilege sets get longer sessions — the cost of a long-lived
@@ -79,7 +102,11 @@ read-only session is far lower than a long-lived admin session.
 
 Inline policies are supported but discouraged — they are invisible in the
 member account's IAM console, which makes them hard to audit during an
-incident.
+incident. `DevOpsAccess` is the one baseline set that uses one, because its
+`Deny` statements must apply to that set alone; a customer-managed policy
+would have to exist in every target account before any assignment referencing
+it could succeed (see "Apply order" below), which is a heavier dependency than
+this single set justifies.
 
 ## Apply order
 
