@@ -156,3 +156,47 @@ removes live human access; a human should read the plan first.
 
 The `assignment_keys` output is a sorted list of every grant, which makes the
 effective access matrix reviewable as a diff in plan output.
+
+## Applied state
+
+Applied to the management account `010382427026` (organization `o-970lqjhbo4`,
+Identity Center instance `ssoins-82102956e1ad3c22`, identity store
+`d-96675c542b`) on 2026-07-19.
+
+| Group | Member | Permission set | Account |
+|---|---|---|---|
+| `main-admins` | `main-admin` | `AdministratorAccess` | `main` |
+| `main-readonly` | `main-readonly` | `ReadOnlyAccess` | `main` |
+| `main-devops` | `main-devops` | `DevOpsAccess` | `main` |
+
+25 resources. All six baseline permission sets exist in the instance — the
+module instantiates every entry in `local.permission_sets` whether or not an
+assignment references it — but only the three above are bound to a group.
+
+Each user receives an AWS invitation email to set their password. The three
+addresses are plus-addressed variants of a single inbox.
+
+### Known conditions
+
+**State is local.** The S3 backend in `backend.tf` is still commented out, so
+`terraform.tfstate` lives in this directory. It is gitignored (`.gitignore:2`),
+but it is not shared and CI cannot use it. Migrate before this module is
+applied from anywhere but a workstation.
+
+**Three SCPs exist in the organization and are unattached** —
+`AllowOnlyS3_ExceptDeleteBucket`, `RequiredT2Micro`, `DenyModifyIAMRole`. All
+three report zero targets, so they do not currently constrain these permission
+sets. They are not managed by Terraform. `DenyModifyIAMRole` would negate most
+of `DevOpsAccess` if it were ever attached, since an SCP denial overrides any
+permission set.
+
+**Group and user names collide by design of the current naming**, e.g. group
+`main-readonly` holds user `main-readonly`. Identity Store namespaces the two
+separately so this is valid, but membership keys read as
+`main-readonly/main-readonly`. Renaming requires destroying and recreating the
+affected groups and assignments.
+
+**Deferred: environment separation** into dedicated dev/staging/prod accounts.
+Two of the organization's four accounts are SUSPENDED and cannot be reused;
+their email addresses are permanently consumed. See
+`docs/superpowers/specs/2026-07-19-identity-center-management-account-users-design.md`.
