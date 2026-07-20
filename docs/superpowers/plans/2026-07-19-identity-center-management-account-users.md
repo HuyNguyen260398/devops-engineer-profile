@@ -649,7 +649,9 @@ This step produces no commit — it changes no tracked file.
 
 Recorded so it is not silently lost:
 
-1. ~~**Migrate to the S3 backend.** `backend.tf` is commented out; state is local. Blocks CI execution.~~ — **Done 2026-07-20.** State lives in `s3://aws-iam-identity-center-tfstate-010382427026`, DynamoDB locking via `aws-iam-identity-center-tfstate-lock`. See the module README's "Known conditions".
+1. ~~**Migrate to the S3 backend.** `backend.tf` is commented out; state is local.~~ — **Done 2026-07-20.** State lives in `s3://aws-iam-identity-center-tfstate-010382427026`, DynamoDB locking via `aws-iam-identity-center-tfstate-lock`. See the module README's "Known conditions".
+
+   **CI is still not unblocked**, contrary to the original wording of this item. Two separate gaps remain: `terraform-plan.yml` skips this directory because it has no committed `*.tfvars` to build a matrix from, and the GitHub OIDC role has never been granted (or tested against) access to the new bucket and lock table. Both are tracked in the module README.
 2. **Scope `iam:PassRole`.** Needs a role-naming convention. See spec "Accepted limitations".
 3. **Audit the three pre-existing lab SCPs** — `AllowOnlyS3_ExceptDeleteBucket`, `RequiredT2Micro`, `DenyModifyIAMRole`. These are attached somewhere in the org and may restrict what these users can actually do once they log in. Unmanaged by Terraform.
 4. **Environment separation.** Requires creating at least one new AWS account; two existing accounts are permanently suspended.

@@ -138,9 +138,9 @@ terraform plan -var-file=environments/prod.tfvars
 terraform apply -var-file=environments/prod.tfvars
 ```
 
-Before the first `terraform init`, provision the state bucket and lock table in
-the management account — see the setup commands in `backend.tf`, then uncomment
-the backend block.
+The state bucket and lock table are already provisioned in the management
+account and the backend block is live — see `backend.tf`. A plain
+`terraform init` picks them up; no bootstrap step is needed.
 
 ## Verification
 
@@ -205,6 +205,22 @@ migration reported no changes, confirming all 27 state entries survived.
 reports as deprecated in favour of S3-native locking (`use_lockfile`). It
 remains functional, and it matches the sibling `aws-github-oidc` module. The
 two modules should move together rather than diverge.
+
+**Remote state alone does not make this module CI-plannable.** Two independent
+gaps remain, and neither is caused by the backend:
+
+- `terraform-plan.yml` builds its matrix from `environments/*.tfvars`. The only
+  real tfvars here is `prod.tfvars`, which is gitignored — the repo ships only
+  `prod.tfvars.example`, which does not match that glob. The setup job logs
+  `⚠️ No tfvars files found for aws-iam-identity-center, skipping` and drops the
+  directory from the matrix. Supplying the tfvars from a GitHub secret at plan
+  time would fix this without committing addresses and account IDs.
+- The GitHub OIDC role's access to the new bucket and lock table is **untested**.
+  `terraform-validation.yml` runs `terraform init -backend=false`, so no CI job
+  has ever authenticated against this backend. Expect to grant
+  `s3:GetObject`/`s3:PutObject` on the bucket and
+  `dynamodb:GetItem`/`PutItem`/`DeleteItem` on the lock table before the first
+  CI plan succeeds.
 
 **Three SCPs exist in the organization and are unattached** —
 `AllowOnlyS3_ExceptDeleteBucket`, `RequiredT2Micro`, `DenyModifyIAMRole`. All
