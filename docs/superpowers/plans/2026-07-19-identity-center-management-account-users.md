@@ -649,7 +649,7 @@ This step produces no commit — it changes no tracked file.
 
 Recorded so it is not silently lost:
 
-1. **Migrate to the S3 backend.** `backend.tf` is commented out; state is local. Blocks CI execution.
+1. ~~**Migrate to the S3 backend.** `backend.tf` is commented out; state is local. Blocks CI execution.~~ — **Done 2026-07-20.** State lives in `s3://aws-iam-identity-center-tfstate-010382427026`, DynamoDB locking via `aws-iam-identity-center-tfstate-lock`. See the module README's "Known conditions".
 2. **Scope `iam:PassRole`.** Needs a role-naming convention. See spec "Accepted limitations".
 3. **Audit the three pre-existing lab SCPs** — `AllowOnlyS3_ExceptDeleteBucket`, `RequiredT2Micro`, `DenyModifyIAMRole`. These are attached somewhere in the org and may restrict what these users can actually do once they log in. Unmanaged by Terraform.
 4. **Environment separation.** Requires creating at least one new AWS account; two existing accounts are permanently suspended.

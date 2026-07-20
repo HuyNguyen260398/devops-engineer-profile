@@ -195,10 +195,16 @@ model, so doing this creates no drift.
 
 ### Known conditions
 
-**State is local.** The S3 backend in `backend.tf` is still commented out, so
-`terraform.tfstate` lives in this directory. It is gitignored (`.gitignore:2`),
-but it is not shared and CI cannot use it. Migrate before this module is
-applied from anywhere but a workstation.
+**State is remote.** Migrated from local state into S3 on 2026-07-20 —
+`s3://aws-iam-identity-center-tfstate-010382427026/aws-iam-identity-center/terraform.tfstate`,
+versioned and SSE-S3 encrypted, with DynamoDB locking via
+`aws-iam-identity-center-tfstate-lock`. A `terraform plan` immediately after
+migration reported no changes, confirming all 27 state entries survived.
+
+`backend.tf` still uses the `dynamodb_table` parameter, which Terraform now
+reports as deprecated in favour of S3-native locking (`use_lockfile`). It
+remains functional, and it matches the sibling `aws-github-oidc` module. The
+two modules should move together rather than diverge.
 
 **Three SCPs exist in the organization and are unattached** —
 `AllowOnlyS3_ExceptDeleteBucket`, `RequiredT2Micro`, `DenyModifyIAMRole`. All
