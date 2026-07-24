@@ -77,6 +77,138 @@ locals {
       inline_policy                    = null
       permissions_boundary_policy_name = null
     }
+
+    # Platform engineering. PowerUserAccess withholds exactly one capability
+    # that day-to-day devops work needs — IAM role management — so the inline
+    # Allow grants that and nothing else. Re-listing eks/ecr/ssm/logs/
+    # cloudformation would be inert: PowerUserAccess is
+    # NotAction [iam:*, organizations:*, account:*] on *, which already
+    # covers them.
+    #
+    # The Deny on sso:*/identitystore:* is load-bearing. This permission set
+    # is assigned in the MANAGEMENT account, where a principal that can call
+    # the Identity Center APIs can assign itself AdministratorAccess. Deny
+    # beats Allow unconditionally, so this closes that loop.
+    #
+    # Known gap: iam:PassRole on "*" combined with iam:CreateRole remains a
+    # privilege-escalation path for a determined holder. Scoping it needs a
+    # role-naming convention this estate does not yet have. See the spec's
+    # "Accepted limitations".
+    DevOpsAccess = {
+      description                   = "Platform engineering: PowerUser plus IAM role management, minus organization, billing, and identity administration."
+      session_duration              = "PT4H"
+      relay_state                   = null
+      managed_policy_arns           = ["arn:${data.aws_partition.current.partition}:iam::aws:policy/PowerUserAccess"]
+      customer_managed_policy_names = []
+
+      inline_policy = jsonencode({
+        Version = "2012-10-17"
+        Statement = [
+          {
+            Sid    = "ManageRolesPoliciesAndProviders"
+            Effect = "Allow"
+            Action = [
+              "iam:CreateRole",
+              "iam:DeleteRole",
+              "iam:UpdateRole",
+              "iam:UpdateRoleDescription",
+              "iam:GetRole",
+              "iam:ListRoles",
+              "iam:TagRole",
+              "iam:UntagRole",
+              "iam:ListRoleTags",
+              "iam:UpdateAssumeRolePolicy",
+              "iam:AttachRolePolicy",
+              "iam:DetachRolePolicy",
+              "iam:PutRolePolicy",
+              "iam:DeleteRolePolicy",
+              "iam:GetRolePolicy",
+              "iam:ListRolePolicies",
+              "iam:ListAttachedRolePolicies",
+              "iam:CreatePolicy",
+              "iam:DeletePolicy",
+              "iam:CreatePolicyVersion",
+              "iam:DeletePolicyVersion",
+              "iam:SetDefaultPolicyVersion",
+              "iam:GetPolicy",
+              "iam:GetPolicyVersion",
+              "iam:ListPolicies",
+              "iam:ListPolicyVersions",
+              "iam:ListEntitiesForPolicy",
+              "iam:TagPolicy",
+              "iam:UntagPolicy",
+              "iam:CreateInstanceProfile",
+              "iam:DeleteInstanceProfile",
+              "iam:GetInstanceProfile",
+              "iam:ListInstanceProfiles",
+              "iam:ListInstanceProfilesForRole",
+              "iam:AddRoleToInstanceProfile",
+              "iam:RemoveRoleFromInstanceProfile",
+              "iam:CreateOpenIDConnectProvider",
+              "iam:DeleteOpenIDConnectProvider",
+              "iam:GetOpenIDConnectProvider",
+              "iam:ListOpenIDConnectProviders",
+              "iam:TagOpenIDConnectProvider",
+              "iam:UpdateOpenIDConnectProviderThumbprint",
+              "iam:PassRole",
+            ]
+            Resource = "*"
+          },
+          {
+            Sid    = "DenyOrganizationAndBillingControl"
+            Effect = "Deny"
+            Action = [
+              "organizations:*",
+              "account:*",
+              "aws-portal:*",
+              "ce:*",
+              "budgets:*",
+              "cur:*",
+            ]
+            Resource = "*"
+          },
+          {
+            Sid    = "DenyLongLivedCredentialCreation"
+            Effect = "Deny"
+            Action = [
+              "iam:CreateUser",
+              "iam:DeleteUser",
+              "iam:UpdateUser",
+              "iam:TagUser",
+              "iam:AddUserToGroup",
+              "iam:AttachUserPolicy",
+              "iam:DetachUserPolicy",
+              "iam:PutUserPolicy",
+              "iam:DeleteUserPolicy",
+              "iam:CreateAccessKey",
+              "iam:UpdateAccessKey",
+              "iam:DeleteAccessKey",
+              "iam:CreateLoginProfile",
+              "iam:UpdateLoginProfile",
+              "iam:DeleteLoginProfile",
+              "iam:CreateSAMLProvider",
+              "iam:UpdateSAMLProvider",
+              "iam:DeleteSAMLProvider",
+              "iam:UpdateAccountPasswordPolicy",
+              "iam:DeleteAccountPasswordPolicy",
+            ]
+            Resource = "*"
+          },
+          {
+            Sid    = "DenyIdentityCenterSelfEscalation"
+            Effect = "Deny"
+            Action = [
+              "sso:*",
+              "sso-directory:*",
+              "identitystore:*",
+            ]
+            Resource = "*"
+          },
+        ]
+      })
+
+      permissions_boundary_policy_name = null
+    }
   }
 
   # User-supplied sets win outright on key collision.
