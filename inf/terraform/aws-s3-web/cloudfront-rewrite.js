@@ -5,9 +5,12 @@
 // /blogs-draft -> blogs-draft.html,
 // /blogs-draft/<slug> -> blogs-draft/_.html (a single client shell),
 // /login -> login.html.
+// The roadmap subdomain (roadmap.nghuy.link) is served from the /roadmap subtree
+// of this same export: its "/" -> roadmap.html, its /<path> -> roadmap/<path>.html.
 function handler(event) {
   var req = event.request;
   var uri = req.uri;
+  var host = req.headers.host ? req.headers.host.value : "";
 
   // Real files (assets, _next chunks, images, the .html targets) pass through.
   if (uri.includes(".")) {
@@ -17,6 +20,13 @@ function handler(event) {
   // Normalize a trailing slash (except the root itself).
   if (uri.length > 1 && uri.endsWith("/")) {
     uri = uri.slice(0, -1);
+  }
+
+  // Host-based site selection. Asset requests already returned above, so every
+  // remaining roadmap-host request is a clean route into the /roadmap subtree.
+  if (host.indexOf("roadmap.") === 0) {
+    req.uri = uri === "" || uri === "/" ? "/roadmap.html" : "/roadmap" + uri + ".html";
+    return req;
   }
 
   // Root serves the portfolio home.
