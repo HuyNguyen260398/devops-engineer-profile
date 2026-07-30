@@ -7,6 +7,7 @@ import { RoadmapTrack } from "@/components/roadmap/roadmap-track";
 import { StageRail } from "@/components/roadmap/stage-rail";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { roadmapStages } from "@/data/roadmap";
+import { useReducedMotion } from "@/hooks/use-reduced-motion";
 import { findNode } from "@/lib/roadmap/experience";
 
 export function RoadmapShell() {
@@ -14,6 +15,7 @@ export function RoadmapShell() {
   const [activeStageId, setActiveStageId] = useState(roadmapStages[0].id);
   const [openNodeId, setOpenNodeId] = useState<string | null>(null);
   const lastTriggerRef = useRef<HTMLElement | null>(null);
+  const reducedMotion = useReducedMotion();
 
   const openNode = useCallback((nodeId: string) => {
     // The click target is the card button; remember it so focus can return.
@@ -26,10 +28,16 @@ export function RoadmapShell() {
     lastTriggerRef.current?.focus();
   }, []);
 
-  const selectStage = useCallback((stageId: string) => {
-    setActiveStageId(stageId);
-    document.getElementById(stageId)?.scrollIntoView({ behavior: "smooth", block: "start" });
-  }, []);
+  const selectStage = useCallback(
+    (stageId: string) => {
+      setActiveStageId(stageId);
+      document.getElementById(stageId)?.scrollIntoView({
+        behavior: reducedMotion ? "auto" : "smooth",
+        block: "start",
+      });
+    },
+    [reducedMotion],
+  );
 
   return (
     <div className="site-shell rm-page">

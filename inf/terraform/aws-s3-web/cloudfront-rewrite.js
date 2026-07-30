@@ -10,7 +10,7 @@
 function handler(event) {
   var req = event.request;
   var uri = req.uri;
-  var host = req.headers.host ? req.headers.host.value : "";
+  var host = req.headers && req.headers.host ? req.headers.host.value.toLowerCase() : "";
 
   // Real files (assets, _next chunks, images, the .html targets) pass through.
   if (uri.includes(".")) {

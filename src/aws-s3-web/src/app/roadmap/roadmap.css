@@ -159,6 +159,7 @@
 }
 
 .rm-rail-coverage {
+  display: block;
   margin-top: 6px;
   height: 3px;
   border-radius: 999px;

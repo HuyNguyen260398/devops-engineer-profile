@@ -67,4 +67,9 @@ describe("cloudfront-rewrite — roadmap subdomain", () => {
   it("shares static assets with the apex", () => {
     expect(run("/_next/static/chunk.js", roadmap)).toBe("/_next/static/chunk.js");
   });
+
+  it("matches the roadmap host case-insensitively", () => {
+    expect(run("/", "ROADMAP.nghuy.link")).toBe("/roadmap.html");
+    expect(run("/guide", "Roadmap.Nghuy.Link")).toBe("/roadmap/guide.html");
+  });
 });
