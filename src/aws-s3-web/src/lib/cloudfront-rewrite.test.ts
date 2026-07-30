@@ -15,7 +15,7 @@ const source = readFileSync(
 const handler = new Function(`${source}; return handler;`)() as CfHandler;
 
 function run(uri: string, host?: string): string {
-  const headers = host ? { host: { value: host } } : {};
+  const headers: CfRequest["headers"] = host ? { host: { value: host } } : {};
   return handler({ request: { uri, headers } }).uri;
 }
 
