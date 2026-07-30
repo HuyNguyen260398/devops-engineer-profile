@@ -56,8 +56,8 @@ describe("cloudfront-rewrite — roadmap subdomain", () => {
     expect(run("", roadmap)).toBe("/roadmap.html");
   });
 
-  it("normalises a trailing slash at the subdomain root", () => {
-    expect(run("/", roadmap)).toBe("/roadmap.html");
+  it("normalises a trailing slash on a roadmap route", () => {
+    expect(run("/guide/", roadmap)).toBe("/roadmap/guide.html");
   });
 
   it("maps other clean routes into the /roadmap subtree", () => {
