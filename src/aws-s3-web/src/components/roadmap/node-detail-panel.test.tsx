@@ -16,6 +16,14 @@ const node: RoadmapNode = {
   myLevel: "working",
 };
 
+const multiResourceNode: RoadmapNode = {
+  ...node,
+  resources: [
+    { label: "First resource", url: "https://example.com/first" },
+    { label: "Second resource", url: "https://example.com/second" },
+  ],
+};
+
 describe("NodeDetailPanel", () => {
   it("renders nothing when no node is selected", () => {
     const { container } = render(
@@ -71,5 +79,32 @@ describe("NodeDetailPanel", () => {
   it("moves focus into the panel when it opens", () => {
     render(<NodeDetailPanel node={node} showExperience={false} onClose={() => {}} />);
     expect(screen.getByRole("dialog").contains(document.activeElement)).toBe(true);
+  });
+
+  it("wraps Tab from the last focusable element to the first", async () => {
+    render(
+      <NodeDetailPanel node={multiResourceNode} showExperience={false} onClose={() => {}} />,
+    );
+
+    const lastLink = screen.getByRole("link", { name: "Second resource" });
+    lastLink.focus();
+    expect(document.activeElement).toBe(lastLink);
+
+    await userEvent.tab();
+
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
+  });
+
+  it("wraps Shift+Tab from the first focusable element to the last", async () => {
+    render(
+      <NodeDetailPanel node={multiResourceNode} showExperience={false} onClose={() => {}} />,
+    );
+
+    // The close button already has focus on open — it is the first focusable element.
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
+
+    await userEvent.tab({ shift: true });
+
+    expect(document.activeElement).toBe(screen.getByRole("link", { name: "Second resource" }));
   });
 });
