@@ -104,6 +104,15 @@ export function HeroSection({ onNavigate, reducedMotion }: HeroSectionProps) {
           <div className="module-row" aria-label="Loaded modules">
             <span>LOADED_MODULES:</span>
             {portfolio.heroModules.map((module) => <code key={module}>{module.toUpperCase()}</code>)}
+            <a
+              className="module-link"
+              href="https://roadmap.nghuy.link"
+              target="_blank"
+              rel="noreferrer"
+            >
+              <code>ROADMAP 2026</code>
+              <ExternalLink aria-hidden="true" size={11} />
+            </a>
           </div>
         </div>
         <CodeWindow
