@@ -1,7 +1,8 @@
 resource "aws_acm_certificate" "blog" {
-  provider          = aws.us_east_1
-  domain_name       = local.domain
-  validation_method = "DNS"
+  provider                  = aws.us_east_1
+  domain_name               = local.domain
+  subject_alternative_names = [local.roadmap_domain]
+  validation_method         = "DNS"
   lifecycle {
     create_before_destroy = true
   }
@@ -12,7 +13,7 @@ resource "aws_acm_certificate" "blog" {
 # domain_validation_options are unknown, so we key on the statically-known domain
 # set and read the (apply-time) validation record values via a lookup.
 resource "aws_route53_record" "cert_validation" {
-  for_each = toset([local.domain])
+  for_each = toset(local.cert_domains)
 
   zone_id         = var.route53_zone_id
   allow_overwrite = true
@@ -51,7 +52,7 @@ resource "aws_cloudfront_origin_access_control" "media" {
 
 resource "aws_cloudfront_distribution" "blog" {
   enabled = true
-  aliases = [local.domain]
+  aliases = local.cert_domains
   # The viewer-request rewrite function maps clean routes onto the flat static
   # export; "/" serves the portfolio home. This default is only a fallback.
   default_root_object = "index.html"
@@ -155,6 +156,30 @@ resource "aws_route53_record" "aaaa" {
   name            = local.domain
   type            = "AAAA"
   allow_overwrite = true
+  alias {
+    name                   = aws_cloudfront_distribution.blog.domain_name
+    zone_id                = aws_cloudfront_distribution.blog.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+# The roadmap subdomain points at the same distribution; the viewer-request
+# function selects the /roadmap subtree by Host header.
+resource "aws_route53_record" "roadmap_a" {
+  zone_id = var.route53_zone_id
+  name    = local.roadmap_domain
+  type    = "A"
+  alias {
+    name                   = aws_cloudfront_distribution.blog.domain_name
+    zone_id                = aws_cloudfront_distribution.blog.hosted_zone_id
+    evaluate_target_health = false
+  }
+}
+
+resource "aws_route53_record" "roadmap_aaaa" {
+  zone_id = var.route53_zone_id
+  name    = local.roadmap_domain
+  type    = "AAAA"
   alias {
     name                   = aws_cloudfront_distribution.blog.domain_name
     zone_id                = aws_cloudfront_distribution.blog.hosted_zone_id
