@@ -13,6 +13,21 @@ export const IMPORTANCE_LABELS: Record<NodeImportance, string> = {
   optional: "Optional",
 };
 
+/**
+ * The roadmap.sh legend, restated for this roadmap. The colours are the ones
+ * roadmap.sh uses for its three legend entries, so the graph reads the same way
+ * to anyone who has seen the original.
+ */
+export const LEGEND_ENTRIES: readonly {
+  importance: NodeImportance;
+  color: string;
+  label: string;
+}[] = [
+  { importance: "core", color: "#874efe", label: "Core — non-negotiable in 2026" },
+  { importance: "recommended", color: "#c69b0b", label: "Recommended — strong differentiator" },
+  { importance: "optional", color: "#949494", label: "Order not strict — learn anytime" },
+];
+
 /** Levels that count as hands-on rather than aspirational. */
 const PRACTISED: readonly MyLevel[] = ["production", "working"];
 
@@ -39,4 +54,11 @@ export function findNode(
     if (found) return found;
   }
   return undefined;
+}
+
+export function findStage(
+  stages: readonly RoadmapStage[],
+  stageId: string,
+): RoadmapStage | undefined {
+  return stages.find((stage) => stage.id === stageId);
 }

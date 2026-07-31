@@ -1,94 +1,86 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 
-import { NodeDetailPanel } from "@/components/roadmap/node-detail-panel";
-import { RoadmapTrack } from "@/components/roadmap/roadmap-track";
-import { StageRail } from "@/components/roadmap/stage-rail";
+import { RoadmapCanvas } from "@/components/roadmap/roadmap-canvas";
+import {
+  RoadmapDetailPanel,
+  type PanelSelection,
+} from "@/components/roadmap/roadmap-detail-panel";
+import { RoadmapHero } from "@/components/roadmap/roadmap-hero";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { roadmapStages } from "@/data/roadmap";
-import { useReducedMotion } from "@/hooks/use-reduced-motion";
-import { findNode } from "@/lib/roadmap/experience";
+import { findNode, findStage } from "@/lib/roadmap/experience";
+import { buildRoadmapLayout } from "@/lib/roadmap/layout";
+
+type SelectionRef = { kind: "node" | "stage"; id: string };
 
 export function RoadmapShell() {
   const [showExperience, setShowExperience] = useState(false);
-  const [activeStageId, setActiveStageId] = useState(roadmapStages[0].id);
-  const [openNodeId, setOpenNodeId] = useState<string | null>(null);
+  const [selected, setSelected] = useState<SelectionRef | null>(null);
   const lastTriggerRef = useRef<HTMLElement | null>(null);
-  const reducedMotion = useReducedMotion();
+
+  const layout = useMemo(() => buildRoadmapLayout(roadmapStages), []);
+
+  const remember = () => {
+    // The click target is the box on the canvas; remember it so focus returns
+    // there when the panel closes.
+    lastTriggerRef.current = document.activeElement as HTMLElement | null;
+  };
 
   const openNode = useCallback((nodeId: string) => {
-    // The click target is the card button; remember it so focus can return.
-    lastTriggerRef.current = document.activeElement as HTMLElement | null;
-    setOpenNodeId(nodeId);
+    remember();
+    setSelected({ kind: "node", id: nodeId });
   }, []);
 
-  const closeNode = useCallback(() => {
-    setOpenNodeId(null);
+  const openStage = useCallback((stageId: string) => {
+    remember();
+    setSelected({ kind: "stage", id: stageId });
+  }, []);
+
+  const close = useCallback(() => {
+    setSelected(null);
     lastTriggerRef.current?.focus();
   }, []);
 
-  const selectStage = useCallback(
-    (stageId: string) => {
-      setActiveStageId(stageId);
-      document.getElementById(stageId)?.scrollIntoView({
-        behavior: reducedMotion ? "auto" : "smooth",
-        block: "start",
-      });
-    },
-    [reducedMotion],
-  );
+  const selection = useMemo<PanelSelection | null>(() => {
+    if (!selected) return null;
+
+    if (selected.kind === "node") {
+      const node = findNode(roadmapStages, selected.id);
+      return node ? { kind: "node", node } : null;
+    }
+
+    const stage = findStage(roadmapStages, selected.id);
+    return stage ? { kind: "stage", stage } : null;
+  }, [selected]);
 
   return (
     <div className="site-shell rm-page">
-      <div className="grid-backdrop" aria-hidden="true" />
       <ThemeToggle />
 
       <main className="rm-inner">
-        <header className="rm-header">
-          <span className="rm-kicker">DEVOPS :: ROADMAP 2026</span>
-          <h1 className="rm-title">DevOps Engineer Roadmap</h1>
-          <p className="rm-lede">
-            What actually matters in 2026: the fundamentals first, AI layered on top as a force
-            multiplier — including an honest note on where it still fails.
-          </p>
+        <RoadmapHero
+          stages={roadmapStages}
+          showExperience={showExperience}
+          onToggleExperience={() => setShowExperience((value) => !value)}
+        />
 
-          <div className="rm-header-actions">
-            <button
-              type="button"
-              className="rm-toggle"
-              aria-pressed={showExperience}
-              onClick={() => setShowExperience((value) => !value)}
-            >
-              <span className="rm-toggle-dot" aria-hidden="true" />
-              Show my experience
-            </button>
-            <a className="rm-home-link" href="https://nghuy.link">
-              ← nghuy.link
-            </a>
-          </div>
-        </header>
-
-        <div className="rm-body">
-          <StageRail
-            stages={roadmapStages}
-            activeStageId={activeStageId}
-            showExperience={showExperience}
-            onSelect={selectStage}
-          />
-          <RoadmapTrack
-            stages={roadmapStages}
-            showExperience={showExperience}
-            onOpenNode={openNode}
-            onActiveStageChange={setActiveStageId}
-          />
-        </div>
+        <RoadmapCanvas
+          layout={layout}
+          showExperience={showExperience}
+          onOpenNode={openNode}
+          onOpenStage={openStage}
+        />
       </main>
 
-      <NodeDetailPanel
-        node={openNodeId ? (findNode(roadmapStages, openNodeId) ?? null) : null}
+      <RoadmapDetailPanel
+        selection={selection}
         showExperience={showExperience}
-        onClose={closeNode}
+        onClose={close}
+        // Jumping from a stage panel to one of its topics keeps the panel open,
+        // so the original trigger stays the focus target.
+        onOpenNode={(nodeId) => setSelected({ kind: "node", id: nodeId })}
       />
     </div>
   );

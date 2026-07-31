@@ -1,30 +1,44 @@
 "use client";
 
 import { IMPORTANCE_LABELS, MY_LEVEL_LABELS } from "@/lib/roadmap/experience";
-import type { RoadmapNode } from "@/types/roadmap";
+import type { LayoutSubtopic } from "@/lib/roadmap/layout";
 
 export type RoadmapNodeCardProps = {
-  node: RoadmapNode;
+  subtopic: LayoutSubtopic;
   showExperience: boolean;
   onOpen: (nodeId: string) => void;
 };
 
-export function RoadmapNodeCard({ node, showExperience, onOpen }: RoadmapNodeCardProps) {
+/**
+ * A subtopic box on the canvas: label only, roadmap.sh style. Everything else
+ * about the node lives in the detail panel.
+ */
+export function RoadmapNodeCard({ subtopic, showExperience, onOpen }: RoadmapNodeCardProps) {
+  const { node } = subtopic;
+
   return (
     <button
       type="button"
-      className="rm-node"
+      className="rm-box rm-subtopic"
       data-importance={node.importance}
       data-level={showExperience ? node.myLevel : undefined}
+      style={{
+        left: subtopic.x,
+        top: subtopic.y,
+        width: subtopic.width,
+        height: subtopic.height,
+      }}
+      title={`${IMPORTANCE_LABELS[node.importance]} — ${node.summary}`}
       onClick={() => onOpen(node.id)}
     >
-      <span className="rm-node-head">
-        <span className="rm-node-title">{node.title}</span>
-        <span className="rm-node-importance">{IMPORTANCE_LABELS[node.importance]}</span>
-      </span>
-      <span className="rm-node-summary">{node.summary}</span>
+      <span className="rm-box-label">{node.title}</span>
+      {showExperience && node.myLevel !== "none" ? (
+        <span className="rm-box-badge" aria-hidden="true" />
+      ) : null}
       {showExperience ? (
-        <span className="rm-node-level">{MY_LEVEL_LABELS[node.myLevel]}</span>
+        // Inline spans concatenate with no separator in the accessible name, so
+        // the comma has to be part of the text.
+        <span className="rm-sr-only">{`, ${MY_LEVEL_LABELS[node.myLevel]}`}</span>
       ) : null}
     </button>
   );
