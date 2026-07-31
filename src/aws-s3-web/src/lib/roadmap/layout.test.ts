@@ -2,27 +2,35 @@ import { describe, expect, it } from "vitest";
 
 import { buildRoadmapLayout, elbowPath } from "./layout";
 import { roadmapStages } from "@/data/roadmap";
-import type { RoadmapNode, RoadmapStage } from "@/types/roadmap";
+import type { RoadmapStage, RoadmapSubtopic, RoadmapTopic } from "@/types/roadmap";
 
-const node = (id: string): RoadmapNode => ({
+const subtopic = (id: string): RoadmapSubtopic => ({
+  id,
+  title: id,
+  importance: "core",
+  note: "",
+  myLevel: "none",
+});
+
+const topic = (id: string, subtopicCount: number): RoadmapTopic => ({
   id,
   title: id,
   importance: "core",
   summary: "",
   why: "",
-  tools: [],
   resources: [],
   myLevel: "none",
+  subtopics: Array.from({ length: subtopicCount }, (_, i) => subtopic(`${id}-${i}`)),
 });
 
-const stage = (id: string, index: number, nodeCount: number): RoadmapStage => ({
+const stage = (id: string, index: number, topicSizes: number[]): RoadmapStage => ({
   id,
   index,
   label: id,
   kicker: `STAGE 0${index}`,
   outcome: "",
   accent: "blue",
-  nodes: Array.from({ length: nodeCount }, (_, i) => node(`${id}-${i}`)),
+  topics: topicSizes.map((size, i) => topic(`${id}-t${i}`, size)),
 });
 
 describe("elbowPath", () => {
@@ -52,32 +60,40 @@ describe("elbowPath", () => {
 });
 
 describe("buildRoadmapLayout", () => {
-  const stages = [stage("a", 0, 3), stage("b", 1, 5), stage("c", 2, 2)];
+  const stages = [stage("a", 0, [3, 5]), stage("b", 1, [2, 6, 4])];
   const layout = buildRoadmapLayout(stages);
 
-  it("emits one topic per stage and one subtopic per node", () => {
-    expect(layout.topics).toHaveLength(3);
-    expect(layout.subtopics).toHaveLength(10);
+  it("emits a divider per stage, a box per topic, and a box per subtopic", () => {
+    expect(layout.stageLabels).toHaveLength(2);
+    expect(layout.topics).toHaveLength(5);
+    expect(layout.subtopics).toHaveLength(20);
   });
 
-  it("centres every topic box on the spine", () => {
+  it("centres every topic box and stage divider on the spine", () => {
     const spineX = layout.width / 2;
-    layout.topics.forEach((topic) => {
-      expect(topic.x + topic.width / 2).toBe(spineX);
+    [...layout.topics, ...layout.stageLabels].forEach((box) => {
+      expect(box.x + box.width / 2).toBe(spineX);
     });
   });
 
-  it("alternates the subtopic column side per stage", () => {
-    const sideFor = (stageId: string) =>
-      layout.subtopics.find((sub) => sub.stageId === stageId)?.side;
-
-    expect(sideFor("a")).toBe("right");
-    expect(sideFor("b")).toBe("left");
-    expect(sideFor("c")).toBe("right");
+  it("alternates the branch side per topic, continuing across stage boundaries", () => {
+    expect(layout.topics.map((entry) => entry.side)).toEqual([
+      "right",
+      "left",
+      "right",
+      "left",
+      "right",
+    ]);
   });
 
   it("keeps every box inside the canvas", () => {
-    const boxes = [layout.title, layout.legend, ...layout.topics, ...layout.subtopics];
+    const boxes = [
+      layout.title,
+      layout.legend,
+      ...layout.stageLabels,
+      ...layout.topics,
+      ...layout.subtopics,
+    ];
     boxes.forEach((box) => {
       expect(box.x).toBeGreaterThanOrEqual(0);
       expect(box.x + box.width).toBeLessThanOrEqual(layout.width);
@@ -85,22 +101,49 @@ describe("buildRoadmapLayout", () => {
     });
   });
 
-  it("stacks the subtopics of a stage in order without overlapping", () => {
-    const column = layout.subtopics.filter((sub) => sub.stageId === "b");
-    column.forEach((sub, index) => {
+  it("stacks a topic's subtopics in order without overlapping", () => {
+    const column = layout.subtopics.filter((entry) => entry.topicId === "b-t1");
+    expect(column).toHaveLength(6);
+    column.forEach((entry, index) => {
       if (index === 0) return;
-      expect(sub.y).toBeGreaterThanOrEqual(column[index - 1].y + column[index - 1].height);
+      expect(entry.y).toBeGreaterThanOrEqual(column[index - 1].y + column[index - 1].height);
     });
   });
 
-  it("orders stages top to bottom down the spine", () => {
-    const ys = layout.topics.map((topic) => topic.y);
-    expect(ys).toEqual([...ys].sort((a, b) => a - b));
+  it("never overlaps two columns that share a side", () => {
+    (["left", "right"] as const).forEach((side) => {
+      const onSide = layout.subtopics.filter((entry) => entry.side === side);
+      const byTopic = new Map<string, { top: number; bottom: number }>();
+
+      onSide.forEach((entry) => {
+        const span = byTopic.get(entry.topicId) ?? { top: Infinity, bottom: -Infinity };
+        byTopic.set(entry.topicId, {
+          top: Math.min(span.top, entry.y),
+          bottom: Math.max(span.bottom, entry.y + entry.height),
+        });
+      });
+
+      const spans = [...byTopic.values()].sort((a, b) => a.top - b.top);
+      spans.forEach((span, index) => {
+        if (index === 0) return;
+        expect(span.top).toBeGreaterThanOrEqual(spans[index - 1].bottom);
+      });
+    });
   });
 
-  it("draws a spine segment into every topic plus a branch to every subtopic", () => {
-    expect(layout.edges.filter((edge) => edge.kind === "spine")).toHaveLength(3);
-    expect(layout.edges.filter((edge) => edge.kind === "branch")).toHaveLength(10);
+  it("orders topics and dividers top to bottom down the spine", () => {
+    const ys = layout.topics.map((entry) => entry.y);
+    expect(ys).toEqual([...ys].sort((a, b) => a - b));
+
+    layout.stageLabels.forEach((label) => {
+      const inStage = layout.topics.filter((entry) => entry.stageId === label.stage.id);
+      inStage.forEach((entry) => expect(entry.y).toBeGreaterThan(label.y));
+    });
+  });
+
+  it("draws a spine segment per divider and per topic, plus a branch per subtopic", () => {
+    expect(layout.edges.filter((edge) => edge.kind === "spine")).toHaveLength(7);
+    expect(layout.edges.filter((edge) => edge.kind === "branch")).toHaveLength(20);
   });
 
   it("gives every edge a unique id", () => {
@@ -108,19 +151,30 @@ describe("buildRoadmapLayout", () => {
     expect(new Set(ids).size).toBe(ids.length);
   });
 
+  it("packs alternating columns tighter than stacking them would", () => {
+    // Two topics of five subtopics each, branching opposite ways, must not need
+    // the full height of both columns.
+    const packed = buildRoadmapLayout([stage("x", 0, [5, 5])]);
+    const stacked = buildRoadmapLayout([stage("y", 0, [5]), stage("z", 1, [5])]);
+    expect(packed.height).toBeLessThan(stacked.height);
+  });
+
   it("lays out the real roadmap without overflowing the canvas", () => {
     const real = buildRoadmapLayout(roadmapStages);
-    const nodeCount = roadmapStages.reduce((total, item) => total + item.nodes.length, 0);
+    const subtopicCount = roadmapStages.reduce(
+      (total, item) => total + item.topics.reduce((sum, t) => sum + t.subtopics.length, 0),
+      0,
+    );
 
-    expect(real.subtopics).toHaveLength(nodeCount);
-    real.subtopics.forEach((sub) => {
-      expect(sub.x).toBeGreaterThanOrEqual(0);
-      expect(sub.x + sub.width).toBeLessThanOrEqual(real.width);
+    expect(real.subtopics).toHaveLength(subtopicCount);
+    real.subtopics.forEach((entry) => {
+      expect(entry.x).toBeGreaterThanOrEqual(0);
+      expect(entry.x + entry.width).toBeLessThanOrEqual(real.width);
     });
   });
 
-  it("handles a stage with no nodes", () => {
-    const empty = buildRoadmapLayout([stage("solo", 0, 0)]);
+  it("handles a topic with no subtopics", () => {
+    const empty = buildRoadmapLayout([stage("solo", 0, [0])]);
     expect(empty.subtopics).toHaveLength(0);
     expect(empty.topics).toHaveLength(1);
     expect(empty.height).toBeGreaterThan(empty.topics[0].y);

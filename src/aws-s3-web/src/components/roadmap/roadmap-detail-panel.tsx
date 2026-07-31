@@ -6,19 +6,22 @@ import {
   IMPORTANCE_LABELS,
   MY_LEVEL_LABELS,
   stageCoverage,
+  topicCoverage,
 } from "@/lib/roadmap/experience";
-import type { RoadmapNode, RoadmapStage } from "@/types/roadmap";
+import type { RoadmapStage, RoadmapSubtopic, RoadmapTopic } from "@/types/roadmap";
 
-/** Either kind of box on the canvas can drive the panel. */
+/** Any box on the canvas can drive the panel. */
 export type PanelSelection =
-  | { kind: "node"; node: RoadmapNode }
-  | { kind: "stage"; stage: RoadmapStage };
+  | { kind: "stage"; stage: RoadmapStage }
+  | { kind: "topic"; topic: RoadmapTopic }
+  | { kind: "subtopic"; subtopic: RoadmapSubtopic; topic: RoadmapTopic };
 
 export type RoadmapDetailPanelProps = {
   selection: PanelSelection | null;
   showExperience: boolean;
   onClose: () => void;
-  onOpenNode: (nodeId: string) => void;
+  onOpenTopic: (topicId: string) => void;
+  onOpenSubtopic: (subtopicId: string) => void;
 };
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
@@ -27,7 +30,8 @@ export function RoadmapDetailPanel({
   selection,
   showExperience,
   onClose,
-  onOpenNode,
+  onOpenTopic,
+  onOpenSubtopic,
 }: RoadmapDetailPanelProps) {
   const panelRef = useRef<HTMLDivElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
@@ -69,11 +73,7 @@ export function RoadmapDetailPanel({
 
   if (!selection) return null;
 
-  const heading = selection.kind === "node" ? selection.node.title : selection.stage.label;
-  const eyebrow =
-    selection.kind === "node"
-      ? IMPORTANCE_LABELS[selection.node.importance]
-      : selection.stage.kicker;
+  const { heading, eyebrow, importance } = describe(selection);
 
   return (
     <>
@@ -92,10 +92,7 @@ export function RoadmapDetailPanel({
         aria-labelledby="rm-panel-title"
       >
         <div className="rm-panel-head">
-          <span
-            className="rm-panel-eyebrow"
-            data-importance={selection.kind === "node" ? selection.node.importance : undefined}
-          >
+          <span className="rm-panel-eyebrow" data-importance={importance}>
             {eyebrow}
           </span>
           <button ref={closeRef} type="button" className="rm-panel-close" onClick={onClose}>
@@ -111,33 +108,96 @@ export function RoadmapDetailPanel({
           <StageBody
             stage={selection.stage}
             showExperience={showExperience}
-            onOpenNode={onOpenNode}
+            onOpenTopic={onOpenTopic}
+          />
+        ) : selection.kind === "topic" ? (
+          <TopicBody
+            topic={selection.topic}
+            showExperience={showExperience}
+            onOpenSubtopic={onOpenSubtopic}
           />
         ) : (
-          <NodeBody node={selection.node} showExperience={showExperience} />
+          <SubtopicBody
+            subtopic={selection.subtopic}
+            topic={selection.topic}
+            showExperience={showExperience}
+            onOpenTopic={onOpenTopic}
+          />
         )}
       </div>
     </>
   );
 }
 
-function NodeBody({ node, showExperience }: { node: RoadmapNode; showExperience: boolean }) {
+function describe(selection: PanelSelection) {
+  if (selection.kind === "stage") {
+    return {
+      heading: selection.stage.label,
+      eyebrow: selection.stage.kicker,
+      importance: undefined,
+    };
+  }
+
+  if (selection.kind === "topic") {
+    return {
+      heading: selection.topic.title,
+      eyebrow: IMPORTANCE_LABELS[selection.topic.importance],
+      importance: selection.topic.importance,
+    };
+  }
+
+  return {
+    heading: selection.subtopic.title,
+    eyebrow: IMPORTANCE_LABELS[selection.subtopic.importance],
+    importance: selection.subtopic.importance,
+  };
+}
+
+function Level({ level }: { level: RoadmapTopic["myLevel"] }) {
+  return (
+    <p className="rm-panel-level" data-level={level}>
+      {MY_LEVEL_LABELS[level]}
+    </p>
+  );
+}
+
+function TopicBody({
+  topic,
+  showExperience,
+  onOpenSubtopic,
+}: {
+  topic: RoadmapTopic;
+  showExperience: boolean;
+  onOpenSubtopic: (subtopicId: string) => void;
+}) {
+  const coverage = topicCoverage(topic);
+
   return (
     <>
-      <p className="rm-panel-summary">{node.summary}</p>
-      <p className="rm-panel-why">{node.why}</p>
+      <p className="rm-panel-summary">{topic.summary}</p>
+      <p className="rm-panel-why">{topic.why}</p>
 
       {showExperience ? (
-        <p className="rm-panel-level" data-level={node.myLevel}>
-          {MY_LEVEL_LABELS[node.myLevel]}
-        </p>
+        <div className="rm-panel-levels">
+          <Level level={topic.myLevel} />
+          <p className="rm-panel-level" data-level="none">
+            {coverage.practised}/{coverage.total} hands-on
+          </p>
+        </div>
       ) : null}
 
       <div className="rm-panel-block">
-        <span className="rm-panel-label">Tools</span>
-        <ul className="rm-panel-tools">
-          {node.tools.map((tool) => (
-            <li key={tool}>{tool}</li>
+        <span className="rm-panel-label">What this covers</span>
+        <ul className="rm-panel-topics">
+          {topic.subtopics.map((subtopic) => (
+            <li key={subtopic.id}>
+              <button type="button" onClick={() => onOpenSubtopic(subtopic.id)}>
+                <span>{subtopic.title}</span>
+                <span className="rm-panel-topic-tag" data-importance={subtopic.importance}>
+                  {IMPORTANCE_LABELS[subtopic.importance]}
+                </span>
+              </button>
+            </li>
           ))}
         </ul>
       </div>
@@ -145,7 +205,56 @@ function NodeBody({ node, showExperience }: { node: RoadmapNode; showExperience:
       <div className="rm-panel-block">
         <span className="rm-panel-label">Resources</span>
         <ul className="rm-panel-resources">
-          {node.resources.map((resource) => (
+          {topic.resources.map((resource) => (
+            <li key={resource.url}>
+              <a href={resource.url} target="_blank" rel="noreferrer">
+                {resource.label}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </div>
+    </>
+  );
+}
+
+function SubtopicBody({
+  subtopic,
+  topic,
+  showExperience,
+  onOpenTopic,
+}: {
+  subtopic: RoadmapSubtopic;
+  topic: RoadmapTopic;
+  showExperience: boolean;
+  onOpenTopic: (topicId: string) => void;
+}) {
+  return (
+    <>
+      <p className="rm-panel-summary">{subtopic.note}</p>
+
+      {showExperience ? <Level level={subtopic.myLevel} /> : null}
+
+      <div className="rm-panel-block">
+        <span className="rm-panel-label">Branches off</span>
+        <ul className="rm-panel-topics">
+          <li>
+            <button type="button" onClick={() => onOpenTopic(topic.id)}>
+              <span>{topic.title}</span>
+              <span className="rm-panel-topic-tag" data-importance={topic.importance}>
+                {IMPORTANCE_LABELS[topic.importance]}
+              </span>
+            </button>
+          </li>
+        </ul>
+      </div>
+
+      <p className="rm-panel-why">{topic.why}</p>
+
+      <div className="rm-panel-block">
+        <span className="rm-panel-label">Resources</span>
+        <ul className="rm-panel-resources">
+          {topic.resources.map((resource) => (
             <li key={resource.url}>
               <a href={resource.url} target="_blank" rel="noreferrer">
                 {resource.label}
@@ -161,11 +270,11 @@ function NodeBody({ node, showExperience }: { node: RoadmapNode; showExperience:
 function StageBody({
   stage,
   showExperience,
-  onOpenNode,
+  onOpenTopic,
 }: {
   stage: RoadmapStage;
   showExperience: boolean;
-  onOpenNode: (nodeId: string) => void;
+  onOpenTopic: (topicId: string) => void;
 }) {
   const coverage = stageCoverage(stage);
 
@@ -182,12 +291,12 @@ function StageBody({
       <div className="rm-panel-block">
         <span className="rm-panel-label">Topics in this stage</span>
         <ul className="rm-panel-topics">
-          {stage.nodes.map((node) => (
-            <li key={node.id}>
-              <button type="button" onClick={() => onOpenNode(node.id)}>
-                <span>{node.title}</span>
-                <span className="rm-panel-topic-tag" data-importance={node.importance}>
-                  {IMPORTANCE_LABELS[node.importance]}
+          {stage.topics.map((topic) => (
+            <li key={topic.id}>
+              <button type="button" onClick={() => onOpenTopic(topic.id)}>
+                <span>{topic.title}</span>
+                <span className="rm-panel-topic-tag" data-importance={topic.importance}>
+                  {IMPORTANCE_LABELS[topic.importance]}
                 </span>
               </button>
             </li>

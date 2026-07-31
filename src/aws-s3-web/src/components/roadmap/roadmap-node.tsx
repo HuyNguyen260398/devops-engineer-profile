@@ -6,15 +6,15 @@ import type { LayoutSubtopic } from "@/lib/roadmap/layout";
 export type RoadmapNodeCardProps = {
   subtopic: LayoutSubtopic;
   showExperience: boolean;
-  onOpen: (nodeId: string) => void;
+  onOpen: (subtopicId: string) => void;
 };
 
 /**
  * A subtopic box on the canvas: label only, roadmap.sh style. Everything else
- * about the node lives in the detail panel.
+ * about it lives in the detail panel.
  */
 export function RoadmapNodeCard({ subtopic, showExperience, onOpen }: RoadmapNodeCardProps) {
-  const { node } = subtopic;
+  const { subtopic: node } = subtopic;
 
   return (
     <button
@@ -28,7 +28,7 @@ export function RoadmapNodeCard({ subtopic, showExperience, onOpen }: RoadmapNod
         width: subtopic.width,
         height: subtopic.height,
       }}
-      title={`${IMPORTANCE_LABELS[node.importance]} — ${node.summary}`}
+      title={`${IMPORTANCE_LABELS[node.importance]} — ${node.note}`}
       onClick={() => onOpen(node.id)}
     >
       <span className="rm-box-label">{node.title}</span>

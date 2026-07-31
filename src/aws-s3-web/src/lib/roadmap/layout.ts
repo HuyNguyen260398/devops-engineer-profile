@@ -1,4 +1,4 @@
-import type { RoadmapNode, RoadmapStage } from "@/types/roadmap";
+import type { RoadmapStage, RoadmapSubtopic, RoadmapTopic } from "@/types/roadmap";
 
 /**
  * Geometry for the roadmap.sh-style flowchart.
@@ -8,8 +8,10 @@ import type { RoadmapNode, RoadmapStage } from "@/types/roadmap";
  * viewport scales the whole thing to fit, exactly like roadmap.sh does, so the
  * layout maths never has to know the real viewport width.
  *
- * Stages sit on the central spine as the big yellow topic boxes; their nodes
- * branch off to alternating sides as subtopics.
+ * Topics sit on the central spine; their subtopics branch off to alternating
+ * sides. Because consecutive topics branch opposite ways, their columns can
+ * overlap vertically — that is what keeps a 24-topic roadmap from being twice
+ * as tall as it needs to be. Each side therefore tracks its own low-water mark.
  */
 
 const CANVAS_WIDTH = 1120;
@@ -17,17 +19,22 @@ const CANVAS_PADDING_BOTTOM = 72;
 
 const TITLE = { width: 320, height: 74 } as const;
 const LEGEND = { width: 336, height: 138 } as const;
-const TOPIC = { width: 340, height: 66 } as const;
-const SUBTOPIC = { width: 282, height: 46 } as const;
+const STAGE_LABEL = { width: 300, height: 42 } as const;
+const TOPIC = { width: 340, height: 60 } as const;
+const SUBTOPIC = { width: 282, height: 44 } as const;
 
 /** Gap between stacked subtopics inside one column. */
-const SUBTOPIC_GAP = 12;
+const SUBTOPIC_GAP = 10;
 /** Horizontal gap between the topic box edge and its subtopic column. */
 const BRANCH_GAP = 76;
-/** Vertical gap between two stage blocks. */
-const STAGE_GAP = 78;
+/** Minimum vertical gap between two topic boxes on the spine. */
+const TOPIC_GAP = 46;
+/** Minimum vertical gap between two subtopic columns on the same side. */
+const COLUMN_GAP = 34;
+/** Extra room around a stage divider label. */
+const STAGE_LABEL_GAP = 40;
 /** Vertical gap between the header row and the first stage. */
-const HEADER_GAP = 72;
+const HEADER_GAP = 64;
 /** Corner radius on the elbow connectors. */
 const ELBOW_RADIUS = 16;
 
@@ -38,14 +45,21 @@ export type LayoutBox = {
   height: number;
 };
 
-export type LayoutTopic = LayoutBox & {
+export type LayoutStageLabel = LayoutBox & {
   stage: RoadmapStage;
 };
 
-export type LayoutSubtopic = LayoutBox & {
-  node: RoadmapNode;
+export type LayoutTopic = LayoutBox & {
+  topic: RoadmapTopic;
   stageId: string;
-  /** Which side of the spine the column sits on. */
+  /** Which side of the spine this topic's column sits on. */
+  side: "left" | "right";
+};
+
+export type LayoutSubtopic = LayoutBox & {
+  subtopic: RoadmapSubtopic;
+  topicId: string;
+  stageId: string;
   side: "left" | "right";
 };
 
@@ -60,6 +74,7 @@ export type RoadmapLayout = {
   height: number;
   title: LayoutBox;
   legend: LayoutBox;
+  stageLabels: readonly LayoutStageLabel[];
   topics: readonly LayoutTopic[];
   subtopics: readonly LayoutSubtopic[];
   edges: readonly LayoutEdge[];
@@ -102,62 +117,100 @@ export function buildRoadmapLayout(stages: readonly RoadmapStage[]): RoadmapLayo
     ...TITLE,
   };
 
+  const stageLabels: LayoutStageLabel[] = [];
   const topics: LayoutTopic[] = [];
   const subtopics: LayoutSubtopic[] = [];
   const edges: LayoutEdge[] = [];
 
-  let cursor = Math.max(legend.y + legend.height, title.y + title.height) + HEADER_GAP;
-  // The spine starts at the bottom of the title box and hops from one topic to
-  // the next.
+  const headerBottom = Math.max(legend.y + legend.height, title.y + title.height);
+  // Low-water mark per side, so alternating columns can interleave vertically.
+  const sideBottom = { left: headerBottom, right: headerBottom };
+  // The spine hops from the bottom of one box on the centre line to the top of
+  // the next; that includes the stage dividers.
   let spineFrom = title.y + title.height;
+  let previousBottom = headerBottom + HEADER_GAP - TOPIC_GAP;
+  let topicIndex = 0;
 
-  stages.forEach((stage, index) => {
-    const side = index % 2 === 0 ? "right" : "left";
-    const count = stage.nodes.length;
-    const columnHeight =
-      count === 0 ? 0 : count * SUBTOPIC.height + (count - 1) * SUBTOPIC_GAP;
-    const blockHeight = Math.max(TOPIC.height, columnHeight);
-
-    const topicY = round(cursor + (blockHeight - TOPIC.height) / 2);
-    const topicX = round(spineX - TOPIC.width / 2);
-    topics.push({ stage, x: topicX, y: topicY, ...TOPIC });
+  stages.forEach((stage) => {
+    const labelY = round(previousBottom + STAGE_LABEL_GAP);
+    const labelX = round(spineX - STAGE_LABEL.width / 2);
+    stageLabels.push({ stage, x: labelX, y: labelY, ...STAGE_LABEL });
 
     edges.push({
       id: `spine-${stage.id}`,
       kind: "spine",
-      d: `M ${spineX} ${round(spineFrom)} L ${spineX} ${topicY}`,
+      d: `M ${spineX} ${round(spineFrom)} L ${spineX} ${labelY}`,
     });
-    spineFrom = topicY + TOPIC.height;
+    spineFrom = labelY + STAGE_LABEL.height;
+    previousBottom = labelY + STAGE_LABEL.height;
 
-    const columnX =
-      side === "right"
-        ? round(topicX + TOPIC.width + BRANCH_GAP)
-        : round(topicX - BRANCH_GAP - SUBTOPIC.width);
-    const columnY = cursor + (blockHeight - columnHeight) / 2;
+    stage.topics.forEach((topic) => {
+      const side = topicIndex % 2 === 0 ? "right" : "left";
+      topicIndex += 1;
 
-    const branchFromX = side === "right" ? topicX + TOPIC.width : topicX;
-    const branchFromY = topicY + TOPIC.height / 2;
+      const count = topic.subtopics.length;
+      const columnHeight =
+        count === 0 ? 0 : count * SUBTOPIC.height + (count - 1) * SUBTOPIC_GAP;
+      // The topic box is centred on its column, so solve for the column top and
+      // then push it down until both the same-side and spine constraints hold.
+      const centreOffset = (columnHeight - TOPIC.height) / 2;
 
-    stage.nodes.forEach((node, nodeIndex) => {
-      const y = round(columnY + nodeIndex * (SUBTOPIC.height + SUBTOPIC_GAP));
-      subtopics.push({ node, stageId: stage.id, side, x: columnX, y, ...SUBTOPIC });
+      let columnY = sideBottom[side] + COLUMN_GAP;
+      if (columnY + centreOffset < previousBottom + TOPIC_GAP) {
+        columnY = previousBottom + TOPIC_GAP - centreOffset;
+      }
 
-      const branchToX = side === "right" ? columnX : columnX + SUBTOPIC.width;
+      const topicY = round(columnY + centreOffset);
+      const topicX = round(spineX - TOPIC.width / 2);
+      topics.push({ topic, stageId: stage.id, side, x: topicX, y: topicY, ...TOPIC });
+
       edges.push({
-        id: `branch-${node.id}`,
-        kind: "branch",
-        d: elbowPath(branchFromX, branchFromY, branchToX, y + SUBTOPIC.height / 2),
+        id: `spine-${topic.id}`,
+        kind: "spine",
+        d: `M ${spineX} ${round(spineFrom)} L ${spineX} ${topicY}`,
       });
-    });
+      spineFrom = topicY + TOPIC.height;
 
-    cursor = cursor + blockHeight + STAGE_GAP;
+      const columnX =
+        side === "right"
+          ? round(topicX + TOPIC.width + BRANCH_GAP)
+          : round(topicX - BRANCH_GAP - SUBTOPIC.width);
+      const branchFromX = side === "right" ? topicX + TOPIC.width : topicX;
+      const branchFromY = topicY + TOPIC.height / 2;
+      const branchToX = side === "right" ? columnX : columnX + SUBTOPIC.width;
+
+      topic.subtopics.forEach((subtopic, index) => {
+        const y = round(columnY + index * (SUBTOPIC.height + SUBTOPIC_GAP));
+        subtopics.push({
+          subtopic,
+          topicId: topic.id,
+          stageId: stage.id,
+          side,
+          x: columnX,
+          y,
+          ...SUBTOPIC,
+        });
+
+        edges.push({
+          id: `branch-${subtopic.id}`,
+          kind: "branch",
+          d: elbowPath(branchFromX, branchFromY, branchToX, y + SUBTOPIC.height / 2),
+        });
+      });
+
+      sideBottom[side] = Math.max(sideBottom[side], columnY + columnHeight);
+      previousBottom = topicY + TOPIC.height;
+    });
   });
+
+  const lowest = Math.max(previousBottom, sideBottom.left, sideBottom.right);
 
   return {
     width: CANVAS_WIDTH,
-    height: round(cursor - STAGE_GAP + CANVAS_PADDING_BOTTOM),
+    height: round(lowest + CANVAS_PADDING_BOTTOM),
     title,
     legend,
+    stageLabels,
     topics,
     subtopics,
     edges,

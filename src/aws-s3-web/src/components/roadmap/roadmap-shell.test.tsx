@@ -4,31 +4,44 @@ import { describe, expect, it } from "vitest";
 
 import { RoadmapShell } from "./roadmap-shell";
 import { roadmapStages } from "@/data/roadmap";
+import { allSubtopics, allTopics } from "@/lib/roadmap/experience";
 
-const nodeCount = roadmapStages.reduce((total, stage) => total + stage.nodes.length, 0);
+const topics = allTopics(roadmapStages);
+const subtopics = allSubtopics(roadmapStages);
 
 describe("RoadmapShell", () => {
-  it("renders the hero heading and a topic box per stage", () => {
+  it("renders the hero heading and a divider per stage", () => {
     render(<RoadmapShell />);
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/DevOps Engineer Roadmap/i);
-    roadmapStages.forEach((stage) => {
-      expect(screen.getByRole("button", { name: new RegExp(stage.label) })).toBeInTheDocument();
-    });
+    expect(document.querySelectorAll(".rm-stage-label")).toHaveLength(roadmapStages.length);
   });
 
-  it("renders a subtopic box for every node in the data", () => {
+  it("renders a box for every topic and every subtopic in the data", () => {
     render(<RoadmapShell />);
-    expect(document.querySelectorAll(".rm-subtopic")).toHaveLength(nodeCount);
+
+    expect(document.querySelectorAll(".rm-topic")).toHaveLength(topics.length);
+    expect(document.querySelectorAll(".rm-subtopic")).toHaveLength(subtopics.length);
   });
 
-  it("draws a connector for every stage and every node", () => {
+  it("draws a spine segment per stage and topic, and a branch per subtopic", () => {
     render(<RoadmapShell />);
 
     expect(document.querySelectorAll('.rm-wire[data-kind="spine"]')).toHaveLength(
-      roadmapStages.length,
+      roadmapStages.length + topics.length,
     );
-    expect(document.querySelectorAll('.rm-wire[data-kind="branch"]')).toHaveLength(nodeCount);
+    expect(document.querySelectorAll('.rm-wire[data-kind="branch"]')).toHaveLength(
+      subtopics.length,
+    );
+  });
+
+  it("reports the roadmap's size in the hero", () => {
+    render(<RoadmapShell />);
+    expect(
+      screen.getByText(
+        `${roadmapStages.length} stages · ${topics.length} topics · ${subtopics.length} subtopics`,
+      ),
+    ).toBeInTheDocument();
   });
 
   it("starts with the experience overlay off", () => {
@@ -51,18 +64,18 @@ describe("RoadmapShell", () => {
       "aria-pressed",
       "true",
     );
-    expect(screen.getByText(/Hands-on with \d+ of \d+ topics/i)).toBeInTheDocument();
+    expect(screen.getByText(/Hands-on with \d+ of \d+ subtopics/i)).toBeInTheDocument();
     expect(document.querySelectorAll(".rm-box-badge").length).toBeGreaterThan(0);
   });
 
-  it("opens the detail panel for a node and returns focus to its box on close", async () => {
+  it("opens the detail panel for a subtopic and returns focus to its box on close", async () => {
     render(<RoadmapShell />);
 
-    const box = screen.getByRole("button", { name: /Kubernetes/ });
+    const box = screen.getByRole("button", { name: /^Helm$/ });
     await userEvent.click(box);
 
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByRole("heading", { name: "Kubernetes" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("heading", { name: "Helm" })).toBeInTheDocument();
 
     await userEvent.keyboard("{Escape}");
 
@@ -70,15 +83,23 @@ describe("RoadmapShell", () => {
     expect(document.activeElement).toBe(box);
   });
 
-  it("opens a stage panel from its topic box and drills into one of its nodes", async () => {
+  it("walks stage to topic to subtopic and back up, all inside the panel", async () => {
     render(<RoadmapShell />);
 
     await userEvent.click(screen.getByRole("button", { name: /AI Layer/ }));
 
-    const dialog = screen.getByRole("dialog");
+    let dialog = screen.getByRole("dialog");
     expect(within(dialog).getByRole("heading", { name: "AI Layer" })).toBeInTheDocument();
 
-    await userEvent.click(within(dialog).getByRole("button", { name: /AIOps/ }));
+    await userEvent.click(within(dialog).getByRole("button", { name: /^AIOps/ }));
+    dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "AIOps" })).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: /Alert correlation/ }));
+    dialog = screen.getByRole("dialog");
+    expect(within(dialog).getByRole("heading", { name: "Alert correlation" })).toBeInTheDocument();
+
+    await userEvent.click(within(dialog).getByRole("button", { name: /^AIOps/ }));
     expect(
       within(screen.getByRole("dialog")).getByRole("heading", { name: "AIOps" }),
     ).toBeInTheDocument();

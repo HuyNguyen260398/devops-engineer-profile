@@ -10,10 +10,10 @@ import {
 import { RoadmapHero } from "@/components/roadmap/roadmap-hero";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { roadmapStages } from "@/data/roadmap";
-import { findNode, findStage } from "@/lib/roadmap/experience";
+import { findStage, findSubtopic, findTopic } from "@/lib/roadmap/experience";
 import { buildRoadmapLayout } from "@/lib/roadmap/layout";
 
-type SelectionRef = { kind: "node" | "stage"; id: string };
+type SelectionRef = { kind: "stage" | "topic" | "subtopic"; id: string };
 
 export function RoadmapShell() {
   const [showExperience, setShowExperience] = useState(false);
@@ -22,20 +22,11 @@ export function RoadmapShell() {
 
   const layout = useMemo(() => buildRoadmapLayout(roadmapStages), []);
 
-  const remember = () => {
-    // The click target is the box on the canvas; remember it so focus returns
-    // there when the panel closes.
+  // Opening from the canvas remembers the box so focus can return to it;
+  // navigating inside the panel must not overwrite that.
+  const openFromCanvas = useCallback((kind: SelectionRef["kind"], id: string) => {
     lastTriggerRef.current = document.activeElement as HTMLElement | null;
-  };
-
-  const openNode = useCallback((nodeId: string) => {
-    remember();
-    setSelected({ kind: "node", id: nodeId });
-  }, []);
-
-  const openStage = useCallback((stageId: string) => {
-    remember();
-    setSelected({ kind: "stage", id: stageId });
+    setSelected({ kind, id });
   }, []);
 
   const close = useCallback(() => {
@@ -46,13 +37,18 @@ export function RoadmapShell() {
   const selection = useMemo<PanelSelection | null>(() => {
     if (!selected) return null;
 
-    if (selected.kind === "node") {
-      const node = findNode(roadmapStages, selected.id);
-      return node ? { kind: "node", node } : null;
+    if (selected.kind === "stage") {
+      const stage = findStage(roadmapStages, selected.id);
+      return stage ? { kind: "stage", stage } : null;
     }
 
-    const stage = findStage(roadmapStages, selected.id);
-    return stage ? { kind: "stage", stage } : null;
+    if (selected.kind === "topic") {
+      const topic = findTopic(roadmapStages, selected.id);
+      return topic ? { kind: "topic", topic } : null;
+    }
+
+    const found = findSubtopic(roadmapStages, selected.id);
+    return found ? { kind: "subtopic", ...found } : null;
   }, [selected]);
 
   return (
@@ -69,8 +65,9 @@ export function RoadmapShell() {
         <RoadmapCanvas
           layout={layout}
           showExperience={showExperience}
-          onOpenNode={openNode}
-          onOpenStage={openStage}
+          onOpenStage={(id) => openFromCanvas("stage", id)}
+          onOpenTopic={(id) => openFromCanvas("topic", id)}
+          onOpenSubtopic={(id) => openFromCanvas("subtopic", id)}
         />
       </main>
 
@@ -78,9 +75,8 @@ export function RoadmapShell() {
         selection={selection}
         showExperience={showExperience}
         onClose={close}
-        // Jumping from a stage panel to one of its topics keeps the panel open,
-        // so the original trigger stays the focus target.
-        onOpenNode={(nodeId) => setSelected({ kind: "node", id: nodeId })}
+        onOpenTopic={(id) => setSelected({ kind: "topic", id })}
+        onOpenSubtopic={(id) => setSelected({ kind: "subtopic", id })}
       />
     </div>
   );

@@ -9,21 +9,36 @@ export type RoadmapResource = {
   url: string;
 };
 
-export type RoadmapNode = {
+/**
+ * A leaf on the graph: the concrete tool or concept that branches off a topic.
+ * Kept deliberately thin — one line is what a branch box can usefully carry.
+ */
+export type RoadmapSubtopic = {
   /** url-safe, stable, unique across the whole roadmap */
   id: string;
   title: string;
   importance: NodeImportance;
-  /** one line, shown on the card */
-  summary: string;
-  /** why it matters in 2026, shown in the detail panel */
-  why: string;
-  tools: readonly string[];
-  resources: readonly RoadmapResource[];
-  /** author's real experience, surfaced only by the experience overlay */
+  /** one line on what it is and where it shows up in the job */
+  note: string;
+  /** the author's real experience, surfaced only by the experience overlay */
   myLevel: MyLevel;
 };
 
+/** A box on the central spine, with its own branch column. */
+export type RoadmapTopic = {
+  id: string;
+  title: string;
+  importance: NodeImportance;
+  /** one line, shown at the top of the detail panel */
+  summary: string;
+  /** why it matters in 2026 */
+  why: string;
+  resources: readonly RoadmapResource[];
+  myLevel: MyLevel;
+  subtopics: readonly RoadmapSubtopic[];
+};
+
+/** A run of topics, marked on the spine by a divider label. */
 export type RoadmapStage = {
   id: string;
   index: number;
@@ -33,5 +48,5 @@ export type RoadmapStage = {
   /** what you can do once this stage is behind you */
   outcome: string;
   accent: StageAccent;
-  nodes: readonly RoadmapNode[];
+  topics: readonly RoadmapTopic[];
 };

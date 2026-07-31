@@ -1,6 +1,6 @@
 "use client";
 
-import { stageCoverage } from "@/lib/roadmap/experience";
+import { allTopics, totalCoverage } from "@/lib/roadmap/experience";
 import type { RoadmapStage } from "@/types/roadmap";
 
 export type RoadmapHeroProps = {
@@ -10,8 +10,8 @@ export type RoadmapHeroProps = {
 };
 
 export function RoadmapHero({ stages, showExperience, onToggleExperience }: RoadmapHeroProps) {
-  const total = stages.reduce((count, stage) => count + stage.nodes.length, 0);
-  const practised = stages.reduce((count, stage) => count + stageCoverage(stage).practised, 0);
+  const coverage = totalCoverage(stages);
+  const topicCount = allTopics(stages).length;
 
   return (
     <header className="rm-hero">
@@ -44,9 +44,14 @@ export function RoadmapHero({ stages, showExperience, onToggleExperience }: Road
         </a>
       </div>
 
+      <p className="rm-hero-meta">
+        {stages.length} stages · {topicCount} topics · {coverage.total} subtopics
+      </p>
+
       {showExperience ? (
         <p className="rm-hero-coverage">
-          Hands-on with {practised} of {total} topics — open any box for the detail.
+          Hands-on with {coverage.practised} of {coverage.total} subtopics — open any box for the
+          detail.
         </p>
       ) : null}
     </header>

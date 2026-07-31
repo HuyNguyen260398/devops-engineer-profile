@@ -164,8 +164,15 @@
   background: var(--rm-ink);
 }
 
+.rm-hero-meta {
+  margin: 20px 0 0;
+  font: 0.78rem "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.06em;
+  color: #737373;
+}
+
 .rm-hero-coverage {
-  margin: 18px 0 0;
+  margin: 8px 0 0;
   font: 0.85rem "Geist Mono", ui-monospace, monospace;
   color: var(--rm-yellow);
 }
@@ -399,7 +406,7 @@
 .rm-topic {
   background: var(--rm-yellow);
   box-shadow: var(--rm-shadow-lg);
-  font-size: 19px;
+  font-size: 18px;
   font-weight: 700;
   letter-spacing: -0.015em;
 }
@@ -413,10 +420,44 @@
   box-shadow: 0 0 0 var(--rm-ink);
 }
 
-.rm-topic-kicker {
+/* Stage divider on the spine: a wide pill that separates one run of topics
+   from the next, in the idiom of a roadmap.sh label node. */
+.rm-stage-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 18px;
+  border: 2px solid var(--rm-ink);
+  border-radius: 999px;
+  background: var(--rm-ink);
+  color: #ffffff;
+  font: 700 15px/1 "Geist", ui-sans-serif, system-ui, sans-serif;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    transform 0.08s ease,
+    background 0.12s ease;
+}
+
+.rm-stage-label:hover {
+  background: #262626;
+  transform: translateY(-1px);
+}
+
+.rm-stage-label:focus-visible {
+  outline: 3px solid var(--rm-wire);
+  outline-offset: 3px;
+}
+
+.rm-stage-label-kicker {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.14);
   font: 600 10px/1 "Geist Mono", ui-monospace, monospace;
-  letter-spacing: 0.16em;
-  color: #6b5a10;
+  letter-spacing: 0.14em;
+  color: var(--rm-yellow);
 }
 
 .rm-topic-coverage {
@@ -558,6 +599,12 @@
 .rm-panel-level[data-level="learning"],
 .rm-panel-level[data-level="none"] {
   background: var(--rm-grey);
+}
+
+.rm-panel-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
 }
 
 .rm-panel-block {

@@ -3,28 +3,46 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { RoadmapDetailPanel } from "./roadmap-detail-panel";
-import type { RoadmapNode, RoadmapStage } from "@/types/roadmap";
+import type { RoadmapStage, RoadmapSubtopic, RoadmapTopic } from "@/types/roadmap";
 
-const node: RoadmapNode = {
-  id: "mcp",
-  title: "MCP & tool integration",
+const argo: RoadmapSubtopic = {
+  id: "argo-cd",
+  title: "Argo CD",
+  importance: "core",
+  note: "Pull-based reconciliation with a UI that shows drift as it happens.",
+  myLevel: "production",
+};
+
+const flux: RoadmapSubtopic = {
+  id: "fluxcd",
+  title: "FluxCD",
   importance: "recommended",
-  summary: "Wiring real infrastructure tools into agents.",
-  why: "The highest-signal portfolio project available right now.",
-  tools: ["MCP", "JSON-RPC"],
-  resources: [{ label: "Model Context Protocol", url: "https://modelcontextprotocol.io/" }],
+  note: "The lighter, controller-native alternative.",
   myLevel: "working",
 };
 
-const stage: RoadmapStage = {
-  id: "ai-layer",
-  index: 2,
-  label: "AI Layer",
-  kicker: "STAGE 02",
-  outcome: "You can put AI inside your delivery loops with guardrails.",
-  accent: "ai",
-  nodes: [node, { ...node, id: "aiops", title: "AIOps", importance: "core", myLevel: "learning" }],
+const topic: RoadmapTopic = {
+  id: "gitops",
+  title: "GitOps",
+  importance: "core",
+  summary: "Git as the deployment source of truth.",
+  why: "It turns “what is running in production?” into a git diff.",
+  resources: [{ label: "OpenGitOps", url: "https://opengitops.dev/" }],
+  myLevel: "production",
+  subtopics: [argo, flux],
 };
+
+const stage: RoadmapStage = {
+  id: "modern-devops",
+  index: 1,
+  label: "Modern DevOps",
+  kicker: "STAGE 01",
+  outcome: "You can take a service from a Dockerfile to production.",
+  accent: "green",
+  topics: [topic],
+};
+
+const noop = () => {};
 
 describe("RoadmapDetailPanel", () => {
   it("renders nothing when nothing is selected", () => {
@@ -32,97 +50,139 @@ describe("RoadmapDetailPanel", () => {
       <RoadmapDetailPanel
         selection={null}
         showExperience={false}
-        onClose={() => {}}
-        onOpenNode={() => {}}
+        onClose={noop}
+        onOpenTopic={noop}
+        onOpenSubtopic={noop}
       />,
     );
     expect(container).toBeEmptyDOMElement();
   });
 
-  it("renders a node's summary, why, tools, and resources as a modal dialog", () => {
+  it("renders a topic's summary, why, subtopic list, and resources as a modal dialog", () => {
     render(
       <RoadmapDetailPanel
-        selection={{ kind: "node", node }}
+        selection={{ kind: "topic", topic }}
         showExperience={false}
-        onClose={() => {}}
-        onOpenNode={() => {}}
+        onClose={noop}
+        onOpenTopic={noop}
+        onOpenSubtopic={noop}
       />,
     );
 
     expect(screen.getByRole("dialog")).toHaveAttribute("aria-modal", "true");
-    expect(screen.getByRole("heading", { name: "MCP & tool integration" })).toBeInTheDocument();
-    expect(screen.getByText("Recommended")).toBeInTheDocument();
-    expect(screen.getByText(node.summary)).toBeInTheDocument();
-    expect(screen.getByText(node.why)).toBeInTheDocument();
-    expect(screen.getByText("MCP")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Model Context Protocol" })).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "GitOps" })).toBeInTheDocument();
+    expect(screen.getByText(topic.summary)).toBeInTheDocument();
+    expect(screen.getByText(topic.why)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Argo CD/ })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "OpenGitOps" })).toHaveAttribute(
       "href",
-      "https://modelcontextprotocol.io/",
+      "https://opengitops.dev/",
     );
   });
 
-  it("hides and shows the experience level with the overlay", () => {
+  it("drills from a topic into one of its subtopics", async () => {
+    const onOpenSubtopic = vi.fn();
+    render(
+      <RoadmapDetailPanel
+        selection={{ kind: "topic", topic }}
+        showExperience={false}
+        onClose={noop}
+        onOpenTopic={noop}
+        onOpenSubtopic={onOpenSubtopic}
+      />,
+    );
+
+    await userEvent.click(screen.getByRole("button", { name: /FluxCD/ }));
+    expect(onOpenSubtopic).toHaveBeenCalledWith("fluxcd");
+  });
+
+  it("renders a subtopic's note and links back up to its parent topic", async () => {
+    const onOpenTopic = vi.fn();
+    render(
+      <RoadmapDetailPanel
+        selection={{ kind: "subtopic", subtopic: argo, topic }}
+        showExperience={false}
+        onClose={noop}
+        onOpenTopic={onOpenTopic}
+        onOpenSubtopic={noop}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Argo CD" })).toBeInTheDocument();
+    expect(screen.getByText(argo.note)).toBeInTheDocument();
+    expect(screen.getByText("Branches off")).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /GitOps/ }));
+    expect(onOpenTopic).toHaveBeenCalledWith("gitops");
+  });
+
+  it("renders a stage's outcome and its topic list", async () => {
+    const onOpenTopic = vi.fn();
+    render(
+      <RoadmapDetailPanel
+        selection={{ kind: "stage", stage }}
+        showExperience={false}
+        onClose={noop}
+        onOpenTopic={onOpenTopic}
+        onOpenSubtopic={noop}
+      />,
+    );
+
+    expect(screen.getByRole("heading", { name: "Modern DevOps" })).toBeInTheDocument();
+    expect(screen.getByText("STAGE 01")).toBeInTheDocument();
+    expect(screen.getByText(stage.outcome)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole("button", { name: /GitOps/ }));
+    expect(onOpenTopic).toHaveBeenCalledWith("gitops");
+  });
+
+  it("hides and shows experience detail with the overlay", () => {
     const { rerender } = render(
       <RoadmapDetailPanel
-        selection={{ kind: "node", node }}
+        selection={{ kind: "subtopic", subtopic: flux, topic }}
         showExperience={false}
-        onClose={() => {}}
-        onOpenNode={() => {}}
+        onClose={noop}
+        onOpenTopic={noop}
+        onOpenSubtopic={noop}
       />,
     );
     expect(screen.queryByText("Working knowledge")).not.toBeInTheDocument();
 
     rerender(
       <RoadmapDetailPanel
-        selection={{ kind: "node", node }}
+        selection={{ kind: "subtopic", subtopic: flux, topic }}
         showExperience
-        onClose={() => {}}
-        onOpenNode={() => {}}
+        onClose={noop}
+        onOpenTopic={noop}
+        onOpenSubtopic={noop}
       />,
     );
     expect(screen.getByText("Working knowledge")).toBeInTheDocument();
   });
 
-  it("renders a stage's outcome and its topic list", async () => {
-    const onOpenNode = vi.fn();
+  it("shows topic coverage alongside the topic's own level", () => {
     render(
       <RoadmapDetailPanel
-        selection={{ kind: "stage", stage }}
-        showExperience={false}
-        onClose={() => {}}
-        onOpenNode={onOpenNode}
-      />,
-    );
-
-    expect(screen.getByRole("heading", { name: "AI Layer" })).toBeInTheDocument();
-    expect(screen.getByText("STAGE 02")).toBeInTheDocument();
-    expect(screen.getByText(stage.outcome)).toBeInTheDocument();
-
-    await userEvent.click(screen.getByRole("button", { name: /AIOps/ }));
-    expect(onOpenNode).toHaveBeenCalledWith("aiops");
-  });
-
-  it("shows stage coverage only when the overlay is on", () => {
-    render(
-      <RoadmapDetailPanel
-        selection={{ kind: "stage", stage }}
+        selection={{ kind: "topic", topic }}
         showExperience
-        onClose={() => {}}
-        onOpenNode={() => {}}
+        onClose={noop}
+        onOpenTopic={noop}
+        onOpenSubtopic={noop}
       />,
     );
-    // One of the two nodes is "working", the other "learning".
-    expect(screen.getByText("1/2 hands-on")).toBeInTheDocument();
+    expect(screen.getByText("Production experience")).toBeInTheDocument();
+    expect(screen.getByText("2/2 hands-on")).toBeInTheDocument();
   });
 
   it("closes on Escape and on the close button", async () => {
     const onClose = vi.fn();
     render(
       <RoadmapDetailPanel
-        selection={{ kind: "node", node }}
+        selection={{ kind: "topic", topic }}
         showExperience={false}
         onClose={onClose}
-        onOpenNode={() => {}}
+        onOpenTopic={noop}
+        onOpenSubtopic={noop}
       />,
     );
 
@@ -136,10 +196,11 @@ describe("RoadmapDetailPanel", () => {
   it("moves focus to the close button when it opens", () => {
     render(
       <RoadmapDetailPanel
-        selection={{ kind: "node", node }}
+        selection={{ kind: "topic", topic }}
         showExperience={false}
-        onClose={() => {}}
-        onOpenNode={() => {}}
+        onClose={noop}
+        onOpenTopic={noop}
+        onOpenSubtopic={noop}
       />,
     );
     expect(document.activeElement).toBe(screen.getByRole("button", { name: "Close" }));
@@ -148,10 +209,11 @@ describe("RoadmapDetailPanel", () => {
   it("traps Tab inside the panel in both directions", async () => {
     render(
       <RoadmapDetailPanel
-        selection={{ kind: "node", node }}
+        selection={{ kind: "topic", topic }}
         showExperience={false}
-        onClose={() => {}}
-        onOpenNode={() => {}}
+        onClose={noop}
+        onOpenTopic={noop}
+        onOpenSubtopic={noop}
       />,
     );
 

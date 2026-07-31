@@ -2,48 +2,38 @@ import { describe, expect, it } from "vitest";
 
 import { portfolio } from "@/data/portfolio";
 import { roadmapStages } from "@/data/roadmap";
-import type { MyLevel, NodeImportance, RoadmapNode } from "@/types/roadmap";
+import { allSubtopics, allTopics } from "@/lib/roadmap/experience";
+import type { MyLevel, NodeImportance, RoadmapSubtopic, RoadmapTopic } from "@/types/roadmap";
 
 const IMPORTANCE: NodeImportance[] = ["core", "recommended", "optional"];
 const LEVELS: MyLevel[] = ["production", "working", "learning", "none"];
-const allNodes = roadmapStages.flatMap((stage) => stage.nodes);
+
+const topics = allTopics(roadmapStages);
+const subtopics = allSubtopics(roadmapStages);
+
+type Labelled = { id: string; title: string; myLevel: MyLevel };
 
 // A skill claimed on the portfolio must not be marked unpractised on the
-// roadmap. Matches on exact tool equality or a whole-word title match, so
-// "Git" does not spuriously match "GitHub Actions".
+// roadmap. Matches on a whole-word title match, so "Git" does not spuriously
+// match "GitHub Actions".
 function driftViolations(
   skills: readonly { label: string }[],
-  nodes: readonly RoadmapNode[],
+  entries: readonly Labelled[],
 ): string[] {
   const violations: string[] = [];
 
   skills.forEach((skill) => {
-    const label = skill.label.toLowerCase();
-    const titlePattern = new RegExp(`\\b${label.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "i");
+    const escaped = skill.label.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const titlePattern = new RegExp(`\\b${escaped}\\b`, "i");
 
-    nodes.forEach((node) => {
-      const matches =
-        node.tools.some((tool) => tool.toLowerCase() === label) || titlePattern.test(node.title);
-      if (matches && node.myLevel === "none") {
-        violations.push(`${skill.label} -> ${node.id}`);
+    entries.forEach((entry) => {
+      if (titlePattern.test(entry.title) && entry.myLevel === "none") {
+        violations.push(`${skill.label} -> ${entry.id}`);
       }
     });
   });
 
   return violations;
-}
-
-function makeNode(overrides: Partial<RoadmapNode> & Pick<RoadmapNode, "id">): RoadmapNode {
-  return {
-    title: "Synthetic node",
-    importance: "core",
-    summary: "Synthetic summary.",
-    why: "Synthetic why.",
-    tools: [],
-    resources: [{ label: "Example", url: "https://example.com/" }],
-    myLevel: "none",
-    ...overrides,
-  };
 }
 
 describe("roadmap stages", () => {
@@ -58,11 +48,12 @@ describe("roadmap stages", () => {
     ids.forEach((id) => expect(id).toMatch(/^[a-z0-9-]+$/));
   });
 
-  it("gives every stage a label, kicker, and outcome", () => {
+  it("gives every stage a label, kicker, outcome, and at least one topic", () => {
     roadmapStages.forEach((stage) => {
       expect(stage.label.length).toBeGreaterThan(0);
       expect(stage.kicker.length).toBeGreaterThan(0);
       expect(stage.outcome.length).toBeGreaterThan(0);
+      expect(stage.topics.length, stage.id).toBeGreaterThan(0);
     });
   });
 
@@ -71,77 +62,102 @@ describe("roadmap stages", () => {
   });
 });
 
-describe("roadmap nodes", () => {
-  it("has unique, url-safe node ids across all stages", () => {
-    const ids = allNodes.map((n) => n.id);
+describe("roadmap topics", () => {
+  it("carries enough depth to read as a full roadmap", () => {
+    expect(topics.length).toBeGreaterThanOrEqual(20);
+    expect(subtopics.length).toBeGreaterThanOrEqual(100);
+  });
+
+  it("has unique, url-safe ids across topics and subtopics alike", () => {
+    const ids = [...topics, ...subtopics].map((entry) => entry.id);
     expect(new Set(ids).size).toBe(ids.length);
     ids.forEach((id) => expect(id).toMatch(/^[a-z0-9-]+$/));
   });
 
-  it("gives every node a title, summary, why, and at least one tool", () => {
-    allNodes.forEach((node) => {
-      expect(node.title.length, node.id).toBeGreaterThan(0);
-      expect(node.summary.length, node.id).toBeGreaterThan(0);
-      expect(node.why.length, node.id).toBeGreaterThan(0);
-      expect(node.tools.length, node.id).toBeGreaterThan(0);
+  it("gives every topic a title, summary, why, and at least two subtopics", () => {
+    topics.forEach((topic) => {
+      expect(topic.title.length, topic.id).toBeGreaterThan(0);
+      expect(topic.summary.length, topic.id).toBeGreaterThan(0);
+      expect(topic.why.length, topic.id).toBeGreaterThan(0);
+      expect(topic.subtopics.length, topic.id).toBeGreaterThanOrEqual(2);
     });
   });
 
-  it("gives every node at least one absolute https resource", () => {
-    allNodes.forEach((node) => {
-      expect(node.resources.length, node.id).toBeGreaterThan(0);
-      node.resources.forEach((resource) => {
-        expect(resource.label.length, node.id).toBeGreaterThan(0);
-        expect(resource.url, node.id).toMatch(/^https:\/\//);
-        expect(() => new URL(resource.url)).not.toThrow();
+  it("gives every topic at least one absolute https resource", () => {
+    topics.forEach((topic) => {
+      expect(topic.resources.length, topic.id).toBeGreaterThan(0);
+      topic.resources.forEach((resource) => {
+        expect(resource.label.length, topic.id).toBeGreaterThan(0);
+        expect(resource.url, topic.id).toMatch(/^https:\/\//);
+        expect(() => new URL(resource.url), topic.id).not.toThrow();
       });
     });
   });
 
-  it("uses only known importance and experience values", () => {
-    allNodes.forEach((node) => {
-      expect(IMPORTANCE, node.id).toContain(node.importance);
-      expect(LEVELS, node.id).toContain(node.myLevel);
+  it("gives every subtopic a title and a note", () => {
+    subtopics.forEach((subtopic) => {
+      expect(subtopic.title.length, subtopic.id).toBeGreaterThan(0);
+      expect(subtopic.note.length, subtopic.id).toBeGreaterThan(0);
     });
+  });
+
+  it("uses only known importance and experience values", () => {
+    [...topics, ...subtopics].forEach((entry) => {
+      expect(IMPORTANCE, entry.id).toContain(entry.importance);
+      expect(LEVELS, entry.id).toContain(entry.myLevel);
+    });
+  });
+
+  it("backs every production-level topic with at least one production subtopic", () => {
+    // Otherwise the overlay overstates the case at the topic level.
+    topics
+      .filter((topic) => topic.myLevel === "production")
+      .forEach((topic) => {
+        const practised = topic.subtopics.filter((s) => s.myLevel === "production").length;
+        expect(practised, topic.id).toBeGreaterThan(0);
+      });
   });
 });
 
 describe("portfolio drift", () => {
   it("never marks a claimed portfolio skill as myLevel 'none'", () => {
-    expect(driftViolations(portfolio.skills, allNodes)).toEqual([]);
+    expect(driftViolations(portfolio.skills, [...topics, ...subtopics])).toEqual([]);
+  });
+
+  it("covers every portfolio skill somewhere on the roadmap", () => {
+    const titles = [...topics, ...subtopics].map((entry) => entry.title);
+    const missing = portfolio.skills.filter((skill) => {
+      const escaped = skill.label.toLowerCase().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const pattern = new RegExp(`\\b${escaped}\\b`, "i");
+      return !titles.some((title) => pattern.test(title));
+    });
+    expect(missing.map((skill) => skill.label)).toEqual([]);
   });
 
   it("detects a title match", () => {
-    const node = makeNode({ id: "synthetic-title-match", title: "Kubernetes", myLevel: "none" });
-    const violations = driftViolations([{ label: "Kubernetes" }], [node]);
-    expect(violations).toEqual(["Kubernetes -> synthetic-title-match"]);
-  });
-
-  it("detects an exact tool match", () => {
-    const node = makeNode({
-      id: "synthetic-tool-match",
-      title: "Unrelated title",
-      tools: ["Terraform"],
-      myLevel: "none",
-    });
-    const violations = driftViolations([{ label: "Terraform" }], [node]);
-    expect(violations).toEqual(["Terraform -> synthetic-tool-match"]);
+    const entry: Labelled = { id: "synthetic", title: "Kubernetes", myLevel: "none" };
+    expect(driftViolations([{ label: "Kubernetes" }], [entry])).toEqual([
+      "Kubernetes -> synthetic",
+    ]);
   });
 
   it("respects whole-word title boundaries", () => {
-    const node = makeNode({
-      id: "synthetic-github-actions",
-      title: "GitHub Actions",
-      tools: ["GitHub Actions"],
-      myLevel: "none",
-    });
-    const violations = driftViolations([{ label: "Git" }], [node]);
-    expect(violations).toEqual([]);
+    const entry: Labelled = { id: "synthetic", title: "GitHub Actions", myLevel: "none" };
+    expect(driftViolations([{ label: "Git" }], [entry])).toEqual([]);
   });
 
-  it("ignores practised nodes", () => {
-    const node = makeNode({ id: "synthetic-title-match", title: "Kubernetes", myLevel: "production" });
-    const violations = driftViolations([{ label: "Kubernetes" }], [node]);
-    expect(violations).toEqual([]);
+  it("ignores practised entries", () => {
+    const entry: Labelled = { id: "synthetic", title: "Kubernetes", myLevel: "production" };
+    expect(driftViolations([{ label: "Kubernetes" }], [entry])).toEqual([]);
+  });
+});
+
+describe("type shape", () => {
+  it("keeps topics and subtopics structurally distinct", () => {
+    const topic: RoadmapTopic = topics[0];
+    const subtopic: RoadmapSubtopic = subtopics[0];
+    expect(topic).toHaveProperty("subtopics");
+    expect(subtopic).not.toHaveProperty("subtopics");
+    expect(subtopic).toHaveProperty("note");
   });
 });

@@ -5,13 +5,14 @@ import { useRef } from "react";
 import { RoadmapLegend } from "@/components/roadmap/roadmap-legend";
 import { RoadmapNodeCard } from "@/components/roadmap/roadmap-node";
 import { useFitScale } from "@/hooks/use-fit-scale";
-import { stageCoverage } from "@/lib/roadmap/experience";
+import { topicCoverage } from "@/lib/roadmap/experience";
 import type { RoadmapLayout } from "@/lib/roadmap/layout";
 
 export type RoadmapCanvasProps = {
   layout: RoadmapLayout;
   showExperience: boolean;
-  onOpenNode: (nodeId: string) => void;
+  onOpenTopic: (topicId: string) => void;
+  onOpenSubtopic: (subtopicId: string) => void;
   onOpenStage: (stageId: string) => void;
 };
 
@@ -23,7 +24,8 @@ export type RoadmapCanvasProps = {
 export function RoadmapCanvas({
   layout,
   showExperience,
-  onOpenNode,
+  onOpenTopic,
+  onOpenSubtopic,
   onOpenStage,
 }: RoadmapCanvasProps) {
   const viewportRef = useRef<HTMLDivElement>(null);
@@ -75,26 +77,46 @@ export function RoadmapCanvas({
 
             <RoadmapLegend box={layout.legend} />
 
-            {layout.topics.map((topic) => {
-              const coverage = stageCoverage(topic.stage);
+            {layout.stageLabels.map((label) => (
+              <button
+                key={label.stage.id}
+                id={label.stage.id}
+                type="button"
+                className="rm-stage-label"
+                data-accent={label.stage.accent}
+                style={{
+                  left: label.x,
+                  top: label.y,
+                  width: label.width,
+                  height: label.height,
+                }}
+                onClick={() => onOpenStage(label.stage.id)}
+              >
+                <span className="rm-stage-label-kicker">{label.stage.kicker}</span>
+                {label.stage.label}
+              </button>
+            ))}
+
+            {layout.topics.map((entry) => {
+              const coverage = topicCoverage(entry.topic);
 
               return (
                 <button
-                  key={topic.stage.id}
-                  id={topic.stage.id}
+                  key={entry.topic.id}
+                  id={entry.topic.id}
                   type="button"
                   className="rm-box rm-topic"
-                  data-accent={topic.stage.accent}
+                  data-importance={entry.topic.importance}
+                  data-level={showExperience ? entry.topic.myLevel : undefined}
                   style={{
-                    left: topic.x,
-                    top: topic.y,
-                    width: topic.width,
-                    height: topic.height,
+                    left: entry.x,
+                    top: entry.y,
+                    width: entry.width,
+                    height: entry.height,
                   }}
-                  onClick={() => onOpenStage(topic.stage.id)}
+                  onClick={() => onOpenTopic(entry.topic.id)}
                 >
-                  <span className="rm-topic-kicker">{topic.stage.kicker}</span>
-                  <span className="rm-box-label">{topic.stage.label}</span>
+                  <span className="rm-box-label">{entry.topic.title}</span>
                   {showExperience ? (
                     <span className="rm-topic-coverage">
                       {coverage.practised}/{coverage.total} hands-on
@@ -104,12 +126,12 @@ export function RoadmapCanvas({
               );
             })}
 
-            {layout.subtopics.map((subtopic) => (
+            {layout.subtopics.map((entry) => (
               <RoadmapNodeCard
-                key={subtopic.node.id}
-                subtopic={subtopic}
+                key={entry.subtopic.id}
+                subtopic={entry}
                 showExperience={showExperience}
-                onOpen={onOpenNode}
+                onOpen={onOpenSubtopic}
               />
             ))}
           </div>
