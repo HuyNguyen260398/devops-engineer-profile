@@ -26,6 +26,13 @@ export type RoadmapDetailPanelProps = {
 
 const FOCUSABLE = 'a[href], button:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
+/** The panel's tab is named like the file it would be if this were a repo. */
+function fileNameFor(selection: PanelSelection): string {
+  if (selection.kind === "stage") return `stages/${selection.stage.id}.tf`;
+  if (selection.kind === "topic") return `topics/${selection.topic.id}.tf`;
+  return `topics/${selection.subtopic.id}.md`;
+}
+
 export function RoadmapDetailPanel({
   selection,
   showExperience,
@@ -86,44 +93,60 @@ export function RoadmapDetailPanel({
       />
       <div
         ref={panelRef}
-        className="rm-panel"
+        className="code-window rm-panel"
         role="dialog"
         aria-modal="true"
         aria-labelledby="rm-panel-title"
       >
-        <div className="rm-panel-head">
-          <span className="rm-panel-eyebrow" data-importance={importance}>
-            {eyebrow}
-          </span>
-          <button ref={closeRef} type="button" className="rm-panel-close" onClick={onClose}>
+        <div className="window-titlebar">
+          <div className="window-dots" aria-hidden="true">
+            <span />
+            <span />
+            <span />
+          </div>
+          <div className="window-file">
+            <span aria-hidden="true" /> {fileNameFor(selection)}
+          </div>
+          <button
+            ref={closeRef}
+            type="button"
+            className="terminal-button rm-panel-close"
+            onClick={onClose}
+          >
             Close
           </button>
         </div>
 
-        <h2 id="rm-panel-title" className="rm-panel-title">
-          {heading}
-        </h2>
+        <div className="rm-panel-body">
+          <span className="rm-panel-eyebrow" data-importance={importance}>
+            {eyebrow}
+          </span>
 
-        {selection.kind === "stage" ? (
-          <StageBody
-            stage={selection.stage}
-            showExperience={showExperience}
-            onOpenTopic={onOpenTopic}
-          />
-        ) : selection.kind === "topic" ? (
-          <TopicBody
-            topic={selection.topic}
-            showExperience={showExperience}
-            onOpenSubtopic={onOpenSubtopic}
-          />
-        ) : (
-          <SubtopicBody
-            subtopic={selection.subtopic}
-            topic={selection.topic}
-            showExperience={showExperience}
-            onOpenTopic={onOpenTopic}
-          />
-        )}
+          <h2 id="rm-panel-title" className="rm-panel-title">
+            {heading}
+          </h2>
+
+          {selection.kind === "stage" ? (
+            <StageBody
+              stage={selection.stage}
+              showExperience={showExperience}
+              onOpenTopic={onOpenTopic}
+            />
+          ) : selection.kind === "topic" ? (
+            <TopicBody
+              topic={selection.topic}
+              showExperience={showExperience}
+              onOpenSubtopic={onOpenSubtopic}
+            />
+          ) : (
+            <SubtopicBody
+              subtopic={selection.subtopic}
+              topic={selection.topic}
+              showExperience={showExperience}
+              onOpenTopic={onOpenTopic}
+            />
+          )}
+        </div>
       </div>
     </>
   );

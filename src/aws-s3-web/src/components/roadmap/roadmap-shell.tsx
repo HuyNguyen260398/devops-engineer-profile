@@ -53,6 +53,7 @@ export function RoadmapShell() {
 
   return (
     <div className="site-shell rm-page">
+      <div className="grid-backdrop" aria-hidden="true" />
       <ThemeToggle />
 
       <main className="rm-inner">

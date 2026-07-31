@@ -17,9 +17,12 @@ export type RoadmapCanvasProps = {
 };
 
 /**
- * The flowchart itself. Boxes are absolutely positioned in the layout's
- * coordinate space and the connectors are one SVG layer underneath them; the
- * whole plane is then scaled to fit the viewport.
+ * The flowchart itself, staged as one big terminal window — the same
+ * `code-window` chrome the homepage's Terraform preview uses, so the graph
+ * reads as another pane of the same editor rather than a different app.
+ * Boxes are absolutely positioned in the layout's coordinate space and the
+ * connectors are one SVG layer underneath them; the whole plane is then
+ * scaled to fit the viewport.
  */
 export function RoadmapCanvas({
   layout,
@@ -32,10 +35,22 @@ export function RoadmapCanvas({
   const scale = useFitScale(viewportRef, layout.width);
 
   return (
-    <>
+    <div className="code-window rm-terminal">
+      <div className="window-titlebar">
+        <div className="window-dots" aria-hidden="true">
+          <span />
+          <span />
+          <span />
+        </div>
+        <div className="window-file">
+          <span aria-hidden="true" /> devops-roadmap.tf
+        </div>
+        <span className="window-spacer" />
+      </div>
+
       {/* Below the breakpoint the canvas hits its minimum scale and the viewport
           scrolls sideways, so say so rather than letting the graph look cropped. */}
-      <p className="rm-scroll-hint">Drag the graph sideways to see every branch.</p>
+      <p className="rm-scroll-hint">{"// drag sideways to see every branch"}</p>
 
       <div className="rm-viewport" ref={viewportRef}>
         <div
@@ -72,7 +87,8 @@ export function RoadmapCanvas({
                 height: layout.title.height,
               }}
             >
-              DevOps <span>2026</span>
+              <span className="code-comment">{"// devops roadmap"}</span>
+              <span>2026</span>
             </p>
 
             <RoadmapLegend box={layout.legend} />
@@ -137,6 +153,6 @@ export function RoadmapCanvas({
           </div>
         </div>
       </div>
-    </>
+    </div>
   );
 }

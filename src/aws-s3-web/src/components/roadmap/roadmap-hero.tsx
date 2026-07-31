@@ -18,12 +18,21 @@ export function RoadmapHero({ stages, showExperience, onToggleExperience }: Road
       <nav className="rm-crumbs" aria-label="Breadcrumb">
         <a href="https://nghuy.link">nghuy.link</a>
         <span aria-hidden="true">/</span>
-        <span>Roadmaps</span>
+        <span>roadmaps</span>
         <span aria-hidden="true">/</span>
-        <span aria-current="page">DevOps</span>
+        <span aria-current="page">devops</span>
       </nav>
 
       <h1 className="rm-hero-title">DevOps Engineer Roadmap</h1>
+
+      <p className="rm-hero-role">
+        <span className="hero-role-prompt" aria-hidden="true">
+          &gt;
+        </span>{" "}
+        <span aria-hidden="true">cat devops-roadmap-2026.tf</span>
+        <span className="hero-role-caret" aria-hidden="true" />
+      </p>
+
       <p className="rm-hero-lede">
         Step by step guide to becoming a DevOps engineer in 2026: the fundamentals first, AI layered
         on top as a force multiplier — including an honest note on where it still fails.
@@ -32,15 +41,15 @@ export function RoadmapHero({ stages, showExperience, onToggleExperience }: Road
       <div className="rm-hero-actions">
         <button
           type="button"
-          className="rm-hero-button"
+          className="terminal-button terminal-button-primary"
           aria-pressed={showExperience}
           onClick={onToggleExperience}
         >
           <span className="rm-hero-button-dot" aria-hidden="true" />
           Show my experience
         </button>
-        <a className="rm-hero-button rm-hero-button-ghost" href="https://nghuy.link">
-          Back to portfolio
+        <a className="terminal-button" href="https://nghuy.link">
+          ← Back to portfolio
         </a>
       </div>
 
