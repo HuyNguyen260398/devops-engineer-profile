@@ -1,4 +1,25 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
+
+/** Rough perceived brightness of a computed `rgb()`/`rgba()` value, 0–1. */
+function luma(color: string): number {
+  const [r, g, b] = color.match(/[\d.]+/g)!.map(Number);
+  return (0.2126 * r + 0.7152 * g + 0.0722 * b) / 255;
+}
+
+/** The surfaces the roadmap paints itself, as opposed to the shared window chrome. */
+function surfaceColors(page: Page) {
+  return page.evaluate(() => {
+    const read = (selector: string, property: string) =>
+      getComputedStyle(document.querySelector(selector)!).getPropertyValue(property);
+
+    return {
+      viewport: read(".rm-viewport", "background-color"),
+      stageLabel: read(".rm-stage-label", "background-color"),
+      legend: read(".rm-legend", "background-color"),
+      topicText: read(".rm-topic", "color"),
+    };
+  });
+}
 
 test("renders the flowchart with stage dividers, topics, subtopics, and a legend", async ({
   page,
@@ -62,6 +83,35 @@ test("reveals experience annotations when the overlay is toggled", async ({ page
   await expect(toggle).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByText(/Hands-on with \d+ of \d+ subtopics/i)).toBeVisible();
   await expect(page.locator(".rm-box-badge").first()).toBeVisible();
+});
+
+test("repaints the graph and its detail panel when the theme flips dark to light", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/roadmap");
+  await expect(page.locator(".rm-topic").first()).toBeVisible();
+
+  const dark = await surfaceColors(page);
+  expect(luma(dark.viewport)).toBeLessThan(0.25);
+  expect(luma(dark.stageLabel)).toBeLessThan(0.25);
+  expect(luma(dark.topicText)).toBeGreaterThan(0.6);
+
+  await page.getByRole("button", { name: /switch to light theme/i }).click();
+
+  // The window chrome already themes via globals.css; the graph inside it has to
+  // follow, or the panel reads as a black hole punched into a white page.
+  const light = await surfaceColors(page);
+  expect(luma(light.viewport)).toBeGreaterThan(0.75);
+  expect(luma(light.stageLabel)).toBeGreaterThan(0.75);
+  expect(luma(light.legend)).toBeGreaterThan(0.75);
+  expect(luma(light.topicText)).toBeLessThan(0.3);
+
+  await page.locator(".rm-topic").filter({ hasText: "Kubernetes" }).click();
+  const panelText = await page
+    .locator(".rm-panel-title")
+    .evaluate((el) => getComputedStyle(el).color);
+  expect(luma(panelText)).toBeLessThan(0.3);
 });
 
 test("scales the canvas to fit a mobile viewport without page overflow", async ({ page }) => {

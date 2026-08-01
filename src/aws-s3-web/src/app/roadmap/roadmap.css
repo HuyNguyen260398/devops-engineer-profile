@@ -4,34 +4,74 @@
    The graph is staged as one big terminal window, reusing the exact chrome
    the homepage's Terraform preview uses (`.code-window`, `.window-titlebar`,
    `.window-dots`, `.terminal-button`) so it reads as another pane of the same
-   editor rather than a different app. Like those components, the terminal
-   surfaces here stay a fixed dark palette regardless of site theme — a real
-   terminal doesn't relabel itself light mode either — while the hero above it
-   follows the site's light/dark tokens same as the rest of the page. Box
-   colouring borrows the homepage's code-syntax palette directly
-   (`--blue`/`#f1c44f`/`#a7a7aa`, the same values `.code-blue` /`.code-yellow`
-   / `.code-comment` use) so importance tiers read as syntax highlighting. */
+   editor rather than a different app. That chrome is theme-aware — globals.css
+   repaints `.code-window` / `.window-titlebar` / `.window-file` off the site
+   tokens — so everything the graph paints *inside* it has to follow, or light
+   mode leaves a black canvas framed by a white window. Hence every colour below
+   goes through a `--rm-*` token declared twice: the dark values on `.rm-page`,
+   the light values in the `html[data-theme="light"]` block right after. Nothing
+   in this file may hardcode a literal colour — a literal is invisible to the
+   override and reintroduces exactly that bug.
+
+   Box colouring borrows the homepage's code-syntax palette (`--blue` plus a
+   yellow and a grey, the values `.code-blue` / `.code-yellow` / `.code-comment`
+   use) so importance tiers read as syntax highlighting. The tier colours are
+   stored as bare RGB triples so the soft border/fill/glow variants can derive
+   from them with `rgb(... / n%)`, the same channel-split pattern globals.css
+   uses for `--accent-rgb`. */
 
 .rm-page {
   --rm-bg: #0e0e0e;
   --rm-surface: rgba(255, 255, 255, 0.04);
+  --rm-raised: rgba(255, 255, 255, 0.05);
+  --rm-sunken: rgba(255, 255, 255, 0.02);
   --rm-border: #3c3c3c;
   --rm-border-soft: rgba(255, 255, 255, 0.08);
   --rm-text: #e2e2e4;
   --rm-muted: #9a9aa0;
-  --rm-core: var(--blue);
+  --rm-shadow: rgba(0, 0, 0, 0.35);
+  --rm-stage-bg: #17171a;
+  --rm-legend-bg: rgba(255, 255, 255, 0.03);
   --rm-core-bg: rgb(var(--accent-rgb) / 14%);
-  --rm-recommended: #f1c44f;
-  --rm-recommended-bg: rgba(241, 196, 79, 0.14);
-  --rm-optional: #a7a7aa;
-  --rm-optional-bg: rgba(255, 255, 255, 0.05);
-  --rm-production: #27d17f;
+  --rm-recommended-rgb: 241 196 79;
+  --rm-optional-rgb: 167 167 170;
+  --rm-production-rgb: 39 209 127;
+
+  /* Derived from the tokens above — never redeclared per theme. */
+  --rm-core: var(--blue);
+  --rm-recommended: rgb(var(--rm-recommended-rgb));
+  --rm-recommended-bg: rgb(var(--rm-recommended-rgb) / 14%);
+  --rm-optional: rgb(var(--rm-optional-rgb));
+  --rm-optional-bg: rgb(var(--rm-optional-rgb) / 6%);
+  --rm-production: rgb(var(--rm-production-rgb));
   --rm-wire: var(--accent);
 
   position: relative;
   min-height: 100dvh;
   padding: 0 20px 96px;
   background: var(--bg);
+}
+
+/* Light mode. Values track the site tokens the rest of the page uses: the
+   canvas sits on `--bg-deep`, borders on `--border`, and each tier drops to its
+   darker GitHub-light counterpart (`--yellow` #9a6700, `--muted` #59636e,
+   `--green` #1a7f37) so 13px labels stay legible on a pale fill. */
+html[data-theme="light"] .rm-page {
+  --rm-bg: #f6f8fa;
+  --rm-surface: rgba(31, 35, 40, 0.03);
+  --rm-raised: rgba(31, 35, 40, 0.05);
+  --rm-sunken: rgba(31, 35, 40, 0.02);
+  --rm-border: #d0d7de;
+  --rm-border-soft: rgba(31, 35, 40, 0.14);
+  --rm-text: #1f2328;
+  --rm-muted: #59636e;
+  --rm-shadow: rgba(31, 35, 40, 0.12);
+  --rm-stage-bg: #ffffff;
+  --rm-legend-bg: rgba(255, 255, 255, 0.88);
+  --rm-core-bg: rgb(var(--accent-rgb) / 10%);
+  --rm-recommended-rgb: 154 103 0;
+  --rm-optional-rgb: 89 99 110;
+  --rm-production-rgb: 26 127 55;
 }
 
 .rm-inner {
@@ -161,8 +201,6 @@
 }
 
 /* ---------- the terminal window ---------- */
-/* Fixed dark palette from here down — same convention as .code-window and
-   .terminal-panel, which don't repaint for light mode either. */
 
 .rm-terminal {
   margin-top: 8px;
@@ -230,7 +268,7 @@
 
 .rm-canvas-title .code-comment {
   font: 500 12px/1 "Geist Mono", ui-monospace, monospace;
-  color: #a7a7aa;
+  color: var(--rm-muted);
 }
 
 .rm-canvas-title span:last-child {
@@ -244,8 +282,8 @@
   padding: 12px 16px;
   border: 1px solid var(--rm-border);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.03);
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.35);
+  background: var(--rm-legend-bg);
+  box-shadow: 0 18px 40px var(--rm-shadow);
 }
 
 .rm-legend-list {
@@ -344,25 +382,25 @@
 }
 
 .rm-subtopic[data-importance="recommended"] {
-  border-color: rgba(241, 196, 79, 0.45);
+  border-color: rgb(var(--rm-recommended-rgb) / 45%);
   background: var(--rm-recommended-bg);
   color: var(--rm-recommended);
 }
 
 .rm-subtopic[data-importance="recommended"]:hover {
   border-color: var(--rm-recommended);
-  box-shadow: 0 6px 18px rgba(241, 196, 79, 0.18);
+  box-shadow: 0 6px 18px rgb(var(--rm-recommended-rgb) / 18%);
 }
 
 .rm-subtopic[data-importance="optional"] {
-  border-color: rgba(167, 167, 170, 0.4);
+  border-color: rgb(var(--rm-optional-rgb) / 40%);
   background: var(--rm-optional-bg);
   color: var(--rm-optional);
 }
 
 .rm-subtopic[data-importance="optional"]:hover {
   border-color: var(--rm-optional);
-  box-shadow: 0 6px 18px rgba(255, 255, 255, 0.08);
+  box-shadow: 0 6px 18px rgb(var(--rm-optional-rgb) / 20%);
 }
 
 /* Experience overlay: a small status LED in the corner, like .online-dot. */
@@ -379,7 +417,7 @@
 
 .rm-subtopic[data-level="production"] .rm-box-badge {
   background: var(--rm-production);
-  box-shadow: 0 0 8px rgba(39, 209, 127, 0.6);
+  box-shadow: 0 0 8px rgb(var(--rm-production-rgb) / 60%);
 }
 
 .rm-subtopic[data-level="working"] .rm-box-badge {
@@ -408,13 +446,13 @@
 }
 
 .rm-topic[data-importance="recommended"] {
-  border-color: rgba(241, 196, 79, 0.6);
-  background: rgba(241, 196, 79, 0.2);
+  border-color: rgb(var(--rm-recommended-rgb) / 60%);
+  background: rgb(var(--rm-recommended-rgb) / 20%);
 }
 
 .rm-topic[data-importance="optional"] {
-  border-color: rgba(167, 167, 170, 0.5);
-  background: rgba(167, 167, 170, 0.12);
+  border-color: rgb(var(--rm-optional-rgb) / 50%);
+  background: rgb(var(--rm-optional-rgb) / 12%);
 }
 
 .rm-topic:hover {
@@ -432,7 +470,7 @@
   padding: 0 18px;
   border: 1px solid var(--rm-border);
   border-radius: 999px;
-  background: #17171a;
+  background: var(--rm-stage-bg);
   color: var(--rm-text);
   font: 700 14px/1 "Geist Mono", ui-monospace, monospace;
   letter-spacing: 0.01em;
@@ -471,6 +509,8 @@
   z-index: 96;
   border: 0;
   padding: 0;
+  /* The one deliberate literal in this file: a modal scrim dims the page it
+     covers, so it stays dark in light mode too. */
   background: rgba(0, 0, 0, 0.55);
   cursor: pointer;
 }
@@ -543,7 +583,7 @@
 }
 
 .rm-panel-eyebrow[data-importance="recommended"] {
-  border-color: rgba(241, 196, 79, 0.45);
+  border-color: rgb(var(--rm-recommended-rgb) / 45%);
   color: var(--rm-recommended);
 }
 
@@ -577,16 +617,16 @@
   align-self: flex-start;
   margin: 0;
   padding: 5px 12px;
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  border: 1px solid var(--rm-border);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--rm-raised);
   color: var(--rm-text);
   font: 600 0.72rem "Geist Mono", ui-monospace, monospace;
 }
 
 .rm-panel-level[data-level="production"] {
-  border-color: rgba(39, 209, 127, 0.35);
-  background: rgba(39, 209, 127, 0.1);
+  border-color: rgb(var(--rm-production-rgb) / 35%);
+  background: rgb(var(--rm-production-rgb) / 10%);
   color: var(--rm-production);
 }
 
@@ -597,7 +637,7 @@
 }
 
 .rm-panel-level[data-level="learning"] {
-  border-color: rgba(241, 196, 79, 0.35);
+  border-color: rgb(var(--rm-recommended-rgb) / 35%);
   background: var(--rm-recommended-bg);
   color: var(--rm-recommended);
 }
@@ -641,7 +681,7 @@
   padding: 10px 12px;
   border: 1px solid var(--rm-border);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.02);
+  background: var(--rm-sunken);
   color: var(--rm-text);
   font: 500 0.82rem "Geist Mono", ui-monospace, monospace;
   text-align: left;
@@ -678,7 +718,7 @@
 }
 
 .rm-panel-topic-tag[data-importance="recommended"] {
-  border-color: rgba(241, 196, 79, 0.45);
+  border-color: rgb(var(--rm-recommended-rgb) / 45%);
   color: var(--rm-recommended);
 }
 
