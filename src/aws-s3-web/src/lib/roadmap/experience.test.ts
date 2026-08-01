@@ -142,8 +142,10 @@ describe("label maps", () => {
       "optional",
     ]);
     LEGEND_ENTRIES.forEach((entry) => {
-      expect(entry.color).toMatch(/^#[0-9a-f]{6}$/i);
       expect(entry.label.length).toBeGreaterThan(0);
+      // Colour comes from the --rm-* tokens via data-importance, so an entry
+      // carrying its own would silently outrank the theme.
+      expect(entry).not.toHaveProperty("color");
     });
   });
 });

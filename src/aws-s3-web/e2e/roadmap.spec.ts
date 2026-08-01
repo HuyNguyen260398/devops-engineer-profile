@@ -114,6 +114,44 @@ test("repaints the graph and its detail panel when the theme flips dark to light
   expect(luma(panelText)).toBeLessThan(0.3);
 });
 
+test("legend swatches carry the colour of the boxes they describe, in both themes", async ({
+  page,
+}) => {
+  await page.emulateMedia({ colorScheme: "dark" });
+  await page.goto("/roadmap");
+  await expect(page.locator(".rm-topic").first()).toBeVisible();
+
+  // A legend is only useful if its swatch is the colour the reader will go on to
+  // match against the graph, so read both off the live styles rather than
+  // asserting a literal.
+  const sample = () =>
+    page.evaluate(() =>
+      ["core", "recommended", "optional"].map((importance) => ({
+        importance,
+        swatch: getComputedStyle(
+          document.querySelector(`.rm-legend-swatch[data-importance="${importance}"]`)!,
+        ).borderTopColor,
+        box: getComputedStyle(
+          document.querySelector(`.rm-subtopic[data-importance="${importance}"]`)!,
+        ).color,
+      })),
+    );
+
+  for (const entry of await sample()) {
+    expect(entry.swatch, `${entry.importance} swatch in dark`).toBe(entry.box);
+  }
+
+  const darkCore = (await sample())[0].swatch;
+
+  await page.getByRole("button", { name: /switch to light theme/i }).click();
+
+  const light = await sample();
+  for (const entry of light) {
+    expect(entry.swatch, `${entry.importance} swatch in light`).toBe(entry.box);
+  }
+  expect(light[0].swatch).not.toBe(darkCore);
+});
+
 test("scales the canvas to fit a mobile viewport without page overflow", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/roadmap");

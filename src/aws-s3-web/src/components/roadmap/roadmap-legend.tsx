@@ -20,7 +20,6 @@ export function RoadmapLegend({ box }: RoadmapLegendProps) {
             <span
               className="rm-legend-swatch"
               data-importance={entry.importance}
-              style={{ borderColor: entry.color }}
               aria-hidden="true"
             />
             {entry.label}
