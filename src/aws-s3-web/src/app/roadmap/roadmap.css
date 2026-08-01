@@ -1,0 +1,751 @@
+/* Roadmap route styles. Loaded only by /roadmap, so none of this ships to the
+   portfolio or blog.
+
+   The graph is staged as one big terminal window, reusing the exact chrome
+   the homepage's Terraform preview uses (`.code-window`, `.window-titlebar`,
+   `.window-dots`, `.terminal-button`) so it reads as another pane of the same
+   editor rather than a different app. That chrome is theme-aware — globals.css
+   repaints `.code-window` / `.window-titlebar` / `.window-file` off the site
+   tokens — so everything the graph paints *inside* it has to follow, or light
+   mode leaves a black canvas framed by a white window. Hence every colour below
+   goes through a `--rm-*` token declared twice: the dark values on `.rm-page`,
+   the light values in the `html[data-theme="light"]` block right after. Nothing
+   in this file may hardcode a literal colour — a literal is invisible to the
+   override and reintroduces exactly that bug.
+
+   Box colouring borrows the homepage's code-syntax palette (`--blue` plus a
+   yellow and a grey, the values `.code-blue` / `.code-yellow` / `.code-comment`
+   use) so importance tiers read as syntax highlighting. The tier colours are
+   stored as bare RGB triples so the soft border/fill/glow variants can derive
+   from them with `rgb(... / n%)`, the same channel-split pattern globals.css
+   uses for `--accent-rgb`. */
+
+.rm-page {
+  --rm-bg: #0e0e0e;
+  --rm-surface: rgba(255, 255, 255, 0.04);
+  --rm-raised: rgba(255, 255, 255, 0.05);
+  --rm-sunken: rgba(255, 255, 255, 0.02);
+  --rm-border: #3c3c3c;
+  --rm-border-soft: rgba(255, 255, 255, 0.08);
+  --rm-text: #e2e2e4;
+  --rm-muted: #9a9aa0;
+  --rm-shadow: rgba(0, 0, 0, 0.35);
+  --rm-stage-bg: #17171a;
+  --rm-legend-bg: rgba(255, 255, 255, 0.03);
+  --rm-core-bg: rgb(var(--accent-rgb) / 14%);
+  --rm-recommended-rgb: 241 196 79;
+  --rm-optional-rgb: 167 167 170;
+  --rm-production-rgb: 39 209 127;
+
+  /* Derived from the tokens above — never redeclared per theme. */
+  --rm-core: var(--blue);
+  --rm-recommended: rgb(var(--rm-recommended-rgb));
+  --rm-recommended-bg: rgb(var(--rm-recommended-rgb) / 14%);
+  --rm-optional: rgb(var(--rm-optional-rgb));
+  --rm-optional-bg: rgb(var(--rm-optional-rgb) / 6%);
+  --rm-production: rgb(var(--rm-production-rgb));
+  --rm-wire: var(--accent);
+
+  position: relative;
+  min-height: 100dvh;
+  padding: 0 20px 96px;
+  background: var(--bg);
+}
+
+/* Light mode. Values track the site tokens the rest of the page uses: the
+   canvas sits on `--bg-deep`, borders on `--border`, and each tier drops to its
+   darker GitHub-light counterpart (`--yellow` #9a6700, `--muted` #59636e,
+   `--green` #1a7f37) so 13px labels stay legible on a pale fill. */
+html[data-theme="light"] .rm-page {
+  --rm-bg: #f6f8fa;
+  --rm-surface: rgba(31, 35, 40, 0.03);
+  --rm-raised: rgba(31, 35, 40, 0.05);
+  --rm-sunken: rgba(31, 35, 40, 0.02);
+  --rm-border: #d0d7de;
+  --rm-border-soft: rgba(31, 35, 40, 0.14);
+  --rm-text: #1f2328;
+  --rm-muted: #59636e;
+  --rm-shadow: rgba(31, 35, 40, 0.12);
+  --rm-stage-bg: #ffffff;
+  --rm-legend-bg: rgba(255, 255, 255, 0.88);
+  --rm-core-bg: rgb(var(--accent-rgb) / 10%);
+  --rm-recommended-rgb: 154 103 0;
+  --rm-optional-rgb: 89 99 110;
+  --rm-production-rgb: 26 127 55;
+}
+
+.rm-inner {
+  position: relative;
+  z-index: 1;
+  max-width: 1180px;
+  margin: 0 auto;
+}
+
+.rm-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ---------- hero ---------- */
+/* Theme-adaptive, matching .hero-section: it's the page chrome around the
+   terminal, not the terminal itself. */
+
+.rm-hero {
+  margin: 56px 0 32px;
+}
+
+.rm-crumbs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  font: 0.75rem "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+  color: var(--faint);
+}
+
+.rm-crumbs a {
+  color: var(--muted);
+  text-decoration: none;
+}
+
+.rm-crumbs a:hover {
+  color: var(--accent-bright);
+  text-decoration: underline;
+}
+
+.rm-crumbs [aria-current="page"] {
+  color: var(--accent-bright);
+}
+
+.rm-hero-title {
+  margin: 16px 0 0;
+  color: var(--text);
+  font-size: clamp(2.25rem, 5.5vw, 3.5rem);
+  line-height: 1.05;
+  letter-spacing: -0.03em;
+}
+
+.rm-hero-role {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 14px 0 0;
+  color: var(--accent-bright);
+  font: 600 0.95rem "Geist Mono", ui-monospace, monospace;
+}
+
+.rm-hero-role .hero-role-prompt {
+  color: var(--muted);
+}
+
+.rm-hero-role .hero-role-caret {
+  width: 7px;
+  height: 1rem;
+}
+
+.rm-hero-lede {
+  max-width: 66ch;
+  margin: 14px 0 0;
+  color: var(--muted);
+  font-size: 1.02rem;
+  line-height: 1.6;
+}
+
+.rm-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 26px;
+}
+
+.rm-hero-actions .terminal-button {
+  text-decoration: none;
+}
+
+.rm-hero-button-dot {
+  width: 7px;
+  height: 7px;
+  border: 1px solid currentColor;
+  border-radius: 999px;
+  background: transparent;
+}
+
+.rm-hero-actions button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--bg-deep);
+}
+
+.rm-hero-actions button[aria-pressed="true"] .rm-hero-button-dot {
+  background: currentColor;
+}
+
+.rm-hero-meta {
+  margin: 20px 0 0;
+  color: var(--faint);
+  font: 0.78rem "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.04em;
+}
+
+.rm-hero-coverage {
+  margin: 8px 0 0;
+  color: var(--rm-production);
+  font: 0.85rem "Geist Mono", ui-monospace, monospace;
+}
+
+/* ---------- the terminal window ---------- */
+
+.rm-terminal {
+  margin-top: 8px;
+}
+
+.rm-scroll-hint {
+  display: none;
+  margin: 0;
+  padding: 8px 16px 0;
+  color: var(--rm-muted);
+  font: 0.72rem "Geist Mono", ui-monospace, monospace;
+}
+
+.rm-viewport {
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-x: contain;
+  padding: 28px 0;
+  background-color: var(--rm-bg);
+  background-image: radial-gradient(var(--rm-border-soft) 1px, transparent 1px);
+  background-size: 26px 26px;
+}
+
+.rm-scroller {
+  position: relative;
+  margin: 0 auto;
+}
+
+.rm-canvas {
+  position: relative;
+  transform-origin: top left;
+}
+
+.rm-wires {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.rm-wire {
+  fill: none;
+  stroke: var(--rm-wire);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  opacity: 0.75;
+}
+
+.rm-wire[data-kind="branch"] {
+  stroke-dasharray: 0.8 7;
+}
+
+.rm-canvas-title {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 4px;
+  margin: 0;
+  font: 700 22px/1.2 "Geist Mono", ui-monospace, monospace;
+  letter-spacing: -0.01em;
+  color: var(--rm-text);
+}
+
+.rm-canvas-title .code-comment {
+  font: 500 12px/1 "Geist Mono", ui-monospace, monospace;
+  color: var(--rm-muted);
+}
+
+.rm-canvas-title span:last-child {
+  color: var(--rm-core);
+}
+
+/* ---------- legend ---------- */
+
+.rm-legend {
+  position: absolute;
+  padding: 12px 16px;
+  border: 1px solid var(--rm-border);
+  border-radius: 8px;
+  background: var(--rm-legend-bg);
+  box-shadow: 0 18px 40px var(--rm-shadow);
+}
+
+.rm-legend-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rm-legend-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--rm-text);
+  font: 500 12.5px "Geist Mono", ui-monospace, monospace;
+}
+
+.rm-legend-swatch {
+  flex: none;
+  width: 14px;
+  height: 14px;
+  border: 1.5px solid;
+  border-radius: 4px;
+}
+
+.rm-legend-swatch[data-importance="core"] {
+  border-color: var(--rm-core);
+  background: var(--rm-core-bg);
+}
+
+.rm-legend-swatch[data-importance="recommended"] {
+  border-color: var(--rm-recommended);
+  background: var(--rm-recommended-bg);
+}
+
+.rm-legend-swatch[data-importance="optional"] {
+  border-color: var(--rm-optional);
+  background: var(--rm-optional-bg);
+}
+
+/* ---------- boxes ---------- */
+
+.rm-box {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  padding: 4px 14px;
+  border: 1px solid var(--rm-border);
+  border-radius: 6px;
+  background: var(--rm-surface);
+  color: var(--rm-text);
+  font-family: "Geist Mono", ui-monospace, monospace;
+  text-align: center;
+  cursor: pointer;
+  transition:
+    transform 0.1s ease,
+    box-shadow 0.1s ease,
+    border-color 0.1s ease,
+    background 0.1s ease;
+}
+
+.rm-box:hover {
+  transform: translateY(-1px);
+}
+
+.rm-box:active {
+  transform: translateY(0);
+}
+
+.rm-box-label {
+  display: block;
+  overflow: hidden;
+  line-height: 1.2;
+  text-overflow: ellipsis;
+}
+
+.rm-subtopic {
+  font-size: 13.5px;
+  font-weight: 500;
+}
+
+.rm-subtopic[data-importance="core"] {
+  border-color: rgb(var(--accent-rgb) / 45%);
+  background: var(--rm-core-bg);
+  color: var(--rm-core);
+}
+
+.rm-subtopic[data-importance="core"]:hover {
+  border-color: var(--rm-core);
+  box-shadow: 0 6px 18px rgb(var(--accent-rgb) / 20%);
+}
+
+.rm-subtopic[data-importance="recommended"] {
+  border-color: rgb(var(--rm-recommended-rgb) / 45%);
+  background: var(--rm-recommended-bg);
+  color: var(--rm-recommended);
+}
+
+.rm-subtopic[data-importance="recommended"]:hover {
+  border-color: var(--rm-recommended);
+  box-shadow: 0 6px 18px rgb(var(--rm-recommended-rgb) / 18%);
+}
+
+.rm-subtopic[data-importance="optional"] {
+  border-color: rgb(var(--rm-optional-rgb) / 40%);
+  background: var(--rm-optional-bg);
+  color: var(--rm-optional);
+}
+
+.rm-subtopic[data-importance="optional"]:hover {
+  border-color: var(--rm-optional);
+  box-shadow: 0 6px 18px rgb(var(--rm-optional-rgb) / 20%);
+}
+
+/* Experience overlay: a small status LED in the corner, like .online-dot. */
+.rm-box-badge {
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  width: 11px;
+  height: 11px;
+  border: 2px solid var(--rm-bg);
+  border-radius: 999px;
+  background: var(--rm-border);
+}
+
+.rm-subtopic[data-level="production"] .rm-box-badge {
+  background: var(--rm-production);
+  box-shadow: 0 0 8px rgb(var(--rm-production-rgb) / 60%);
+}
+
+.rm-subtopic[data-level="working"] .rm-box-badge {
+  background: var(--rm-production);
+  opacity: 0.55;
+}
+
+.rm-subtopic[data-level="learning"] .rm-box-badge {
+  background: repeating-linear-gradient(
+    45deg,
+    transparent,
+    transparent 2px,
+    var(--rm-core) 2px,
+    var(--rm-core) 4px
+  );
+}
+
+.rm-topic {
+  border-width: 1.5px;
+  border-color: rgb(var(--accent-rgb) / 55%);
+  background: rgb(var(--accent-rgb) / 20%);
+  color: var(--rm-text);
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+.rm-topic[data-importance="recommended"] {
+  border-color: rgb(var(--rm-recommended-rgb) / 60%);
+  background: rgb(var(--rm-recommended-rgb) / 20%);
+}
+
+.rm-topic[data-importance="optional"] {
+  border-color: rgb(var(--rm-optional-rgb) / 50%);
+  background: rgb(var(--rm-optional-rgb) / 12%);
+}
+
+.rm-topic:hover {
+  box-shadow: 0 8px 24px rgb(var(--accent-rgb) / 22%);
+}
+
+/* Stage divider on the spine: a wide pill that separates one run of topics
+   from the next. */
+.rm-stage-label {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 18px;
+  border: 1px solid var(--rm-border);
+  border-radius: 999px;
+  background: var(--rm-stage-bg);
+  color: var(--rm-text);
+  font: 700 14px/1 "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.01em;
+  cursor: pointer;
+  transition:
+    transform 0.1s ease,
+    border-color 0.1s ease;
+}
+
+.rm-stage-label:hover {
+  border-color: var(--accent);
+  transform: translateY(-1px);
+}
+
+.rm-stage-label-kicker {
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: rgb(var(--accent-rgb) / 14%);
+  color: var(--accent-bright);
+  font: 600 10px/1 "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.12em;
+}
+
+.rm-topic-coverage {
+  color: rgb(var(--accent-rgb) / 75%);
+  font: 600 10px/1 "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.06em;
+}
+
+/* ---------- detail panel ---------- */
+
+.rm-panel-backdrop {
+  position: fixed;
+  inset: 0;
+  /* Above the site-wide theme toggle, which is fixed at z-index 95. */
+  z-index: 96;
+  border: 0;
+  padding: 0;
+  /* The one deliberate literal in this file: a modal scrim dims the page it
+     covers, so it stays dark in light mode too. */
+  background: rgba(0, 0, 0, 0.55);
+  cursor: pointer;
+}
+
+.rm-panel {
+  position: fixed;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 97;
+  display: flex;
+  flex-direction: column;
+  width: min(480px, 100vw);
+  border-radius: 0;
+  animation: rm-panel-in 0.18s ease-out;
+}
+
+.rm-panel .window-titlebar {
+  flex: 0 0 auto;
+}
+
+.rm-panel-close {
+  min-height: 30px;
+  padding: 0 12px;
+  font-size: 0.7rem;
+}
+
+.rm-panel-body {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  padding: 24px 26px 40px;
+  overflow-y: auto;
+  color: var(--rm-text);
+  font-family: "Geist Mono", ui-monospace, monospace;
+}
+
+@keyframes rm-panel-in {
+  from {
+    transform: translateX(16px);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rm-panel {
+    animation: none;
+  }
+
+  .rm-box {
+    transition: none;
+  }
+}
+
+.rm-panel-eyebrow {
+  display: inline-flex;
+  align-self: flex-start;
+  padding: 4px 10px;
+  border: 1px solid var(--rm-border);
+  border-radius: 999px;
+  color: var(--rm-muted);
+  font: 600 0.68rem "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.rm-panel-eyebrow[data-importance="core"] {
+  border-color: rgb(var(--accent-rgb) / 45%);
+  color: var(--rm-core);
+}
+
+.rm-panel-eyebrow[data-importance="recommended"] {
+  border-color: rgb(var(--rm-recommended-rgb) / 45%);
+  color: var(--rm-recommended);
+}
+
+.rm-panel-title {
+  margin: 0;
+  color: var(--rm-text);
+  font-size: 1.5rem;
+  line-height: 1.2;
+  letter-spacing: -0.015em;
+}
+
+.rm-panel-summary {
+  margin: 0;
+  color: var(--rm-text);
+  font-size: 0.9rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.rm-panel-why {
+  margin: 0;
+  padding-left: 14px;
+  border-left: 2px solid var(--rm-border-soft);
+  color: var(--rm-muted);
+  font-size: 0.85rem;
+  line-height: 1.65;
+}
+
+.rm-panel-level {
+  display: inline-flex;
+  align-self: flex-start;
+  margin: 0;
+  padding: 5px 12px;
+  border: 1px solid var(--rm-border);
+  border-radius: 6px;
+  background: var(--rm-raised);
+  color: var(--rm-text);
+  font: 600 0.72rem "Geist Mono", ui-monospace, monospace;
+}
+
+.rm-panel-level[data-level="production"] {
+  border-color: rgb(var(--rm-production-rgb) / 35%);
+  background: rgb(var(--rm-production-rgb) / 10%);
+  color: var(--rm-production);
+}
+
+.rm-panel-level[data-level="working"] {
+  border-color: rgb(var(--accent-rgb) / 35%);
+  background: var(--rm-core-bg);
+  color: var(--rm-core);
+}
+
+.rm-panel-level[data-level="learning"] {
+  border-color: rgb(var(--rm-recommended-rgb) / 35%);
+  background: var(--rm-recommended-bg);
+  color: var(--rm-recommended);
+}
+
+.rm-panel-levels {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.rm-panel-block {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.rm-panel-label {
+  color: var(--rm-muted);
+  font: 600 0.66rem "Geist Mono", ui-monospace, monospace;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.rm-panel-resources,
+.rm-panel-topics {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.rm-panel-resources a,
+.rm-panel-topics button {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--rm-border);
+  border-radius: 6px;
+  background: var(--rm-sunken);
+  color: var(--rm-text);
+  font: 500 0.82rem "Geist Mono", ui-monospace, monospace;
+  text-align: left;
+  text-decoration: none;
+  cursor: pointer;
+  transition: border-color 0.12s ease, background 0.12s ease;
+}
+
+.rm-panel-resources a:hover,
+.rm-panel-topics button:hover {
+  border-color: var(--accent);
+  background: rgb(var(--accent-rgb) / 8%);
+}
+
+.rm-panel-resources a::after {
+  content: "↗";
+  color: var(--rm-muted);
+}
+
+.rm-panel-topic-tag {
+  flex: none;
+  padding: 2px 8px;
+  border: 1px solid var(--rm-border);
+  border-radius: 999px;
+  color: var(--rm-muted);
+  font: 600 0.6rem "Geist Mono", ui-monospace, monospace;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.rm-panel-topic-tag[data-importance="core"] {
+  border-color: rgb(var(--accent-rgb) / 45%);
+  color: var(--rm-core);
+}
+
+.rm-panel-topic-tag[data-importance="recommended"] {
+  border-color: rgb(var(--rm-recommended-rgb) / 45%);
+  color: var(--rm-recommended);
+}
+
+/* ---------- narrow viewports ---------- */
+
+@media (max-width: 720px) {
+  .rm-page {
+    padding: 0 12px 64px;
+  }
+
+  .rm-hero {
+    margin-top: 40px;
+  }
+
+  .rm-scroll-hint {
+    display: block;
+  }
+
+  .rm-viewport {
+    padding: 16px 0;
+  }
+
+  .rm-panel {
+    width: 100vw;
+  }
+
+  .rm-panel-body {
+    padding: 20px 18px 32px;
+  }
+}

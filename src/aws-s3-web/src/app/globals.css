@@ -764,6 +764,19 @@ main {
   font-size: 0.58rem;
 }
 
+.module-link {
+  display: inline-flex;
+  gap: 5px;
+  align-items: center;
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.module-link:hover code {
+  border-color: var(--accent);
+  color: var(--accent-bright);
+}
+
 .code-window {
   overflow: hidden;
   border: 1px solid #3c3c3c;

@@ -3,9 +3,12 @@
 locals {
   name_prefix = "blog"
 
-  # The blog is served under a path (nghuy.link/blogs); the CloudFront
-  # distribution owns the apex domain itself, not a dedicated subdomain.
-  domain = var.root_domain
+  # The blog and portfolio are served under the apex (nghuy.link); the roadmap
+  # component gets a dedicated subdomain served off the same distribution via a
+  # host-aware viewer-request function.
+  domain         = var.root_domain
+  roadmap_domain = "roadmap.${var.root_domain}"
+  cert_domains   = [local.domain, local.roadmap_domain]
 
   common_tags = merge(
     {
