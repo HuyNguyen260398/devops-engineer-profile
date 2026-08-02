@@ -112,6 +112,15 @@ function boxContains(outer: LayoutBox, inner: LayoutBox): boolean {
   );
 }
 
+function boxesIntersect(a: LayoutBox, b: LayoutBox): boolean {
+  return (
+    a.x < b.x + b.width &&
+    a.x + a.width > b.x &&
+    a.y < b.y + b.height &&
+    a.y + a.height > b.y
+  );
+}
+
 function isValidBox(box: LayoutBox): boolean {
   return box.width > 0 && box.height > 0;
 }
@@ -257,12 +266,14 @@ export function validateRoadmapLayout(
     stages.flatMap((stage) => stage.topics.flatMap((topic) => topic.subtopics.map((subtopic) => subtopic.id))),
   );
   const nodes = new Map<string, LayoutBox>();
+  const nodeEntries: { id: string; box: LayoutBox }[] = [];
   const placedTopicIds = new Set<string>();
   const placedSubtopicIds = new Set<string>();
 
   const addNode = (id: string, box: LayoutBox, placed: Set<string>) => {
     if (nodes.has(id)) errors.push(`duplicate node id: ${id}`);
     nodes.set(id, box);
+    nodeEntries.push({ id, box });
     placed.add(id);
     if (!isValidBox(box)) errors.push(`invalid node dimensions: ${id}`);
     if (!isInBounds(box, layout)) errors.push(`node outside canvas: ${id}`);
@@ -279,6 +290,16 @@ export function validateRoadmapLayout(
     if (!placedSubtopicIds.has(subtopicId)) errors.push(`missing subtopic placement: ${subtopicId}`);
   }
 
+  for (let index = 0; index < nodeEntries.length; index += 1) {
+    for (let otherIndex = index + 1; otherIndex < nodeEntries.length; otherIndex += 1) {
+      const current = nodeEntries[index];
+      const other = nodeEntries[otherIndex];
+      if (boxesIntersect(current.box, other.box)) {
+        errors.push(`overlapping nodes: ${current.id} / ${other.id}`);
+      }
+    }
+  }
+
   const groupIds = new Set<string>();
   for (const group of layout.groups) {
     if (groupIds.has(group.id)) errors.push(`duplicate group id: ${group.id}`);
@@ -291,6 +312,12 @@ export function validateRoadmapLayout(
         errors.push(`unknown group member: ${memberId}`);
       } else if (!boxContains(group, member)) {
         errors.push(`group member outside bounds: ${memberId}`);
+      }
+    }
+    const memberIds = new Set(group.memberIds);
+    for (const node of nodeEntries) {
+      if (!memberIds.has(node.id) && boxesIntersect(group, node.box)) {
+        errors.push(`group overlaps node: ${group.id} / ${node.id}`);
       }
     }
   }
