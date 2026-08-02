@@ -56,6 +56,7 @@ export type ResolvedGroup = LayoutBox & {
 };
 
 export type ConnectorEndpoint = { nodeId: string; side: AnchorSide };
+export type ConnectorPoint = { x: number; y: number };
 
 export type ConnectorDefinition = {
   id: string;
@@ -63,6 +64,7 @@ export type ConnectorDefinition = {
   route: ConnectorRoute;
   from: ConnectorEndpoint;
   to: ConnectorEndpoint;
+  waypoints?: readonly ConnectorPoint[];
 };
 
 export type ResolvedConnector = ConnectorDefinition & { d: string };
