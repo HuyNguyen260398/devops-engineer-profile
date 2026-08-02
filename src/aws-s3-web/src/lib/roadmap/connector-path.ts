@@ -1,4 +1,9 @@
-import type { AnchorSide, ConnectorDefinition, LayoutBox } from "./blueprint";
+import type {
+  AnchorSide,
+  ConnectorDefinition,
+  ConnectorPoint,
+  LayoutBox,
+} from "./blueprint";
 
 export type Point = { x: number; y: number };
 
@@ -70,6 +75,51 @@ function roundedOrthogonalPath(start: Point, end: Point, vertical: boolean): str
   ].join(" ");
 }
 
+function segmentLength(from: ConnectorPoint, to: ConnectorPoint): number {
+  if (from.x !== to.x && from.y !== to.y) {
+    throw new Error("Connector waypoints must form orthogonal segments");
+  }
+  return Math.abs(to.x - from.x) + Math.abs(to.y - from.y);
+}
+
+function moveToward(
+  from: ConnectorPoint,
+  to: ConnectorPoint,
+  distance: number,
+): ConnectorPoint {
+  const length = segmentLength(from, to);
+  if (length === 0) return from;
+  return {
+    x: format(from.x + ((to.x - from.x) / length) * distance),
+    y: format(from.y + ((to.y - from.y) / length) * distance),
+  };
+}
+
+function roundedPolylinePath(points: readonly ConnectorPoint[]): string {
+  const parts = [`M ${format(points[0].x)} ${format(points[0].y)}`];
+
+  for (let index = 1; index < points.length - 1; index += 1) {
+    const previous = points[index - 1];
+    const corner = points[index];
+    const next = points[index + 1];
+    const radius = Math.min(
+      CORNER_RADIUS,
+      segmentLength(previous, corner) / 2,
+      segmentLength(corner, next) / 2,
+    );
+    const entry = moveToward(corner, previous, radius);
+    const exit = moveToward(corner, next, radius);
+    parts.push(
+      `L ${entry.x} ${entry.y}`,
+      `Q ${format(corner.x)} ${format(corner.y)} ${exit.x} ${exit.y}`,
+    );
+  }
+
+  const end = points.at(-1)!;
+  parts.push(`L ${format(end.x)} ${format(end.y)}`);
+  return parts.join(" ");
+}
+
 export function buildConnectorPath(
   connector: ConnectorDefinition,
   boxesById: ReadonlyMap<string, LayoutBox>,
@@ -81,6 +131,10 @@ export function buildConnectorPath(
     connector.from.side === "bottom" ||
     connector.to.side === "top" ||
     connector.to.side === "bottom";
+
+  if (connector.waypoints?.length) {
+    return roundedPolylinePath([start, ...connector.waypoints, end]);
+  }
 
   return connector.route === "curve"
     ? cubicPath(start, end, vertical)
