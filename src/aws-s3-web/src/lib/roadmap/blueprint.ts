@@ -193,47 +193,87 @@ export function compileRoadmapBlueprint(
     });
     previousTopicId = topic.id;
 
-    const memberIds: string[] = [];
+    const clusterSubtopics: (ResolvedSubtopic & { column: number })[] = [];
     topic.subtopics.forEach((subtopic, index) => {
       const column = index % cluster.subtopics.columns;
       const row = Math.floor(index / cluster.subtopics.columns);
-      const resolvedSubtopic: ResolvedSubtopic = {
+      const resolvedSubtopic: ResolvedSubtopic & { column: number } = {
         x: cluster.subtopics.x + column * (cluster.subtopics.columnWidth + cluster.subtopics.columnGap),
         y: cluster.subtopics.y + row * (cluster.subtopics.rowHeight + cluster.subtopics.rowGap),
         width: cluster.subtopics.columnWidth,
         height: cluster.subtopics.rowHeight,
+        column,
         subtopic,
         topicId: topic.id,
         stageId: cluster.stageId,
       };
       subtopics.push(resolvedSubtopic);
-      memberIds.push(subtopic.id);
-
-      const gridIsRightOfTopic = cluster.subtopics.x >= cluster.topic.x + cluster.topic.width;
-      connectors.push({
-        id: `branch-${topic.id}-${subtopic.id}`,
-        kind: subtopic.importance === "optional" ? "alternative" : "branch",
-        route: cluster.route,
-        from: { nodeId: topic.id, side: gridIsRightOfTopic ? "right" : "left" },
-        to: { nodeId: subtopic.id, side: gridIsRightOfTopic ? "left" : "right" },
-        d: "",
-      });
+      clusterSubtopics.push(resolvedSubtopic);
     });
 
-    if (cluster.frame && memberIds.length > 0) {
-      const members = subtopics.filter((entry) => entry.topicId === topic.id);
-      const left = Math.min(...members.map((entry) => entry.x));
-      const top = Math.min(...members.map((entry) => entry.y));
-      const right = Math.max(...members.map((entry) => entry.x + entry.width));
-      const bottom = Math.max(...members.map((entry) => entry.y + entry.height));
-      groups.push({
+    let group: ResolvedGroup | undefined;
+    if (cluster.frame && clusterSubtopics.length > 0) {
+      const left = Math.min(...clusterSubtopics.map((entry) => entry.x));
+      const top = Math.min(...clusterSubtopics.map((entry) => entry.y));
+      const right = Math.max(...clusterSubtopics.map((entry) => entry.x + entry.width));
+      const bottom = Math.max(...clusterSubtopics.map((entry) => entry.y + entry.height));
+      group = {
         id: cluster.frame.id,
         label: cluster.frame.label,
-        memberIds,
+        memberIds: clusterSubtopics.map((entry) => entry.subtopic.id),
         x: left - cluster.frame.padding,
         y: top - cluster.frame.padding - 24,
         width: right - left + cluster.frame.padding * 2,
         height: bottom - top + cluster.frame.padding * 2 + 24,
+      };
+      groups.push(group);
+    }
+
+    const gridIsRightOfTopic = cluster.subtopics.x >= cluster.topic.x + cluster.topic.width;
+    const adjacentColumn = gridIsRightOfTopic ? 0 : cluster.subtopics.columns - 1;
+    for (const entry of clusterSubtopics) {
+      const isFarColumn =
+        Boolean(group) && cluster.subtopics.columns === 2 && entry.column !== adjacentColumn;
+      const topicCenterY = cluster.topic.y + cluster.topic.height / 2;
+      const targetCenterY = entry.y + entry.height / 2;
+      const innerLaneX = group
+        ? gridIsRightOfTopic
+          ? group.x - 16
+          : group.x + group.width + 16
+        : 0;
+      const outerLaneX = group
+        ? gridIsRightOfTopic
+          ? group.x + group.width + 16
+          : group.x - 16
+        : 0;
+      const topLaneY = group ? group.y - 16 : 0;
+
+      connectors.push({
+        id: `branch-${topic.id}-${entry.subtopic.id}`,
+        kind: entry.subtopic.importance === "optional" ? "alternative" : "branch",
+        route: isFarColumn ? "orthogonal" : cluster.route,
+        from: { nodeId: topic.id, side: gridIsRightOfTopic ? "right" : "left" },
+        to: {
+          nodeId: entry.subtopic.id,
+          side: isFarColumn
+            ? gridIsRightOfTopic
+              ? "right"
+              : "left"
+            : gridIsRightOfTopic
+              ? "left"
+              : "right",
+        },
+        ...(isFarColumn
+          ? {
+              waypoints: [
+                { x: innerLaneX, y: topicCenterY },
+                { x: innerLaneX, y: topLaneY },
+                { x: outerLaneX, y: topLaneY },
+                { x: outerLaneX, y: targetCenterY },
+              ],
+            }
+          : {}),
+        d: "",
       });
     }
   }
