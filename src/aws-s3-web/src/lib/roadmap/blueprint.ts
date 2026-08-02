@@ -1,5 +1,7 @@
 import type { RoadmapStage, RoadmapSubtopic, RoadmapTopic } from "@/types/roadmap";
 
+import { buildConnectorPath } from "./connector-path";
+
 export type LayoutBox = {
   x: number;
   y: number;
@@ -225,6 +227,10 @@ export function compileRoadmapBlueprint(
     }
   }
 
+  const boxesById = new Map<string, LayoutBox>([["roadmap-root", blueprint.root]]);
+  for (const entry of topics) boxesById.set(entry.topic.id, entry);
+  for (const entry of subtopics) boxesById.set(entry.subtopic.id, entry);
+
   return {
     width: blueprint.width,
     height: blueprint.height,
@@ -234,7 +240,10 @@ export function compileRoadmapBlueprint(
     groups,
     topics,
     subtopics,
-    connectors,
+    connectors: connectors.map((connector) => ({
+      ...connector,
+      d: buildConnectorPath(connector, boxesById),
+    })),
   };
 }
 

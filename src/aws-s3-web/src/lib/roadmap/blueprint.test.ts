@@ -83,6 +83,14 @@ describe("compileRoadmapBlueprint", () => {
         memberIds: ["processes", "permissions"],
       }),
     ]);
+    expect(layout.connectors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: "primary-root-linux",
+          d: "M 600 88 C 600 164 600 164 600 240",
+        }),
+      ]),
+    );
   });
 
   it("places a two-column grid in row-major order", () => {
