@@ -231,4 +231,9 @@ describe("roadmapBlueprint", () => {
       expect(box.y + box.height).toBeLessThanOrEqual(layout.height);
     }
   });
+
+  it("validates the complete authored 2026 roadmap", () => {
+    const layout = compileRoadmapBlueprint(roadmapBlueprint, roadmapStages);
+    expect(validateRoadmapLayout(layout, roadmapStages)).toEqual([]);
+  });
 });
