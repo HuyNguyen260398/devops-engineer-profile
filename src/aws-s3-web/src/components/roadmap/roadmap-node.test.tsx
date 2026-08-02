@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { describe, expect, it, vi } from "vitest";
 
 import { RoadmapNodeCard } from "./roadmap-node";
-import type { LayoutSubtopic } from "@/lib/roadmap/layout";
+import type { ResolvedSubtopic } from "@/lib/roadmap/blueprint";
 import type { RoadmapSubtopic } from "@/types/roadmap";
 
 const node: RoadmapSubtopic = {
@@ -14,11 +14,10 @@ const node: RoadmapSubtopic = {
   myLevel: "production",
 };
 
-const entry: LayoutSubtopic = {
+const entry: ResolvedSubtopic = {
   subtopic: node,
   topicId: "kubernetes",
   stageId: "modern-devops",
-  side: "right",
   x: 806,
   y: 420,
   width: 282,
@@ -75,7 +74,7 @@ describe("RoadmapNodeCard", () => {
   });
 
   it("omits the marker for a level the author has not reached", () => {
-    const untouched: LayoutSubtopic = { ...entry, subtopic: { ...node, myLevel: "none" } };
+    const untouched: ResolvedSubtopic = { ...entry, subtopic: { ...node, myLevel: "none" } };
     const { container } = render(
       <RoadmapNodeCard subtopic={untouched} showExperience onOpen={() => {}} />,
     );
