@@ -97,23 +97,29 @@ describe("compileRoadmapBlueprint", () => {
   });
 
   it("places a two-column grid in row-major order", () => {
-    const twoColumnStages = structuredClone(stages);
-    twoColumnStages[0].topics[0].subtopics.push(
-      {
-        id: "packages",
-        title: "Packages",
-        importance: "core",
-        note: "Install.",
-        myLevel: "working",
-      },
-      {
-        id: "services",
-        title: "Services",
-        importance: "core",
-        note: "Run.",
-        myLevel: "working",
-      },
-    );
+    const twoColumnStages: readonly RoadmapStage[] = stages.map((stage) => ({
+      ...stage,
+      topics: stage.topics.map((topic) => ({
+        ...topic,
+        subtopics: [
+          ...topic.subtopics,
+          {
+            id: "packages",
+            title: "Packages",
+            importance: "core",
+            note: "Install.",
+            myLevel: "working",
+          },
+          {
+            id: "services",
+            title: "Services",
+            importance: "core",
+            note: "Run.",
+            myLevel: "working",
+          },
+        ],
+      })),
+    }));
     const twoColumn = structuredClone(valid);
     twoColumn.clusters[0].subtopics.columns = 2;
     const compiled = compileRoadmapBlueprint(twoColumn, twoColumnStages);
