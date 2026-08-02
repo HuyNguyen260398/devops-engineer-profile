@@ -48,6 +48,21 @@ describe("buildConnectorPath", () => {
     expect(path).toBe("M 100 25 L 184 25 Q 200 25 200 41 L 200 109 Q 200 125 216 125 L 300 125");
   });
 
+  it("rounds every corner in an explicit orthogonal lane", () => {
+    const routed: ConnectorDefinition = {
+      ...connector("orthogonal"),
+      id: "a-b-waypoints",
+      waypoints: [
+        { x: 180, y: 25 },
+        { x: 180, y: 125 },
+      ],
+    };
+
+    expect(buildConnectorPath(routed, boxes)).toBe(
+      "M 100 25 L 164 25 Q 180 25 180 41 L 180 109 Q 180 125 196 125 L 300 125",
+    );
+  });
+
   it("throws when an endpoint is not placed", () => {
     const invalid = connector("curve");
     invalid.to.nodeId = "missing";
