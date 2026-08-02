@@ -362,7 +362,8 @@ html[data-theme="light"] .rm-page {
   padding: 4px 14px;
   border: 1px solid var(--rm-border);
   border-radius: 5px;
-  background: var(--rm-surface);
+  background-color: var(--rm-bg);
+  background-image: linear-gradient(var(--rm-surface), var(--rm-surface));
   color: var(--rm-text);
   font-family: "Geist Mono", ui-monospace, monospace;
   text-align: center;
@@ -406,7 +407,7 @@ html[data-theme="light"] .rm-page {
 
 .rm-subtopic[data-importance="core"] {
   border-color: rgb(var(--accent-rgb) / 45%);
-  background: var(--rm-core-bg);
+  background-image: linear-gradient(var(--rm-core-bg), var(--rm-core-bg));
   color: var(--rm-core);
 }
 
@@ -417,7 +418,7 @@ html[data-theme="light"] .rm-page {
 
 .rm-subtopic[data-importance="recommended"] {
   border-color: rgb(var(--rm-recommended-rgb) / 45%);
-  background: var(--rm-recommended-bg);
+  background-image: linear-gradient(var(--rm-recommended-bg), var(--rm-recommended-bg));
   color: var(--rm-recommended);
 }
 
@@ -428,7 +429,7 @@ html[data-theme="light"] .rm-page {
 
 .rm-subtopic[data-importance="optional"] {
   border-color: rgb(var(--rm-optional-rgb) / 40%);
-  background: var(--rm-optional-bg);
+  background-image: linear-gradient(var(--rm-optional-bg), var(--rm-optional-bg));
   color: var(--rm-optional);
 }
 
@@ -472,7 +473,10 @@ html[data-theme="light"] .rm-page {
 .rm-topic {
   border-width: 1.5px;
   border-color: rgb(var(--accent-rgb) / 55%);
-  background: rgb(var(--accent-rgb) / 20%);
+  background-image: linear-gradient(
+    rgb(var(--accent-rgb) / 20%),
+    rgb(var(--accent-rgb) / 20%)
+  );
   color: var(--rm-text);
   font-size: 16px;
   font-weight: 700;
@@ -481,12 +485,18 @@ html[data-theme="light"] .rm-page {
 
 .rm-topic[data-importance="recommended"] {
   border-color: rgb(var(--rm-recommended-rgb) / 60%);
-  background: rgb(var(--rm-recommended-rgb) / 20%);
+  background-image: linear-gradient(
+    rgb(var(--rm-recommended-rgb) / 20%),
+    rgb(var(--rm-recommended-rgb) / 20%)
+  );
 }
 
 .rm-topic[data-importance="optional"] {
   border-color: rgb(var(--rm-optional-rgb) / 50%);
-  background: rgb(var(--rm-optional-rgb) / 12%);
+  background-image: linear-gradient(
+    rgb(var(--rm-optional-rgb) / 12%),
+    rgb(var(--rm-optional-rgb) / 12%)
+  );
 }
 
 .rm-topic:hover {
