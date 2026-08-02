@@ -382,6 +382,13 @@ html[data-theme="light"] .rm-page {
   transform: translateY(0);
 }
 
+.rm-box:focus-visible,
+.rm-stage-annotation:focus-visible {
+  z-index: 3;
+  outline: 3px solid var(--accent-bright);
+  outline-offset: 3px;
+}
+
 .rm-box-label {
   display: -webkit-box;
   overflow: hidden;
