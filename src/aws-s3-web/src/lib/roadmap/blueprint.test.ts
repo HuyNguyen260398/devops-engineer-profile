@@ -143,6 +143,21 @@ describe("validateRoadmapLayout", () => {
       "invalid node dimensions: linux",
     ],
     [
+      "overlapping nodes",
+      (layout: ReturnType<typeof compileRoadmapBlueprint>) => {
+        layout.subtopics[0].x = 700;
+      },
+      "overlapping nodes: linux / processes",
+    ],
+    [
+      "group overlapping a non-member node",
+      (layout: ReturnType<typeof compileRoadmapBlueprint>) => {
+        layout.groups[0].x = 700;
+        layout.groups[0].width = 338;
+      },
+      "group overlaps node: linux-tools / linux",
+    ],
+    [
       "unknown group member",
       (layout: ReturnType<typeof compileRoadmapBlueprint>) => {
         layout.groups[0].memberIds.push("missing");
