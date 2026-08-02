@@ -94,7 +94,10 @@ export function RoadmapCanvas({
                 <path
                   key={connector.id}
                   className="rm-wire"
+                  data-connector={connector.id}
+                  data-from={connector.from.nodeId}
                   data-kind={connector.kind}
+                  data-to={connector.to.nodeId}
                   d={connector.d}
                 />
               ))}
