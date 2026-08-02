@@ -23,6 +23,19 @@
 - Add no runtime dependency and make no infrastructure, CloudFront, API, authentication, or persistence change.
 - Preserve the user's unrelated `.gitignore` modification; never stage or commit it.
 
+## Commit-per-step protocol
+
+- Every checklist step that changes a tracked file ends with the exact focused
+  commit shown directly under that step.
+- Test-only, build-only, inspection, and verification steps explicitly create
+  no commit; never create an empty commit merely to mirror a checkbox.
+- Before every commit, run `git diff --check`, stage only the paths named by the
+  step, and confirm `.gitignore` is absent from `git diff --cached --name-only`.
+- A failing-test commit is intentionally a red TDD commit. Its immediately
+  following implementation commit must restore the focused tests to green.
+- Do not squash the per-step commits during implementation. Integration or PR
+  cleanup happens only after all verification and only with explicit approval.
+
 ---
 
 ## File Structure
@@ -167,6 +180,14 @@ describe("validateRoadmapLayout", () => {
 });
 ```
 
+Commit this red test step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/blueprint.test.ts
+git commit -m "test(roadmap): specify graph blueprint contract"
+```
+
 - [ ] **Step 2: Run the tests and verify the contract is missing**
 
 Run:
@@ -280,6 +301,14 @@ Implementation rules:
 - Until Task 2 installs the path builder, initialize each resolved connector
   with `d: ""`; this keeps the contract complete and type checking green.
 
+Commit this implementation step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/blueprint.ts
+git commit -m "feat(roadmap): add graph blueprint compiler"
+```
+
 - [ ] **Step 4: Run focused tests and type checking**
 
 Run:
@@ -292,12 +321,15 @@ pnpm typecheck
 
 Expected: both commands pass. The existing `layout.ts` and renderer still use the old algorithm during this task, so the repository remains independently green.
 
-- [ ] **Step 5: Commit the graph contract**
+- [ ] **Step 5: Verify the Task 1 step commits**
 
 ```bash
-git add src/aws-s3-web/src/lib/roadmap/blueprint.ts src/aws-s3-web/src/lib/roadmap/blueprint.test.ts
-git commit -m "refactor(roadmap): define authored graph blueprint"
+git status --short
+git log -2 --oneline
 ```
+
+Expected: the two Task 1 commits are present in test-then-implementation order;
+there is no remaining Task 1 diff and this verification step creates no commit.
 
 ---
 
@@ -375,6 +407,14 @@ describe("buildConnectorPath", () => {
 });
 ```
 
+Commit this red test step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/connector-path.test.ts
+git commit -m "test(roadmap): specify connector path routing"
+```
+
 - [ ] **Step 2: Run the test and verify the module is missing**
 
 ```bash
@@ -412,11 +452,27 @@ export function buildConnectorPath(
 
 Do not embed raw path strings in `roadmap-blueprint.ts`; every path must be derived through this function.
 
+Commit this implementation step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/connector-path.ts
+git commit -m "feat(roadmap): generate connector paths"
+```
+
 - [ ] **Step 4: Replace provisional connector paths with generated `d` strings**
 
 At the end of `compileRoadmapBlueprint`, create one `Map<string, LayoutBox>` containing the root (`"roadmap-root"`), topics, and subtopics, then replace each provisional empty `d` with `buildConnectorPath(connector, boxesById)`.
 
 Update the Task 1 fixtures so expected connectors include non-empty `d` strings.
+
+Commit this integration step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/blueprint.ts src/aws-s3-web/src/lib/roadmap/blueprint.test.ts
+git commit -m "feat(roadmap): compile routed connectors"
+```
 
 - [ ] **Step 5: Run the path and blueprint tests**
 
@@ -427,12 +483,15 @@ pnpm test -- src/lib/roadmap/connector-path.test.ts src/lib/roadmap/blueprint.te
 
 Expected: both files pass.
 
-- [ ] **Step 6: Commit connector routing**
+- [ ] **Step 6: Verify the Task 2 step commits**
 
 ```bash
-git add src/aws-s3-web/src/lib/roadmap/connector-path.ts src/aws-s3-web/src/lib/roadmap/connector-path.test.ts src/aws-s3-web/src/lib/roadmap/blueprint.ts src/aws-s3-web/src/lib/roadmap/blueprint.test.ts
-git commit -m "feat(roadmap): route authored graph connectors"
+git status --short
+git log -3 --oneline
 ```
+
+Expected: three Task 2 commits are present in test, path-builder, compiler order;
+there is no remaining Task 2 diff and this verification step creates no commit.
 
 ---
 
@@ -508,6 +567,14 @@ describe("roadmapBlueprint", () => {
     }
   });
 });
+```
+
+Commit this red topology-test step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/blueprint.test.ts
+git commit -m "test(roadmap): specify authored topology"
 ```
 
 - [ ] **Step 2: Run the real-layout test and verify the blueprint module is missing**
@@ -595,6 +662,14 @@ const FRAME_LABELS = {
 
 The compiler calculates the subtopic grid and frame bounds. Do not place a label by reading layout text width at runtime.
 
+Commit the complete authored geometry:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/roadmap-blueprint.ts
+git commit -m "feat(roadmap): author dense 2026 topology"
+```
+
 - [ ] **Step 4: Validate the real blueprint inside its own test**
 
 Add to `blueprint.test.ts`:
@@ -609,6 +684,14 @@ it("validates the complete authored 2026 roadmap", () => {
 });
 ```
 
+Commit this real-data validation step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/blueprint.test.ts
+git commit -m "test(roadmap): validate complete authored topology"
+```
+
 - [ ] **Step 5: Run all pure roadmap tests**
 
 ```bash
@@ -619,12 +702,16 @@ pnpm typecheck
 
 Expected: all tests and type checking pass. The new blueprint reports zero validation errors, while the still-active legacy layout tests remain green until the renderer switch in Task 4.
 
-- [ ] **Step 6: Commit the complete blueprint**
+- [ ] **Step 6: Verify the Task 3 step commits**
 
 ```bash
-git add src/aws-s3-web/src/lib/roadmap/roadmap-blueprint.ts src/aws-s3-web/src/lib/roadmap/blueprint.test.ts
-git commit -m "feat(roadmap): author dense 2026 graph topology"
+git status --short
+git log -3 --oneline
 ```
+
+Expected: three Task 3 commits are present in topology-test, authored-data,
+real-data-validation order; no Task 3 diff remains and this step creates no
+commit.
 
 ---
 
@@ -676,6 +763,14 @@ it("keeps decorative layers out of the accessibility tree", () => {
 
 Keep all existing experience and detail-panel tests.
 
+Commit this red renderer-contract step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/layout.test.ts src/aws-s3-web/src/components/roadmap/roadmap-node.test.tsx src/aws-s3-web/src/components/roadmap/roadmap-shell.test.tsx
+git commit -m "test(roadmap): specify poster renderer contract"
+```
+
 - [ ] **Step 2: Run component tests and confirm they fail against the old renderer**
 
 ```bash
@@ -701,6 +796,14 @@ export function buildRoadmapLayout(stages: readonly RoadmapStage[]) {
 }
 ```
 
+Commit this public-adapter step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/layout.ts
+git commit -m "refactor(roadmap): switch to authored layout"
+```
+
 - [ ] **Step 4: Generalize `RoadmapNodeCard` to the resolved node type**
 
 Use `ResolvedSubtopic` and keep the same markup contract:
@@ -716,6 +819,14 @@ export type RoadmapNodeCardProps = {
 ```
 
 Preserve `data-importance`, conditional `data-level`, tooltip text, hidden accessible experience text, and the `onOpen(node.id)` callback.
+
+Commit this node-adapter step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/components/roadmap/roadmap-node.tsx
+git commit -m "refactor(roadmap): adapt nodes to resolved geometry"
+```
 
 - [ ] **Step 5: Render all graph layers in `RoadmapCanvas`**
 
@@ -759,6 +870,14 @@ Replace the old title, stage labels, and `layout.edges` rendering with:
 
 Render topics and subtopics after these layers so every button is clickable. Keep `RoadmapLegend`, terminal titlebar, `useFitScale`, scaled `.rm-scroller`, and the narrow-screen hint.
 
+Commit this renderer step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/components/roadmap/roadmap-canvas.tsx
+git commit -m "feat(roadmap): render layered poster graph"
+```
+
 - [ ] **Step 6: Run layout, component, and type checks**
 
 ```bash
@@ -769,12 +888,16 @@ pnpm typecheck
 
 Expected: all commands pass with no references to `stageLabels`, `edges`, or `side`.
 
-- [ ] **Step 7: Commit the adapter and accessible rendering**
+- [ ] **Step 7: Verify the Task 4 step commits**
 
 ```bash
-git add src/aws-s3-web/src/lib/roadmap/layout.ts src/aws-s3-web/src/lib/roadmap/layout.test.ts src/aws-s3-web/src/components/roadmap/roadmap-canvas.tsx src/aws-s3-web/src/components/roadmap/roadmap-node.tsx src/aws-s3-web/src/components/roadmap/roadmap-node.test.tsx src/aws-s3-web/src/components/roadmap/roadmap-shell.test.tsx
-git commit -m "feat(roadmap): render authored poster graph"
+git status --short
+git log -4 --oneline
 ```
+
+Expected: four Task 4 commits are present in renderer-test, layout-adapter,
+node-adapter, canvas-renderer order; no Task 4 diff remains and this step creates
+no commit.
 
 ---
 
@@ -804,6 +927,10 @@ await expect(
   page.locator('.rm-wire[data-kind="branch"], .rm-wire[data-kind="alternative"]'),
 ).toHaveCount(159);
 ```
+
+In the same test step, update the existing theme-surface helper and luma test
+from `.rm-stage-label` to `.rm-stage-annotation` without changing either luma
+threshold.
 
 Add the geometry-stability test:
 
@@ -853,6 +980,14 @@ test("pans the readable poster on mobile without overflowing the document", asyn
 });
 ```
 
+Commit this red browser-contract step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/e2e/roadmap.spec.ts
+git commit -m "test(roadmap): specify poster browser behavior"
+```
+
 - [ ] **Step 2: Run the focused E2E file and verify style-contract failures**
 
 ```bash
@@ -881,6 +1016,14 @@ In `roadmap.css`:
 - Do not animate connector drawing; the complete path must be visible on first
   paint in both normal and reduced-motion modes.
 
+Commit the core poster-style step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/app/roadmap/roadmap.css
+git commit -m "style(roadmap): apply terminal poster hierarchy"
+```
+
 - [ ] **Step 4: Enforce the responsive behavior**
 
 Keep `.rm-viewport { overflow-x: auto; overflow-y: hidden; overscroll-behavior-x: contain; }`. Keep the current `useFitScale` minimum of `0.46`; with the new 1440px plane, mobile produces a 662px-wide scroller and therefore meaningful horizontal pan while the document itself remains 390px wide.
@@ -896,6 +1039,14 @@ At `max-width: 720px`, keep the hint visible and use `padding: 16px 0`. Add visi
 }
 ```
 
+Commit the responsive-style step:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/app/roadmap/roadmap.css
+git commit -m "style(roadmap): add readable mobile panning"
+```
+
 - [ ] **Step 5: Run E2E, component tests, and light/dark checks**
 
 ```bash
@@ -904,14 +1055,17 @@ pnpm exec playwright test e2e/roadmap.spec.ts
 pnpm test -- src/components/roadmap/roadmap-shell.test.tsx
 ```
 
-Expected: all tests pass. The existing luma assertions must be updated from `.rm-stage-label` to `.rm-stage-annotation`; do not weaken their dark/light thresholds.
+Expected: all tests pass, including the unchanged dark/light luma thresholds.
 
-- [ ] **Step 6: Commit terminal poster styling**
+- [ ] **Step 6: Verify the Task 5 step commits**
 
 ```bash
-git add src/aws-s3-web/src/app/roadmap/roadmap.css src/aws-s3-web/e2e/roadmap.spec.ts
-git commit -m "style(roadmap): apply dense terminal poster layout"
+git status --short
+git log -3 --oneline
 ```
+
+Expected: three Task 5 commits are present in browser-test, core-style,
+responsive-style order; no Task 5 diff remains and this step creates no commit.
 
 ---
 
@@ -985,25 +1139,57 @@ For each viewport verify:
 - experience badges and focus outlines remain visible;
 - opening and closing the panel does not move the graph.
 
-If a defect is found, first add or tighten the smallest relevant automated assertion, run it to see the failure, then patch the responsible geometry/render/style file and rerun the focused test.
+Record any defect by category—geometry, connector, renderer, or responsive
+style—and address it in Step 6. This visual-inspection step changes no tracked
+file and creates no commit.
 
-- [ ] **Step 6: Commit only verification-driven corrections**
+- [ ] **Step 6: Correct and commit each verification defect independently**
 
-If Step 5 required changes:
+For every recorded defect, first add or tighten the listed automated assertion,
+run it to observe the failure, patch the paired implementation file, rerun the
+focused test, and create that category's commit before moving to another defect.
+
+Geometry defect:
 
 ```bash
-git add src/aws-s3-web/src/lib/roadmap src/aws-s3-web/src/components/roadmap src/aws-s3-web/src/app/roadmap/roadmap.css src/aws-s3-web/e2e/roadmap.spec.ts
-git commit -m "fix(roadmap): correct poster layout regressions"
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/blueprint.test.ts src/aws-s3-web/src/lib/roadmap/roadmap-blueprint.ts
+git commit -m "fix(roadmap): correct authored geometry"
 ```
 
-If no files changed, skip this commit.
+Connector defect:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/lib/roadmap/connector-path.test.ts src/aws-s3-web/src/lib/roadmap/connector-path.ts
+git commit -m "fix(roadmap): correct connector routing"
+```
+
+Renderer or accessibility defect:
+
+```bash
+git diff --check
+git add src/aws-s3-web/src/components/roadmap/roadmap-shell.test.tsx src/aws-s3-web/src/components/roadmap/roadmap-canvas.tsx src/aws-s3-web/src/components/roadmap/roadmap-node.tsx
+git commit -m "fix(roadmap): correct poster rendering"
+```
+
+Responsive or theme defect:
+
+```bash
+git diff --check
+git add src/aws-s3-web/e2e/roadmap.spec.ts src/aws-s3-web/src/app/roadmap/roadmap.css
+git commit -m "fix(roadmap): correct responsive poster styling"
+```
+
+If Step 5 found no defect, this step changes no tracked file and creates no
+commit.
 
 - [ ] **Step 7: Review final scope and history**
 
 ```bash
 git status --short
 git diff --stat feat/roadmap-subdomain...HEAD
-git log --oneline --decorate -8
+git log --oneline --decorate -20
 ```
 
 Expected: only roadmap implementation/tests and the approved design/plan docs are in scope; `.gitignore` is not staged; the task commits are small and ordered by dependency.
