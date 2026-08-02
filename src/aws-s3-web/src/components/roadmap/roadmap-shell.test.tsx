@@ -36,6 +36,13 @@ describe("RoadmapShell", () => {
     expect(container.querySelector(".rm-groups-layer")).toHaveAttribute("aria-hidden", "true");
   });
 
+  it("exposes connector endpoints for rendered geometry verification", () => {
+    const { container } = render(<RoadmapShell />);
+    const wires = [...container.querySelectorAll<SVGPathElement>(".rm-wire")];
+    expect(wires.length).toBeGreaterThan(0);
+    expect(wires.every((wire) => wire.dataset.from && wire.dataset.to)).toBe(true);
+  });
+
   it("reports the roadmap's size in the hero", () => {
     render(<RoadmapShell />);
     expect(

@@ -114,6 +114,56 @@ test("keeps the authored topology stable when experience is toggled", async ({ p
   expect(after).toEqual(before);
 });
 
+test("keeps wires out of unrelated blocks and masks the wire layer", async ({ page }) => {
+  await page.goto("/roadmap");
+
+  const result = await page.evaluate(() => {
+    const nodes = [...document.querySelectorAll<HTMLElement>(".rm-topic, .rm-subtopic")].map(
+      (node) => ({
+        id: node.id,
+        left: node.offsetLeft,
+        top: node.offsetTop,
+        right: node.offsetLeft + node.offsetWidth,
+        bottom: node.offsetTop + node.offsetHeight,
+        backgroundImage: getComputedStyle(node).backgroundImage,
+        backgroundColor: getComputedStyle(node).backgroundColor,
+      }),
+    );
+    const collisions = new Set<string>();
+
+    for (const path of document.querySelectorAll<SVGPathElement>(".rm-wire")) {
+      const length = path.getTotalLength();
+      for (let distance = 3; distance < length - 3; distance += 3) {
+        const point = path.getPointAtLength(distance);
+        for (const node of nodes) {
+          if (node.id === path.dataset.from || node.id === path.dataset.to) continue;
+          if (
+            point.x > node.left + 2 &&
+            point.x < node.right - 2 &&
+            point.y > node.top + 2 &&
+            point.y < node.bottom - 2
+          ) {
+            collisions.add(`${path.dataset.connector} -> ${node.id}`);
+          }
+        }
+      }
+    }
+
+    const translucentNodes = nodes
+      .filter((node) => {
+        const channels = node.backgroundColor.match(/[\d.]+/g)?.map(Number) ?? [];
+        const alpha = channels.length === 4 ? channels[3] : 1;
+        return node.backgroundImage === "none" || alpha !== 1;
+      })
+      .map((node) => node.id);
+
+    return { collisions: [...collisions], translucentNodes };
+  });
+
+  expect(result.collisions).toEqual([]);
+  expect(result.translucentNodes).toEqual([]);
+});
+
 test("repaints the graph and its detail panel when the theme flips dark to light", async ({
   page,
 }) => {
