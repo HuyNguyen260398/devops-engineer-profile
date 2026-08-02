@@ -95,6 +95,9 @@ temp/
 
 .local/
 
+# Local agent tooling scratch state (brainstorm servers, pids, logs)
+.superpowers/
+
 # Helm charts
 chart.lock
 
