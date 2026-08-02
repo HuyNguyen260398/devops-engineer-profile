@@ -97,13 +97,41 @@ describe("compileRoadmapBlueprint", () => {
   });
 
   it("places a two-column grid in row-major order", () => {
+    const twoColumnStages = structuredClone(stages);
+    twoColumnStages[0].topics[0].subtopics.push(
+      {
+        id: "packages",
+        title: "Packages",
+        importance: "core",
+        note: "Install.",
+        myLevel: "working",
+      },
+      {
+        id: "services",
+        title: "Services",
+        importance: "core",
+        note: "Run.",
+        myLevel: "working",
+      },
+    );
     const twoColumn = structuredClone(valid);
     twoColumn.clusters[0].subtopics.columns = 2;
-    const layout = compileRoadmapBlueprint(twoColumn, stages);
-    expect(layout.subtopics.map(({ x, y }) => [x, y])).toEqual([
+    const compiled = compileRoadmapBlueprint(twoColumn, twoColumnStages);
+    const branches = compiled.connectors.filter((connector) => connector.kind !== "primary");
+
+    expect(compiled.subtopics.map(({ x, y }) => [x, y])).toEqual([
       [800, 210],
       [1032, 210],
+      [800, 264],
+      [1032, 264],
     ]);
+    expect(branches.filter((connector) => !connector.waypoints)).toHaveLength(2);
+    expect(branches.filter((connector) => connector.waypoints?.length === 4)).toHaveLength(2);
+    expect(
+      branches
+        .filter((connector) => connector.waypoints)
+        .every((connector) => connector.to.side === "right" && connector.route === "orthogonal"),
+    ).toBe(true);
   });
 });
 
@@ -227,6 +255,23 @@ describe("roadmapBlueprint", () => {
     expect(new Set(layout.connectors.map(({ route }) => route))).toEqual(
       new Set(["curve", "orthogonal"]),
     );
+    const routedBranches = layout.connectors.filter(
+      (connector) => connector.kind !== "primary" && connector.waypoints?.length === 4,
+    );
+    expect(routedBranches.length).toBeGreaterThan(0);
+    expect(routedBranches.every((connector) => connector.route === "orthogonal")).toBe(true);
+  });
+
+  it("keeps every topic at least 48px from its framed group", () => {
+    for (const group of layout.groups) {
+      const member = layout.subtopics.find(({ subtopic }) => subtopic.id === group.memberIds[0])!;
+      const topic = layout.topics.find(({ topic }) => topic.id === member.topicId)!;
+      const gap =
+        topic.x > group.x
+          ? topic.x - (group.x + group.width)
+          : group.x - (topic.x + topic.width);
+      expect(gap, `${topic.topic.id} -> ${group.id}`).toBeGreaterThanOrEqual(48);
+    }
   });
 
   it("keeps every node and group within the 1440 by 7900 canvas", () => {
