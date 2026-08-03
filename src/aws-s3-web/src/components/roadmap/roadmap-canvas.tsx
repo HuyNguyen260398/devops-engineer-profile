@@ -6,10 +6,10 @@ import { RoadmapLegend } from "@/components/roadmap/roadmap-legend";
 import { RoadmapNodeCard } from "@/components/roadmap/roadmap-node";
 import { useFitScale } from "@/hooks/use-fit-scale";
 import { topicCoverage } from "@/lib/roadmap/experience";
-import type { RoadmapLayout } from "@/lib/roadmap/layout";
+import type { ResolvedRoadmapLayout } from "@/lib/roadmap/blueprint";
 
 export type RoadmapCanvasProps = {
-  layout: RoadmapLayout;
+  layout: ResolvedRoadmapLayout;
   showExperience: boolean;
   onOpenTopic: (topicId: string) => void;
   onOpenSubtopic: (subtopicId: string) => void;
@@ -66,6 +66,23 @@ export function RoadmapCanvas({
             }}
           >
             <svg
+              className="rm-groups-layer"
+              width={layout.width}
+              height={layout.height}
+              viewBox={`0 0 ${layout.width} ${layout.height}`}
+              aria-hidden="true"
+            >
+              {layout.groups.map((group) => (
+                <g key={group.id} className="rm-group" data-group={group.id}>
+                  <rect x={group.x} y={group.y} width={group.width} height={group.height} rx="8" />
+                  <text x={group.x + 14} y={group.y + 22}>
+                    {group.label}
+                  </text>
+                </g>
+              ))}
+            </svg>
+
+            <svg
               className="rm-wires"
               width={layout.width}
               height={layout.height}
@@ -73,43 +90,51 @@ export function RoadmapCanvas({
               aria-hidden="true"
               focusable="false"
             >
-              {layout.edges.map((edge) => (
-                <path key={edge.id} className="rm-wire" data-kind={edge.kind} d={edge.d} />
+              {layout.connectors.map((connector) => (
+                <path
+                  key={connector.id}
+                  className="rm-wire"
+                  data-connector={connector.id}
+                  data-from={connector.from.nodeId}
+                  data-kind={connector.kind}
+                  data-to={connector.to.nodeId}
+                  d={connector.d}
+                />
               ))}
             </svg>
 
             <p
-              className="rm-canvas-title"
+              className="rm-root"
               style={{
-                left: layout.title.x,
-                top: layout.title.y,
-                width: layout.title.width,
-                height: layout.title.height,
+                left: layout.root.x,
+                top: layout.root.y,
+                width: layout.root.width,
+                height: layout.root.height,
               }}
             >
-              <span className="code-comment">{"// devops roadmap"}</span>
-              <span>2026</span>
+              <span className="code-comment">{"// career path"}</span>
+              <span>DevOps 2026</span>
             </p>
 
             <RoadmapLegend box={layout.legend} />
 
-            {layout.stageLabels.map((label) => (
+            {layout.stages.map((entry) => (
               <button
-                key={label.stage.id}
-                id={label.stage.id}
+                key={entry.stage.id}
+                id={entry.stage.id}
                 type="button"
-                className="rm-stage-label"
-                data-accent={label.stage.accent}
+                className="rm-stage-annotation"
+                data-accent={entry.stage.accent}
                 style={{
-                  left: label.x,
-                  top: label.y,
-                  width: label.width,
-                  height: label.height,
+                  left: entry.x,
+                  top: entry.y,
+                  width: entry.width,
+                  height: entry.height,
                 }}
-                onClick={() => onOpenStage(label.stage.id)}
+                onClick={() => onOpenStage(entry.stage.id)}
               >
-                <span className="rm-stage-label-kicker">{label.stage.kicker}</span>
-                {label.stage.label}
+                <span>{entry.stage.kicker}</span>
+                {entry.stage.label}
               </button>
             ))}
 

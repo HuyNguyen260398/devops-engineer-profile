@@ -1,10 +1,10 @@
 "use client";
 
 import { IMPORTANCE_LABELS, MY_LEVEL_LABELS } from "@/lib/roadmap/experience";
-import type { LayoutSubtopic } from "@/lib/roadmap/layout";
+import type { ResolvedSubtopic } from "@/lib/roadmap/blueprint";
 
 export type RoadmapNodeCardProps = {
-  subtopic: LayoutSubtopic;
+  subtopic: ResolvedSubtopic;
   showExperience: boolean;
   onOpen: (subtopicId: string) => void;
 };

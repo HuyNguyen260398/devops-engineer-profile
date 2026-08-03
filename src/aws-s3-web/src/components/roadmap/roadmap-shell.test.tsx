@@ -10,29 +10,37 @@ const topics = allTopics(roadmapStages);
 const subtopics = allSubtopics(roadmapStages);
 
 describe("RoadmapShell", () => {
-  it("renders the hero heading and a divider per stage", () => {
+  it("renders the hero heading", () => {
     render(<RoadmapShell />);
 
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(/DevOps Engineer Roadmap/i);
-    expect(document.querySelectorAll(".rm-stage-label")).toHaveLength(roadmapStages.length);
   });
 
-  it("renders a box for every topic and every subtopic in the data", () => {
+  it("renders the authored root, annotations, groups, and every content node", () => {
     render(<RoadmapShell />);
 
+    expect(document.querySelector(".rm-root")).toHaveTextContent("DevOps 2026");
+    expect(document.querySelectorAll(".rm-stage-annotation")).toHaveLength(roadmapStages.length);
+    expect(document.querySelectorAll(".rm-group").length).toBeGreaterThanOrEqual(10);
     expect(document.querySelectorAll(".rm-topic")).toHaveLength(topics.length);
     expect(document.querySelectorAll(".rm-subtopic")).toHaveLength(subtopics.length);
+    expect(document.querySelectorAll('.rm-wire[data-kind="primary"]')).toHaveLength(topics.length);
+    expect(
+      document.querySelectorAll('.rm-wire[data-kind="branch"], .rm-wire[data-kind="alternative"]'),
+    ).toHaveLength(subtopics.length);
   });
 
-  it("draws a spine segment per stage and topic, and a branch per subtopic", () => {
-    render(<RoadmapShell />);
+  it("keeps decorative layers out of the accessibility tree", () => {
+    const { container } = render(<RoadmapShell />);
+    expect(container.querySelector(".rm-wires")).toHaveAttribute("aria-hidden", "true");
+    expect(container.querySelector(".rm-groups-layer")).toHaveAttribute("aria-hidden", "true");
+  });
 
-    expect(document.querySelectorAll('.rm-wire[data-kind="spine"]')).toHaveLength(
-      roadmapStages.length + topics.length,
-    );
-    expect(document.querySelectorAll('.rm-wire[data-kind="branch"]')).toHaveLength(
-      subtopics.length,
-    );
+  it("exposes connector endpoints for rendered geometry verification", () => {
+    const { container } = render(<RoadmapShell />);
+    const wires = [...container.querySelectorAll<SVGPathElement>(".rm-wire")];
+    expect(wires.length).toBeGreaterThan(0);
+    expect(wires.every((wire) => wire.dataset.from && wire.dataset.to)).toBe(true);
   });
 
   it("reports the roadmap's size in the hero", () => {

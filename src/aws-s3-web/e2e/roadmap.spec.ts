@@ -14,14 +14,14 @@ function surfaceColors(page: Page) {
 
     return {
       viewport: read(".rm-viewport", "background-color"),
-      stageLabel: read(".rm-stage-label", "background-color"),
+      stageAnnotation: read(".rm-stage-annotation", "background-color"),
       legend: read(".rm-legend", "background-color"),
       topicText: read(".rm-topic", "color"),
     };
   });
 }
 
-test("renders the flowchart with stage dividers, topics, subtopics, and a legend", async ({
+test("renders the authored poster graph with its annotations, nodes, and legend", async ({
   page,
 }) => {
   await page.goto("/roadmap");
@@ -29,13 +29,18 @@ test("renders the flowchart with stage dividers, topics, subtopics, and a legend
   await expect(page.getByRole("heading", { level: 1 })).toContainText("DevOps Engineer Roadmap");
 
   for (const stage of ["Foundations", "Modern DevOps", "AI Layer", "Senior Impact"]) {
-    await expect(page.locator(".rm-stage-label").filter({ hasText: stage })).toBeVisible();
+    await expect(page.locator(".rm-stage-annotation").filter({ hasText: stage })).toBeVisible();
   }
 
-  expect(await page.locator(".rm-topic").count()).toBeGreaterThanOrEqual(20);
-  expect(await page.locator(".rm-subtopic").count()).toBeGreaterThanOrEqual(100);
+  await expect(page.locator(".rm-root")).toContainText("DevOps 2026");
+  await expect(page.locator(".rm-stage-annotation")).toHaveCount(4);
+  expect(await page.locator(".rm-group").count()).toBeGreaterThanOrEqual(10);
+  await expect(page.locator(".rm-topic")).toHaveCount(24);
+  await expect(page.locator('.rm-wire[data-kind="primary"]')).toHaveCount(24);
+  await expect(
+    page.locator('.rm-wire[data-kind="branch"], .rm-wire[data-kind="alternative"]'),
+  ).toHaveCount(159);
   await expect(page.locator(".rm-legend li")).toHaveCount(3);
-  await expect(page.locator(".rm-wire")).not.toHaveCount(0);
 });
 
 test("opens a topic panel and drills into one of its subtopics", async ({ page }) => {
@@ -63,10 +68,10 @@ test("opens a subtopic panel directly from its box on the canvas", async ({ page
   await expect(dialog.getByRole("heading", { name: "Argo CD" })).toBeVisible();
 });
 
-test("opens a stage panel from its divider on the spine", async ({ page }) => {
+test("opens a stage panel from its graph annotation", async ({ page }) => {
   await page.goto("/roadmap");
 
-  await page.locator(".rm-stage-label").filter({ hasText: "AI Layer" }).click();
+  await page.locator(".rm-stage-annotation").filter({ hasText: "AI Layer" }).click();
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByRole("heading", { name: "AI Layer" })).toBeVisible();
@@ -85,6 +90,80 @@ test("reveals experience annotations when the overlay is toggled", async ({ page
   await expect(page.locator(".rm-box-badge").first()).toBeVisible();
 });
 
+test("keeps the authored topology stable when experience is toggled", async ({ page }) => {
+  await page.goto("/roadmap");
+
+  const before = await page.locator(".rm-topic").evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      id: node.id,
+      left: (node as HTMLElement).style.left,
+      top: (node as HTMLElement).style.top,
+    })),
+  );
+
+  await page.getByRole("button", { name: /my experience/i }).click();
+
+  const after = await page.locator(".rm-topic").evaluateAll((nodes) =>
+    nodes.map((node) => ({
+      id: node.id,
+      left: (node as HTMLElement).style.left,
+      top: (node as HTMLElement).style.top,
+    })),
+  );
+
+  expect(after).toEqual(before);
+});
+
+test("keeps wires out of unrelated blocks and masks the wire layer", async ({ page }) => {
+  await page.goto("/roadmap");
+
+  const result = await page.evaluate(() => {
+    const nodes = [...document.querySelectorAll<HTMLElement>(".rm-topic, .rm-subtopic")].map(
+      (node) => ({
+        id: node.id,
+        left: node.offsetLeft,
+        top: node.offsetTop,
+        right: node.offsetLeft + node.offsetWidth,
+        bottom: node.offsetTop + node.offsetHeight,
+        backgroundImage: getComputedStyle(node).backgroundImage,
+        backgroundColor: getComputedStyle(node).backgroundColor,
+      }),
+    );
+    const collisions = new Set<string>();
+
+    for (const path of document.querySelectorAll<SVGPathElement>(".rm-wire")) {
+      const length = path.getTotalLength();
+      for (let distance = 3; distance < length - 3; distance += 3) {
+        const point = path.getPointAtLength(distance);
+        for (const node of nodes) {
+          if (node.id === path.dataset.from || node.id === path.dataset.to) continue;
+          if (
+            point.x > node.left + 2 &&
+            point.x < node.right - 2 &&
+            point.y > node.top + 2 &&
+            point.y < node.bottom - 2
+          ) {
+            collisions.add(`${path.dataset.connector} -> ${node.id}`);
+          }
+        }
+      }
+    }
+
+    const translucentNodes = nodes
+      .filter((node) => {
+        const channels = node.backgroundColor.match(/[\d.]+/g)?.map(Number) ?? [];
+        const alpha = channels.length === 4 ? channels[3] : 1;
+        return node.backgroundImage === "none" || alpha !== 1;
+      })
+      .map((node) => node.id);
+
+    return { collisions: [...collisions], translucentNodes };
+  });
+
+  expect(result.collisions).toEqual([]);
+  expect(result.translucentNodes).toEqual([]);
+});
+
 test("repaints the graph and its detail panel when the theme flips dark to light", async ({
   page,
 }) => {
@@ -94,7 +173,7 @@ test("repaints the graph and its detail panel when the theme flips dark to light
 
   const dark = await surfaceColors(page);
   expect(luma(dark.viewport)).toBeLessThan(0.25);
-  expect(luma(dark.stageLabel)).toBeLessThan(0.25);
+  expect(luma(dark.stageAnnotation)).toBeLessThan(0.25);
   expect(luma(dark.topicText)).toBeGreaterThan(0.6);
 
   await page.getByRole("button", { name: /switch to light theme/i }).click();
@@ -103,7 +182,7 @@ test("repaints the graph and its detail panel when the theme flips dark to light
   // follow, or the panel reads as a black hole punched into a white page.
   const light = await surfaceColors(page);
   expect(luma(light.viewport)).toBeGreaterThan(0.75);
-  expect(luma(light.stageLabel)).toBeGreaterThan(0.75);
+  expect(luma(light.stageAnnotation)).toBeGreaterThan(0.75);
   expect(luma(light.legend)).toBeGreaterThan(0.75);
   expect(luma(light.topicText)).toBeLessThan(0.3);
 
@@ -152,17 +231,18 @@ test("legend swatches carry the colour of the boxes they describe, in both theme
   expect(light[0].swatch).not.toBe(darkCore);
 });
 
-test("scales the canvas to fit a mobile viewport without page overflow", async ({ page }) => {
+test("pans the readable poster on mobile without overflowing the document", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.goto("/roadmap");
 
-  // The graph scales down inside its own scroll container, so the document
-  // itself must never scroll sideways.
-  const overflow = await page.evaluate(
-    () => document.documentElement.scrollWidth > document.documentElement.clientWidth,
-  );
-  expect(overflow).toBe(false);
+  await expect(page.locator(".rm-scroll-hint")).toBeVisible();
 
-  const scaled = await page.locator(".rm-canvas").evaluate((el) => getComputedStyle(el).transform);
-  expect(scaled).not.toBe("none");
+  const metrics = await page.locator(".rm-viewport").evaluate((element) => ({
+    clientWidth: element.clientWidth,
+    scrollWidth: element.scrollWidth,
+    pageOverflow: document.documentElement.scrollWidth > document.documentElement.clientWidth,
+  }));
+
+  expect(metrics.scrollWidth).toBeGreaterThan(metrics.clientWidth);
+  expect(metrics.pageOverflow).toBe(false);
 });
