@@ -5,7 +5,7 @@ Single Terraform root module for **`nghuy.link`**. It owns both:
 1. **The portfolio static-site bucket** (`s3.nghuy.link`) — a public S3 website
    holding the Next.js static export (portfolio home + blog UI).
 2. **The serverless blog** served same-origin under `/blogs` — a CloudFront apex
-   distribution, API Gateway → Lambda (in a VPC) → DynamoDB + a private media
+   distribution, API Gateway → Lambda → DynamoDB + a private media
    bucket, with Cognito for the single admin user.
 
 Everything lives in **one state**. The module is **production-only**: the apex
@@ -16,8 +16,9 @@ is not managed here.
 ```
 Cognito ── CloudFront (nghuy.link) ┬─ /*       → S3 website bucket s3.nghuy.link (Next.js static export)
                                     ├─ /media/* → S3 media bucket (images, OAC)
-                                    └─ /api/*   → API Gateway → Lambda (VPC) → DynamoDB + S3
-   Lambda reaches AWS via VPC endpoints: DynamoDB (gateway), S3 (gateway), CloudWatch Logs (interface).
+                                    └─ /api/*   → API Gateway → Lambda → DynamoDB + S3
+   The Lambda is not VPC-attached: it reaches DynamoDB and S3 over their public
+   service endpoints, scoped by its least-privilege IAM policy.
 ```
 
 **Routing** (resolved at the edge by `cloudfront-rewrite.js`):
@@ -44,11 +45,10 @@ the API Gateway Cognito authorizer on writes and draft reads.
 | `variables.tf` | All inputs (site bucket knobs + blog inputs) |
 | `locals.tf` | `common_tags`, `name_prefix`, apex `domain` |
 | `outputs.tf` | Site bucket outputs + blog outputs (distribution/user-pool/api IDs) |
-| `network.tf` | VPC, 2 private subnets, route table, security groups, VPC endpoints |
 | `dynamodb.tf` | DynamoDB `blog-posts` table + `gsi1` (listing) / `gsi2` (slug lookup) |
 | `storage.tf` | Private media S3 bucket |
 | `cognito.tf` | User pool (admin-only signup), SPA app client, admin user |
-| `lambda.tf` | VPC-attached Lambda + least-privilege IAM + log group |
+| `lambda.tf` | Blog API Lambda + least-privilege IAM + log group |
 | `api.tf` | API Gateway REST API, Cognito authorizer on writes, `v1` stage |
 | `cdn.tf` | ACM cert (us-east-1), CloudFront (apex) + media OAC + rewrite functions, Route53, media bucket policy |
 | `cloudfront-rewrite.js` | Viewer-request function mapping clean URLs to the flat Next export layout |
