@@ -8,7 +8,10 @@
 # Data-plane services (S3, DynamoDB, Lambda, CloudWatch Logs, IAM) are scoped to
 # the blog resources + Terraform state so this role cannot touch unrelated
 # resources in the shared account. Control-plane services the stack must create
-# (VPC/EC2, Cognito, API Gateway, CloudFront, ACM, Route53) are broad.
+# (Cognito, API Gateway, CloudFront, ACM, Route53) are broad.
+#
+# No ec2/VPC permissions: the blog Lambda is not VPC-attached, so the stack
+# creates no networking resources.
 # ==============================================================================
 
 variable "blog_deploy_role_name" {
@@ -95,7 +98,6 @@ resource "aws_iam_policy" "blog_deploy" {
         Sid    = "InfraProvisioning"
         Effect = "Allow"
         Action = [
-          "ec2:*",
           "cognito-idp:*",
           "apigateway:*",
           "cloudfront:*",
