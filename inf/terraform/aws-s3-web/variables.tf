@@ -121,9 +121,3 @@ variable "admin_email" {
   description = "Email of the single admin user seeded in Cognito."
   type        = string
 }
-
-variable "vpc_cidr" {
-  description = "CIDR block for the blog VPC."
-  type        = string
-  default     = "10.42.0.0/16"
-}
